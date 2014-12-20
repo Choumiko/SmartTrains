@@ -2,20 +2,6 @@ require "defines"
 local refuelStation = "Refuel"
 local refuelRange = {min = 25, max = 50} -- in coal
 
-local function scheduleToString(schedule)
-    local tmp = "Schedule: "
-    for i=1,#schedule.records do
-        tmp = tmp.." "..schedule.records[i].station.."|"..schedule.records[i].time_to_wait/60
-    end
-    return tmp.." next: "..schedule.current
-end
-
-local function debugLog(msg)
-    if false then
-        game.player.print(msg)
-    end
-end
-
 local function inSchedule(station, schedule)
     for i=1,#schedule.records do
         if schedule.records[i].station == station then
@@ -50,6 +36,7 @@ local function addStation(station, schedule, wait, after)
     end
     return schedule
 end
+
 local function fuelvalue(item)
     return game.itemprototypes[item].fuelvalue
 end
@@ -68,6 +55,37 @@ local function distance(point1, point2)
     local diffY = point1.y - point2.y
     return math.sqrt(diffX ^ 2 + diffY ^ 2)
 end
+
+local function lowestFuel(train)
+    local minfuel = nil
+    local c
+    for i,carriage in ipairs(train.carriages) do
+        if carriage.type == "locomotive" then
+            c = calcFuel(carriage.getinventory(1).getcontents())
+            if minfuel == nil or c < minfuel then
+                minfuel = c
+            end
+        end
+    end
+    return minfuel
+end
+
+game.onevent(defines.events.ontrainchangedstate, function(event)
+    local train = event.train
+    local fuel = lowestFuel(train)
+    local schedule = train.schedule
+    if train.state == defines.trainstate["waitstation"] then
+        if fuel > (refuelRange.max * fuelvalue("coal")) and schedule.records[schedule.current].station ~= refuelStation then
+            train.schedule = removeStation(station, schedule)
+        end
+    elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
+        if fuel < (refuelRange.min * fuelvalue("coal")) and not inSchedule(refuelStation, schedule) then
+            --train.schedule = addStation(refuelStation, schedule, 300, schedule.current)
+            train.schedule = addStation(refuelStation, schedule, 300)
+        end
+    end
+end)
+
 --[[
 local start = nil
 local stop = nil
@@ -99,22 +117,17 @@ game.onevent(defines.events.ontick, function(event)
     end
 end)
 --]]
-game.onevent(defines.events.ontrainchangedstate, function(event)
-    local train = event.train
-    local inv = train.locomotives.frontmovers[1].getinventory(1)
-    local con = inv.getcontents()
-    local fuel = calcFuel(con)
-    local schedule = train.schedule
-    if train.state == defines.trainstate["waitstation"] then
-        if fuel > (refuelRange.max * fuelvalue("coal")) and schedule.records[schedule.current].station ~= refuelStation then
-            train.schedule = removeStation(station, schedule)
-        end
-        debugLog("@wait "..scheduleToString(train.schedule))
-    elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
-        if fuel < (refuelRange.min * fuelvalue("coal")) and not inSchedule(refuelStation, schedule) then
-            --train.schedule = addStation(refuelStation, schedule, 300, schedule.current)
-            train.schedule = addStation(refuelStation, schedule, 300)
-        end
-        debugLog("@arrive "..scheduleToString(train.schedule))
+
+function scheduleToString(schedule)
+    local tmp = "Schedule: "
+    for i=1,#schedule.records do
+        tmp = tmp.." "..schedule.records[i].station.."|"..schedule.records[i].time_to_wait/60
     end
-end)
+    return tmp.." next: "..schedule.current
+end
+
+function debugLog(msg)
+    if false then
+        game.player.print(msg)
+    end
+end
