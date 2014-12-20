@@ -1,6 +1,122 @@
 require "defines"
 local refuelStation = "Refuel"
 local refuelRange = {min = 25, max = 50} -- in coal
+local tmpPos = {}
+
+game.oninit(function()
+  initGlob()
+end)
+
+game.onload(function()
+    initGlob()
+end)
+
+function initGlob()
+  if glob.init ~= nil then return end
+  glob.init = true
+  glob.trains = {}
+end
+
+game.onevent(defines.events.onbuiltentity,
+  function(event)
+    local ent = event.createdentity
+    local ctype = ent.type
+    if ctype == "locomotive" or ctype == "cargo-wagon" then
+    --if ctype == "locomotive" then
+        local newTrainInfo = getNewTrainInfo(ent.train)
+        if newTrainInfo ~= nil then
+            removeInvalidTrains()
+            table.insert(glob.trains, newTrainInfo)
+            printGlob()
+        end    
+    end
+  end
+)
+
+game.onevent(defines.events.onpreplayermineditem, function(event)
+    local ent = event.entity
+    local ctype = ent.type
+    if ctype == "locomotive" or ctype == "cargo-wagon" then
+        local oldTrain = ent.train
+        local ownPos
+        for i,carriage in ipairs(ent.train.carriages) do
+            if ent.equals(carriage) then
+                ownPos = i
+                break
+            end
+        end
+        removeInvalidTrains()
+        for i, train in ipairs(glob.trains) do
+            if train.carriages[1].equals(ent.train.carriages[1]) then
+                table.remove(glob.trains, i)
+                break
+            end
+        end
+        if #ent.train.carriages > 1 then
+            if ent.train.carriages[ownPos-1] ~= nil then
+                table.insert(tmpPos, ent.train.carriages[ownPos-1].position)
+            end
+            if ent.train.carriages[ownPos+1] ~= nil then
+                table.insert(tmpPos, ent.train.carriages[ownPos+1].position)
+            end
+        end
+    end
+end)
+
+game.onevent(defines.events.onplayermineditem, function(event)
+    local name = event.itemstack.name
+    local results = {}
+    if name == "diesel-locomotive" or name == "cargo-wagon" and #tmpPos > 0 then
+        for i,pos in ipairs(tmpPos) do
+            area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
+            local loco = game.findentitiesfiltered{area=area, type="locomotive"}
+            local wagon = game.findentitiesfiltered{area=area, type="cargo-wagon"}
+            if #loco > 0 then
+                table.insert(results, loco)
+            elseif #wagon > 0 then
+                table.insert(results, wagon)
+            end
+        end
+        for _, result in ipairs(results) do
+            for i, t in ipairs(result) do
+                table.insert(glob.trains, getNewTrainInfo(t.train))
+            end
+        end
+        removeInvalidTrains()
+        printGlob()
+        tmpPos = {}
+    end
+end)
+
+function printGlob()
+    debugLog("# "..#glob.trains)
+    for i,t in ipairs(glob.trains) do
+        debugLog("Train "..i..": carriages:"..#t.carriages)
+    end
+end
+
+function getNewTrainInfo(train)
+	if train ~= nil then
+		local carriages = train.carriages
+		if carriages ~= nil and carriages[1] ~= nil and carriages[1].valid then
+			local newTrainInfo = {}
+			newTrainInfo.train = train
+			--newTrainInfo.firstCarriage = getFirstCarriage(train)
+			newTrainInfo.carriages = train.carriages
+            --newTrainInfo.refuelStation = refuelStation
+            --newTrainInfo.refuelRange = refuelRange
+			return newTrainInfo
+		end
+	end
+end
+
+function removeInvalidTrains()
+    for i,t in ipairs(glob.trains) do
+        if not t.train.valid then
+            table.remove(glob.trains, i)
+        end
+    end
+end
 
 local function inSchedule(station, schedule)
     for i=1,#schedule.records do
@@ -126,8 +242,20 @@ function scheduleToString(schedule)
     return tmp.." next: "..schedule.current
 end
 
-function debugLog(msg)
-    if false then
+function debugLog(msg, force)
+    if true or force then
         game.player.print(msg)
     end
 end
+remote.addinterface("st",
+{
+  printGlob = function(name)
+    debugLog(serpent.dump(glob.trains), true)
+  end,
+  
+  reset = function()
+    glob.trains = nil
+    initGlob()
+  end
+}
+)
