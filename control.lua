@@ -9,7 +9,7 @@ function nextStation(train)
     local schedule = train.schedule
     if #schedule.records > 0 then
         schedule.records[schedule.current].time_to_wait = 0
-        debugLog("advance")
+        debugLog("advance from "..schedule.records[schedule.current].station)
         train.schedule = schedule
     end
 end
@@ -242,7 +242,16 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
         end
         if schedule.records[schedule.current].station ~= refuelStation then
             debugLog("Cargo: "..cargoCount(train))
-            table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), tick = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait})
+            local tanker = false
+            for _, wagon in ipairs(train.carriages) do
+                if wagon.name == "rail-tanker" then
+                    tanker = true
+                    break
+                end
+            end
+            if not tanker then
+                table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), tick = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait})
+            end
         end
     elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
         if fuel < (refuelRange.min * fuelvalue("coal")) and not inSchedule(refuelStation, schedule) then
@@ -348,14 +357,12 @@ remote.addinterface("st",
     if name then
         debugLog(serpent.dump(glob[name]), true)
     else
-        debugLog(serpent.dump(glob[name]), true)
+        debugLog(serpent.dump(glob), true)
     end
   end,
   
-  reset = function()
-    --glob.trains = nil
+  resetWaiting = function()
     glob.waitingTrains = {}
-    --initGlob()
   end
 }
 )
