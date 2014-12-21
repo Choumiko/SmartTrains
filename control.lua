@@ -1,7 +1,18 @@
 require "defines"
-local refuelStation = "Refuel"
-local refuelRange = {min = 25, max = 50} -- in coal
+local refuelStation = "Refuel" -- name of the refueling station
+local refuelRange = {min = 25, max = 50} -- in coal, add refuelStation to schedule when below min, remove refuelStation when above max
+local refuelTime = 300 -- 1s = 60
+local minWait = 120 -- 1s = 60
 local tmpPos = {}
+
+function nextStation(train)
+    local schedule = train.schedule
+    if #schedule.records > 0 then
+        schedule.records[schedule.current].time_to_wait = 0
+        debugLog("advance")
+        train.schedule = schedule
+    end
+end
 
 game.oninit(function()
   initGlob()
@@ -12,6 +23,9 @@ game.onload(function()
 end)
 
 function initGlob()
+  if glob.waitingTrains == nil then
+    glob.waitingTrains = {}
+  end
   if glob.init ~= nil then return end
   glob.init = true
   glob.trains = {}
@@ -49,6 +63,12 @@ game.onevent(defines.events.onpreplayermineditem, function(event)
         for i, train in ipairs(glob.trains) do
             if train.carriages[1].equals(ent.train.carriages[1]) then
                 table.remove(glob.trains, i)
+                break
+            end
+        end
+        for i, train in ipairs(glob.waitingTrains) do
+            if train.train.carriages[1].equals(ent.train.carriages[1]) then
+                table.remove(glob.waitingTrains, i)
                 break
             end
         end
@@ -116,6 +136,11 @@ function removeInvalidTrains()
             table.remove(glob.trains, i)
         end
     end
+    for i,t in ipairs(glob.waitingTrains) do
+        if not t.train.valid then
+            table.remove(glob.waitingTrains, i)
+        end
+    end
 end
 
 local function inSchedule(station, schedule)
@@ -131,7 +156,7 @@ local function removeStation(station, schedule)
     local found = false
     local tmp = schedule
     for i=1,#schedule.records do
-        if schedule.records[i].station == refuelStation then
+        if schedule.records[i].station == station then
             found = i
         end
     end
@@ -186,22 +211,92 @@ local function lowestFuel(train)
     return minfuel
 end
 
+function cargoCount(train)
+    local sum = 0
+    for _, wagon in ipairs(train.carriages) do
+        if wagon.type == "cargo-wagon" then
+            sum = sum + wagon.getitemcount()
+        end
+    end
+    return sum
+end
+
+function getKeyByValue(tableA, value)
+    for i,c in pairs(tableA) do
+        if c == value then
+            return i
+        end
+    end
+end
+
 game.onevent(defines.events.ontrainchangedstate, function(event)
     local train = event.train
     local fuel = lowestFuel(train)
     local schedule = train.schedule
+    debugLog(getKeyByValue(defines.trainstate, train.state))
     if train.state == defines.trainstate["waitstation"] then
         if fuel > (refuelRange.max * fuelvalue("coal")) and schedule.records[schedule.current].station ~= refuelStation then
-            train.schedule = removeStation(station, schedule)
+            if inSchedule(refuelStation, schedule) and #schedule.records >= 3 then
+                train.schedule = removeStation(refuelStation, schedule)
+            end
+        end
+        if schedule.records[schedule.current].station ~= refuelStation then
+            debugLog("Cargo: "..cargoCount(train))
+            table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), tick = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait})
         end
     elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
         if fuel < (refuelRange.min * fuelvalue("coal")) and not inSchedule(refuelStation, schedule) then
             --train.schedule = addStation(refuelStation, schedule, 300, schedule.current)
-            train.schedule = addStation(refuelStation, schedule, 300)
+            train.schedule = addStation(refuelStation, schedule, refuelTime)
+        end
+    end
+    if #glob.waitingTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
+        local found = false
+        for i,t in ipairs(glob.waitingTrains) do
+            if t.train.carriages[1].equals(train.carriages[1]) then
+                found = i
+                break
+            end
+        end
+        if found then
+            if train.state == defines.trainstate["onthepath"] then
+                -- local found = false
+                -- for i,t in ipairs(glob.waitingTrains) do
+                    -- if t.train.carriages[1].equals(train.carriages[1]) then
+                local schedule = train.schedule
+                local prev = schedule.current - 1
+                if prev == 0 then prev = #schedule.records end
+                if schedule.records[prev].station == refuelStation then prev = prev-1 end
+                schedule.records[prev].time_to_wait = glob.waitingTrains[found].wait
+                train.schedule = schedule
+                        -- found = i
+                        -- break
+                    --end
+                --end
+                table.remove(glob.waitingTrains, found)
+            elseif train.state == defines.trainstate["manualcontrol"] then
+                table.remove(glob.waitingTrains, found)
+            end
         end
     end
 end)
 
+game.onevent(defines.events.ontick,
+    function(event)
+        if event.tick % minWait == 0 then
+            if #glob.waitingTrains > 0 then
+                for i,t in ipairs(glob.waitingTrains) do
+                    local cargo = cargoCount(t.train)
+                    if cargo == t.cargo and (t.tick + minWait) < event.tick then
+                        nextStation(t.train)
+                    else
+                        t.cargo = cargo
+                    end
+                end
+            end
+        end    
+    end
+)
 --[[
 local start = nil
 local stop = nil
@@ -243,19 +338,24 @@ function scheduleToString(schedule)
 end
 
 function debugLog(msg, force)
-    if true or force then
+    if false or force then
         game.player.print(msg)
     end
 end
 remote.addinterface("st",
 {
   printGlob = function(name)
-    debugLog(serpent.dump(glob.trains), true)
+    if name then
+        debugLog(serpent.dump(glob[name]), true)
+    else
+        debugLog(serpent.dump(glob[name]), true)
+    end
   end,
   
   reset = function()
-    glob.trains = nil
-    initGlob()
+    --glob.trains = nil
+    glob.waitingTrains = {}
+    --initGlob()
   end
 }
 )
