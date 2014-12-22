@@ -20,6 +20,8 @@ end)
 
 game.onload(function()
     initGlob()
+    local rem = removeInvalidTrains()
+    if rem > 0 then game.player.print("You should never see this! Removed "..rem.." invalid trains") end
 end)
 
 function initGlob()
@@ -36,7 +38,6 @@ game.onevent(defines.events.onbuiltentity,
     local ent = event.createdentity
     local ctype = ent.type
     if ctype == "locomotive" or ctype == "cargo-wagon" then
-    --if ctype == "locomotive" then
         local newTrainInfo = getNewTrainInfo(ent.train)
         if newTrainInfo ~= nil then
             removeInvalidTrains()
@@ -46,6 +47,22 @@ game.onevent(defines.events.onbuiltentity,
     end
   end
 )
+
+function trainEquals(trainA, trainB)
+    if trainA.carriages[1].equals(trainB.carriages[1]) then
+        return true
+    end
+    return false
+end
+
+function getKeyByTrain(tableA, train)
+    for i, t in ipairs(tableA) do
+        if trainEquals(t.train, train) then
+            return i
+        end
+    end
+    return false
+end
 
 game.onevent(defines.events.onpreplayermineditem, function(event)
     local ent = event.entity
@@ -60,18 +77,11 @@ game.onevent(defines.events.onpreplayermineditem, function(event)
             end
         end
         removeInvalidTrains()
-        for i, train in ipairs(glob.trains) do
-            if train.carriages[1].equals(ent.train.carriages[1]) then
-                table.remove(glob.trains, i)
-                break
-            end
-        end
-        for i, train in ipairs(glob.waitingTrains) do
-            if train.train.carriages[1].equals(ent.train.carriages[1]) then
-                table.remove(glob.waitingTrains, i)
-                break
-            end
-        end
+        local old = getKeyByTrain(glob.trains, ent.train)
+        if old then table.remove(glob.trains, old) end
+        old = getKeyByTrain(glob.waitingTrains, ent.train)
+        if old then table.remove(glob.waitingTrains, old) end
+        
         if #ent.train.carriages > 1 then
             if ent.train.carriages[ownPos-1] ~= nil then
                 table.insert(tmpPos, ent.train.carriages[ownPos-1].position)
@@ -111,7 +121,7 @@ end)
 function printGlob()
     debugLog("# "..#glob.trains)
     for i,t in ipairs(glob.trains) do
-        debugLog("Train "..i..": carriages:"..#t.carriages)
+        debugLog("Train "..i..": carriages:"..#t.train.carriages)
     end
 end
 
@@ -121,19 +131,18 @@ function getNewTrainInfo(train)
 		if carriages ~= nil and carriages[1] ~= nil and carriages[1].valid then
 			local newTrainInfo = {}
 			newTrainInfo.train = train
-			--newTrainInfo.firstCarriage = getFirstCarriage(train)
-			newTrainInfo.carriages = train.carriages
-            --newTrainInfo.refuelStation = refuelStation
-            --newTrainInfo.refuelRange = refuelRange
+            newTrainInfo.settings = {refueling = {station=refuelStation, range = refuelRange, time = refuelTime}}
 			return newTrainInfo
 		end
 	end
 end
 
 function removeInvalidTrains()
+    local removed = 0
     for i,t in ipairs(glob.trains) do
         if not t.train.valid then
             table.remove(glob.trains, i)
+            removed = removed + 1
         end
     end
     for i,t in ipairs(glob.waitingTrains) do
@@ -141,11 +150,12 @@ function removeInvalidTrains()
             table.remove(glob.waitingTrains, i)
         end
     end
+    return removed
 end
 
 local function inSchedule(station, schedule)
-    for i=1,#schedule.records do
-        if schedule.records[i].station == station then
+    for i, rec in ipairs(schedule.records) do
+        if rec.station == station then
             return true
         end
     end
@@ -155,8 +165,8 @@ end
 local function removeStation(station, schedule)
     local found = false
     local tmp = schedule
-    for i=1,#schedule.records do
-        if schedule.records[i].station == station then
+    for i, rec in ipairs(schedule.records) do
+        if rec.station == station then
             found = i
         end
     end
@@ -241,7 +251,7 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
             end
         end
         if schedule.records[schedule.current].station ~= refuelStation then
-            debugLog("Cargo: "..cargoCount(train))
+            --debugLog("wCargo: "..cargoCount(train).."@"..game.tick,true)
             local tanker = false
             for _, wagon in ipairs(train.carriages) do
                 if wagon.name == "rail-tanker" then
@@ -259,29 +269,18 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
             train.schedule = addStation(refuelStation, schedule, refuelTime)
         end
     end
+
     if #glob.waitingTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
-        local found = false
-        for i,t in ipairs(glob.waitingTrains) do
-            if t.train.carriages[1].equals(train.carriages[1]) then
-                found = i
-                break
-            end
-        end
+        local found = getKeyByTrain(glob.waitingTrains, train)
         if found then
             if train.state == defines.trainstate["onthepath"] then
-                -- local found = false
-                -- for i,t in ipairs(glob.waitingTrains) do
-                    -- if t.train.carriages[1].equals(train.carriages[1]) then
+                --debugLog("oCargo: "..cargoCount(train).."@"..game.tick,true)
                 local schedule = train.schedule
                 local prev = schedule.current - 1
                 if prev == 0 then prev = #schedule.records end
                 if schedule.records[prev].station == refuelStation then prev = prev-1 end
                 schedule.records[prev].time_to_wait = glob.waitingTrains[found].wait
                 train.schedule = schedule
-                        -- found = i
-                        -- break
-                    --end
-                --end
                 table.remove(glob.waitingTrains, found)
             elseif train.state == defines.trainstate["manualcontrol"] then
                 table.remove(glob.waitingTrains, found)
@@ -296,10 +295,13 @@ game.onevent(defines.events.ontick,
             if #glob.waitingTrains > 0 then
                 for i,t in ipairs(glob.waitingTrains) do
                     local cargo = cargoCount(t.train)
-                    if cargo == t.cargo and (t.tick + minWait) < event.tick then
-                        nextStation(t.train)
-                    else
-                        t.cargo = cargo
+                    if (t.tick + minWait) <= event.tick then
+                        if cargo == t.cargo then
+                            nextStation(t.train)
+                        else
+                            --debugLog(t.train.schedule.records[t.train.schedule.current].station..": "..(math.abs(cargo-t.cargo)/(minWait/60)).."items/s",true)
+                            t.cargo = cargo
+                        end
                     end
                 end
             end
