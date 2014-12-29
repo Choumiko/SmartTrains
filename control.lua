@@ -6,6 +6,78 @@ local refuelTime = 300 -- 1s = 60
 local minWait = 120 -- 1s = 60
 local tmpPos = {}
 
+function buildGUI()
+  destroyGui(glob.stGui)
+  destroyGui(glob.stButtons)
+  
+  glob.stGui = game.players[1].gui.left.add({type="flow", name="st", direction="vertical"}) 
+  glob.stButtons = game.players[1].gui.top.add({type="flow", name="stButtons", direction="horizontal"})--, style="fatcontroller_thin_flow"})
+  glob.stButtons.add({type="button", name="toggleSTSettings", caption = {"text-st-collapsed"}})--, style="fatcontroller_button_style"})
+end
+
+function destroyGui(guiA)
+  if guiA ~= nil and guiA.valid then
+    guiA.destroy()
+  end
+end
+
+--game.onevent(defines.events.onplayercreated, function(event)
+--  debugLog(serpent.dump(event),true)
+--  if event.name ~= "fatcontroller" then
+--    buildGUI()
+--  end
+--end)
+function newTrainInfoWindow()
+  if glob.stGui.stSettings ~= nil then
+    glob.stGui.stSettings.destroy()
+  end
+  
+  glob.stGui.add({ type="flow", name="stSettings", direction="vertical"})--, style="fatcontroller_thin_flow"})
+  glob.stGui.stSettings.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})--, style="fatcontroller_thin_frame"})
+  glob.stGui.stSettings.stGlobalSettings.add{type="table", name="tbl", colspan=5}
+  local tbl = glob.stGui.stSettings.stGlobalSettings.tbl
+  --debugLog(serpent.dump(glob.settings.refuel),true)
+  tbl.add({type= "label", name="lblRangeMin", caption="Refuel below"})
+  tbl.add({type= "textfield",name="refuelRangeMin", style="number_textfield_style"})
+  tbl.add({type= "label", name="lblRangeMax", caption="coal, remove Station above"})
+  tbl.add({type= "textfield", name="refuelRangeMax", style="number_textfield_style"})
+  tbl.add({type= "label", name="lblRangeEnd", caption="coal"})
+  
+  tbl.add({type= "label", name="lblRefuelTime", caption="Refuel time(1/s):"})
+  tbl.add({type="textfield", name="refuelTime", style="number_textfield_style"})
+  tbl.add({type= "label", name="lblRefuelStation", caption="Refuel station:"})
+  tbl.add({type= "textfield", name="refuelStation"})
+  tbl.add({type= "button", name="refuelSave", caption="Ok"})
+  
+  tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
+  tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax
+  tbl.refuelStation.text = glob.settings.refuel.station
+  tbl.refuelTime.text = glob.settings.refuel.time / 60
+end
+
+game.onevent(defines.events.onguiclick, function(event)
+  debugLog("click"..serpent.dump(event.element.name),true)
+  local element = event.element
+  if element.name == "toggleSTSettings" then
+    if glob.stGui.stSettings == nil then
+      newTrainInfoWindow()
+      event.element.caption = {"text-st"}
+    else
+      destroyGui(glob.stGui.stSettings)
+      event.element.caption = {"text-st-collapsed"}
+    end
+  elseif element.name == "refuelSave" then
+    local settings = glob.stGui.stSettings.stGlobalSettings.tbl
+    local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.refuelRangeMax.text), settings.refuelStation.text
+    glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
+    for i,t in ipairs(glob.trains) do
+      if t.settings.refueling.useGlobal then
+        t.settings.refueling = {useGlobal = t.settings.refueling.useGlobal, station=station, range={min=min, max=max}, time=time}
+      end
+    end
+  end
+end)
+
 game.oninit(function()
   initGlob()
 end)
@@ -17,12 +89,19 @@ game.onload(function()
 end)
 
 function initGlob()
+  if glob.settings == nil then
+    glob.settings = {refuel={}}
+    glob.settings.refuel = {station = refuelStation, rangeMin = refuelRangeMin, rangeMax = refuelRangeMax, time = refuelTime}
+  end
   if glob.waitingTrains == nil then
     glob.waitingTrains = {}
   end
+  if glob.trains == nil then
+    glob.trains = {}
+  end
+  glob.guiInit = false
   if glob.init ~= nil then return end
   glob.init = true
-  glob.trains = {}
 end
 
 game.onevent(defines.events.onbuiltentity,
@@ -122,8 +201,10 @@ function getNewTrainInfo(train)
     local carriages = train.carriages
     if carriages ~= nil and carriages[1] ~= nil and carriages[1].valid then
       local newTrainInfo = {}
+      local refuel = glob.settings.refuel
       newTrainInfo.train = train
-      newTrainInfo.settings = {refueling = {station=refuelStation, range = {min = refuelRangeMin,max = refuelRangeMax}, time = refuelTime}}
+      
+      newTrainInfo.settings = {refueling = {useGlobal = true, station= refuel.station, range = {min = refuel.rangeMin,max = refuel.rangeMax}, time = refuel.time}}
       return newTrainInfo
     end
   end
@@ -309,6 +390,10 @@ end)
 
 game.onevent(defines.events.ontick,
   function(event)
+    if glob.guiInit == false then
+      buildGUI()
+      glob.guiInit = true
+    end
     if event.tick % minWait == 0 then
       if #glob.waitingTrains > 0 then
         for i,t in ipairs(glob.waitingTrains) do
@@ -363,7 +448,11 @@ game.onevent(defines.events.ontick, function(event)
     end
 end)
 --]]
-
+function make_placeholder(element,count)
+  for i=1,count do
+    element.add({ type="label", caption="" })
+  end
+end
 function scheduleToString(schedule)
   local tmp = "Schedule: "
   for i=1,#schedule.records do
