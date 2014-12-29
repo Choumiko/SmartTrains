@@ -6,13 +6,14 @@ local refuelTime = 300 -- 1s = 60
 local minWait = 120 -- 1s = 60
 local tmpPos = {}
 
-function buildGUI()
-  destroyGui(glob.stGui)
-  destroyGui(glob.stButtons)
+function buildGUI(player)
+  destroyGui(player.gui.left.stGui)
+  destroyGui(player.gui.center.stGui)
+  destroyGui(player.gui.top.stButtons)
   
-  glob.stGui = game.players[1].gui.left.add({type="flow", name="st", direction="vertical"}) 
-  glob.stButtons = game.players[1].gui.top.add({type="flow", name="stButtons", direction="horizontal"})--, style="fatcontroller_thin_flow"})
-  glob.stButtons.add({type="button", name="toggleSTSettings", caption = {"text-st-collapsed"}})--, style="fatcontroller_button_style"})
+  player.gui.left.add({type="flow", name="stGui", direction="vertical"}) 
+  local stButtons = player.gui.top.add({type="flow", name="stButtons", direction="horizontal"})--, style="fatcontroller_thin_flow"})
+  stButtons.add({type="button", name="toggleSTSettings", caption = {"text-st-collapsed"}})--, style="fatcontroller_button_style"})
 end
 
 function destroyGui(guiA)
@@ -21,59 +22,102 @@ function destroyGui(guiA)
   end
 end
 
---game.onevent(defines.events.onplayercreated, function(event)
---  debugLog(serpent.dump(event),true)
---  if event.name ~= "fatcontroller" then
---    buildGUI()
---  end
---end)
-function newTrainInfoWindow()
-  if glob.stGui.stSettings ~= nil then
-    glob.stGui.stSettings.destroy()
+game.onevent(defines.events.onplayercreated, function(event)
+  local player = game.getplayer(event.playerindex)
+  local gui = player.gui
+  if gui.left.stGui == nil or gui.center.stGui == nil or gui.top.stButtons == nil then
+    buildGUI(player)
+  end
+end)
+
+function showTrainInfoWindow(index)
+  local gui = game.players[index].gui.left.stGui
+  if gui.trainInfo ~= nil then
+    gui.trainInfo.destroy()
   end
   
-  glob.stGui.add({ type="flow", name="stSettings", direction="vertical"})--, style="fatcontroller_thin_flow"})
-  glob.stGui.stSettings.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})--, style="fatcontroller_thin_frame"})
-  glob.stGui.stSettings.stGlobalSettings.add{type="table", name="tbl", colspan=5}
-  local tbl = glob.stGui.stSettings.stGlobalSettings.tbl
-  --debugLog(serpent.dump(glob.settings.refuel),true)
-  tbl.add({type= "label", name="lblRangeMin", caption="Refuel below"})
-  tbl.add({type= "textfield",name="refuelRangeMin", style="number_textfield_style"})
-  tbl.add({type= "label", name="lblRangeMax", caption="coal, remove Station above"})
-  tbl.add({type= "textfield", name="refuelRangeMax", style="number_textfield_style"})
-  tbl.add({type= "label", name="lblRangeEnd", caption="coal"})
+  gui = gui.add({type="flow", name="st_settingsButton", direction="vertical"})
+  gui.add({type="flow", name="flowh", direction="horizontal"})
+  gui = gui.add({type="frame", name="frm", direction="vertical"})
+  gui.add({type="flow", name="buttons", direction="horizontal"})
+  gui.buttons.add({type="button", name="st_toggle_Settings", caption = "Settings"})
+  if #glob.trains > 0 then
+    local trainGui = gui.add({type="table", name="tbl", colspan=3})
+    trainGui.add({type="label", caption=""})    
+    trainGui.add({type="label", caption=""})
+    trainGui.add({type="label", caption="Autorefuel"})
+    for i,t in ipairs(glob.trains) do
+      trainGui.add({type="label", caption=scheduleToString(t.train.schedule), name="lbl"..i})
+      trainGui.add({type="button", name="btn_schedule__"..i, caption=" S "})
+      trainGui.add({type="checkbox", name="btn_refuel__"..i, state=t.settings.refueling.autoRefuel})
+    end
+  end
+end
+
+function globalSettingsWindow(index)
+  local gui = game.players[index].gui.center
+  if gui.stGui == nil then
+    gui.add({type="flow", name="stGui", direction="vertical"})
+    gui.stGui.add({ type="flow", name="stSettings", direction="vertical"})--, style="fatcontroller_thin_flow"})
+    gui.stGui.stSettings.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})--, style="fatcontroller_thin_frame"})
+    gui.stGui.stSettings.stGlobalSettings.add{type="table", name="tbl", colspan=5}
+    local tbl = gui.stGui.stSettings.stGlobalSettings.tbl
   
-  tbl.add({type= "label", name="lblRefuelTime", caption="Refuel time(1/s):"})
-  tbl.add({type="textfield", name="refuelTime", style="number_textfield_style"})
-  tbl.add({type= "label", name="lblRefuelStation", caption="Refuel station:"})
-  tbl.add({type= "textfield", name="refuelStation"})
-  tbl.add({type= "button", name="refuelSave", caption="Ok"})
-  
-  tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
-  tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax
-  tbl.refuelStation.text = glob.settings.refuel.station
-  tbl.refuelTime.text = glob.settings.refuel.time / 60
+    tbl.add({type= "label", name="lblRangeMin", caption="Refuel below"})
+    tbl.add({type= "textfield",name="refuelRangeMin", style="number_textfield_style"})
+    tbl.add({type= "label", name="lblRangeMax", caption="coal, remove Station above"})
+    tbl.add({type= "textfield", name="refuelRangeMax", style="number_textfield_style"})
+    tbl.add({type= "label", name="lblRangeEnd", caption="coal"})
+    
+    tbl.add({type= "label", name="lblRefuelTime", caption="Refuel time(1/s):"})
+    tbl.add({type="textfield", name="refuelTime", style="number_textfield_style"})
+    tbl.add({type= "label", name="lblRefuelStation", caption="Refuel station:"})
+    tbl.add({type= "textfield", name="refuelStation"})
+    tbl.add({type= "button", name="refuelSave", caption="Ok"})
+    
+    tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
+    tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax
+    tbl.refuelStation.text = glob.settings.refuel.station
+    tbl.refuelTime.text = glob.settings.refuel.time / 60
+  end
 end
 
 game.onevent(defines.events.onguiclick, function(event)
-  debugLog("click"..serpent.dump(event.element.name),true)
+  debugLog(event.element.name,true)
+  local index = type(event.element)=="table" and event.element.playerindex or element
+  local player = game.players[index]
+  --debugLog(serpent.dump(player.gui.center.childrennames),true)
   local element = event.element
   if element.name == "toggleSTSettings" then
-    if glob.stGui.stSettings == nil then
-      newTrainInfoWindow()
+    if player.gui.left.stGui.st_settingsButton == nil then
+      showTrainInfoWindow(index)
       event.element.caption = {"text-st"}
     else
-      destroyGui(glob.stGui.stSettings)
+      destroyGui(player.gui.left.stGui.st_settingsButton)
       event.element.caption = {"text-st-collapsed"}
     end
+  elseif element.name == "st_toggle_Settings" then
+    if player.gui.center.stGui == nil then
+      globalSettingsWindow(index)
+    else
+      destroyGui(player.gui.center.stGui)
+    end
   elseif element.name == "refuelSave" then
-    local settings = glob.stGui.stSettings.stGlobalSettings.tbl
+    local settings = player.gui.center.stGui.stSettings.stGlobalSettings.tbl
     local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.refuelRangeMax.text), settings.refuelStation.text
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
     for i,t in ipairs(glob.trains) do
-      if t.settings.refueling.useGlobal then
-        t.settings.refueling = {useGlobal = t.settings.refueling.useGlobal, station=station, range={min=min, max=max}, time=time}
+      if t.settings.refueling.autoRefuel then
+        t.settings.refueling = {autoRefuel = t.settings.refueling.autoRefuel, station=station, range={min=min, max=max}, time=time}
       end
+    end
+    destroyGui(player.gui.center.stGui)
+  else
+    local _, _, option1, option2 = event.element.name:find("(%a+)__(%d+)")
+    --debugLog("o1: "..option1.." o2: "..option2,true)
+    option2 = tonumber(option2)
+    if option1 == "refuel" then
+      glob.trains[option2].settings.refueling.autoRefuel = not glob.trains[option2].settings.refueling.autoRefuel
     end
   end
 end)
@@ -84,6 +128,7 @@ end)
 
 game.onload(function()
   initGlob()
+  glob.guiInit = false
   local rem = removeInvalidTrains()
   if rem > 0 then game.player.print("You should never see this! Removed "..rem.." invalid trains") end
 end)
@@ -204,7 +249,7 @@ function getNewTrainInfo(train)
       local refuel = glob.settings.refuel
       newTrainInfo.train = train
       
-      newTrainInfo.settings = {refueling = {useGlobal = true, station= refuel.station, range = {min = refuel.rangeMin,max = refuel.rangeMax}, time = refuel.time}}
+      newTrainInfo.settings = {refueling = {autoRefuel = true, station= refuel.station, range = {min = refuel.rangeMin,max = refuel.rangeMax}, time = refuel.time}}
       return newTrainInfo
     end
   end
@@ -340,12 +385,14 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
   local settings = glob.trains[trainKey].settings
   local fuel = lowestFuel(train)
   local schedule = train.schedule
-  debugLog(getKeyByValue(defines.trainstate, train.state))
+  --debugLog(getKeyByValue(defines.trainstate, train.state))
   if train.state == defines.trainstate["waitstation"] then
-    debugLog("Fuel: "..fuel.." req: "..(settings.refueling.range.max * fuelvalue("coal")))
-    if fuel >= (settings.refueling.range.max * fuelvalue("coal")) and schedule.records[schedule.current].station ~= settings.refueling.station then
-      if inSchedule(settings.refueling.station, schedule) and #schedule.records >= 3 then
-        train.schedule = removeStation(settings.refueling.station, schedule)
+    if settings.refueling.autoRefuel then
+      debugLog("Fuel: "..fuel.." req: "..(settings.refueling.range.max * fuelvalue("coal")))
+      if fuel >= (settings.refueling.range.max * fuelvalue("coal")) and schedule.records[schedule.current].station ~= settings.refueling.station then
+        if inSchedule(settings.refueling.station, schedule) and #schedule.records >= 3 then
+          train.schedule = removeStation(settings.refueling.station, schedule)
+        end
       end
     end
     if schedule.records[schedule.current].station ~= settings.refueling.station then
@@ -362,9 +409,11 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
       end
     end
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
-    if fuel < (settings.refueling.range.min * fuelvalue("coal")) and not inSchedule(settings.refueling.station, schedule) then
-      --train.schedule = addStation(refuelStation, schedule, 300, schedule.current)
-      train.schedule = addStation(settings.refueling.station, schedule, settings.refueling.time)
+    if settings.refueling.autoRefuel then
+      if fuel < (settings.refueling.range.min * fuelvalue("coal")) and not inSchedule(settings.refueling.station, schedule) then
+        --train.schedule = addStation(refuelStation, schedule, 300, schedule.current)
+        train.schedule = addStation(settings.refueling.station, schedule, settings.refueling.time)
+      end
     end
   end
 
@@ -390,10 +439,10 @@ end)
 
 game.onevent(defines.events.ontick,
   function(event)
-    if glob.guiInit == false then
-      buildGUI()
-      glob.guiInit = true
-    end
+--    if glob.guiInit == false then
+--      buildGUI()
+--      glob.guiInit = true
+--    end
     if event.tick % minWait == 0 then
       if #glob.waitingTrains > 0 then
         for i,t in ipairs(glob.waitingTrains) do
@@ -479,6 +528,13 @@ remote.addinterface("st",
     resetWaiting = function()
       glob.waitingTrains = {}
       glob.trains = {}
+    end,
+    resetGui = function()
+      for i, player in pairs(game.players) do
+        if player.gui.center.stGui ~= nil then
+          player.gui.center.stGui.destroy()
+        end
+      end
     end
   }
 )
