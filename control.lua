@@ -44,14 +44,14 @@ function showTrainInfoWindow(index)
   gui.add({type="flow", name="buttons", direction="horizontal"})
   gui.buttons.add({type="button", name="st_toggle_Settings", caption = "Settings"})
   if #glob.trains > 0 then
-    local trainGui = gui.add({type="table", name="tbl", colspan=3})
+    local trainGui = gui.add({type="table", name="tbl", colspan=2})
     trainGui.add({type="label", caption=""})
-    trainGui.add({type="label", caption=""})        
+    --trainGui.add({type="label", caption=""})        
     trainGui.add({type="label", caption="Autorefuel"})
     for i,t in ipairs(glob.trains) do
       trainGui.add({type="label", caption=t.name, name="lbl"..i})
-      trainGui.add({type="button", name="btn_schedule__"..i, caption=" S "})
-      trainGui.add({type="checkbox", name="btn_refuel__"..i, state=t.settings.refueling.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
+      --trainGui.add({type="button", name="btn_schedule__"..i, caption=" S "})
+      trainGui.add({type="checkbox", name="btn_refuel__"..i, state=t.settings.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
     end
   end
 end
@@ -77,8 +77,8 @@ function globalSettingsWindow(index)
     tbl.add({type= "textfield", name="refuelStation"})
     tbl.add({type= "button", name="refuelSave", caption="Ok"})
     
-    tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
-    tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax
+    tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin or refuelRangeMin
+    tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax or refuelRangeMax
     tbl.refuelStation.text = glob.settings.refuel.station
     tbl.refuelTime.text = glob.settings.refuel.time / 60
   end
@@ -106,18 +106,18 @@ game.onevent(defines.events.onguiclick, function(event)
     local settings = player.gui.center.stGui.stSettings.stGlobalSettings.tbl
     local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.refuelRangeMax.text), settings.refuelStation.text
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
-    for i,t in ipairs(glob.trains) do
-      if t.settings.refueling.autoRefuel then
-        t.settings.refueling = {autoRefuel = t.settings.refueling.autoRefuel, station=station, range={min=min, max=max}, time=time}
-      end
-    end
+--    for i,t in ipairs(glob.trains) do
+--      if t.settings.refueling.autoRefuel then
+--        t.settings.refueling = {autoRefuel = t.settings.refueling.autoRefuel, station=station, range={min=min, max=max}, time=time}
+--      end
+--    end
     destroyGui(player.gui.center.stGui)
   else
     local _, _, option1, option2 = event.element.name:find("(%a+)__(%d+)")
     --debugLog("o1: "..option1.." o2: "..option2,true)
     option2 = tonumber(option2)
     if option1 == "refuel" then
-      glob.trains[option2].settings.refueling.autoRefuel = not glob.trains[option2].settings.refueling.autoRefuel
+      glob.trains[option2].settings.autoRefuel = not glob.trains[option2].settings.autoRefuel
     end
   end
 end)
@@ -247,14 +247,13 @@ function getNewTrainInfo(train)
     local carriages = train.carriages
     if carriages ~= nil and carriages[1] ~= nil and carriages[1].valid then
       local newTrainInfo = {}
-      local refuel = glob.settings.refuel
       newTrainInfo.train = train
       if train.locomotives ~= nil and (#train.locomotives.frontmovers > 0 or #train.locomotives.backmovers > 0) then
         newTrainInfo.name = train.locomotives.frontmovers[1].backername or train.locomotives.backmovers[1].backername
       else
         newTrainInfo.name = "cargoOnly"
       end
-      newTrainInfo.settings = {refueling = {autoRefuel = true, station= refuel.station, range = {min = refuel.rangeMin,max = refuel.rangeMax}, time = refuel.time}}
+      newTrainInfo.settings = {autoRefuel = true}
       return newTrainInfo
     end
   end
@@ -270,11 +269,8 @@ function removeInvalidTrains()
       if not t.name then
         t.name = t.train.locomotives.frontmovers[1].backername or t.train.locomotives.backmovers[1].backername or "wagonOnly"
       end
-      if not t.settings then t.settings = {refueling = glob.settings.refuel} end
-      if not t.settings.refueling.autoRefuel then t.settings.refueling.autoRefuel = true end
-      if not t.settings.refueling.range then t.settings.refueling.range = {min=refuelRangeMin, max=refuelRangeMax} end
-      if t.settings.refueling.rangeMin then t.settings.refueling.rangeMin = nil end
-      if t.settings.refueling.rangeMax then t.settings.refueling.rangeMax = nil end
+      if not t.settings then t.settings = {autoRefuel = true} end
+      if t.settings.refueling then t.settings.refueling = nil end
     end
   end
   for i,t in ipairs(glob.waitingTrains) do
@@ -282,7 +278,7 @@ function removeInvalidTrains()
       table.remove(glob.waitingTrains, i)
     else
       if not t.settings then
-        t.settings = {refueling = glob.settings.refuel}
+        t.settings = {autoRefuel = true}
       end
     end
   end
@@ -397,14 +393,14 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
   local schedule = train.schedule
   --debugLog(getKeyByValue(defines.trainstate, train.state))
   if train.state == defines.trainstate["waitstation"] then
-    if settings.refueling.autoRefuel then
-      if fuel >= (settings.refueling.range.max * fuelvalue("coal")) and schedule.records[schedule.current].station ~= settings.refueling.station then
-        if inSchedule(settings.refueling.station, schedule) and #schedule.records >= 3 then
-          train.schedule = removeStation(settings.refueling.station, schedule)
+    if settings.autoRefuel then
+      if fuel >= (glob.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
+        if inSchedule(glob.settings.refuel.station, schedule) and #schedule.records >= 3 then
+          train.schedule = removeStation(glob.settings.refuel.station, schedule)
         end
       end
     end
-    if schedule.records[schedule.current].station ~= settings.refueling.station then
+    if schedule.records[schedule.current].station ~= glob.settings.refuel.station then
       local tanker = false
       -- for _, wagon in ipairs(train.carriages) do
       -- if wagon.name == "rail-tanker" then
@@ -417,10 +413,10 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
       end
     end
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
-    if settings.refueling.autoRefuel then
-      if fuel < (settings.refueling.range.min * fuelvalue("coal")) and not inSchedule(settings.refueling.station, schedule) then
+    if settings.autoRefuel then
+      if fuel < (glob.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(glob.settings.refuel.station, schedule) then
         --train.schedule = addStation(refuelStation, schedule, 300, schedule.current)
-        train.schedule = addStation(settings.refueling.station, schedule, settings.refueling.time)
+        train.schedule = addStation(glob.settings.refuel.station, schedule, glob.settings.refuel.time)
       end
     end
   end
@@ -433,7 +429,7 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
         local schedule = train.schedule
         local prev = schedule.current - 1
         if prev == 0 then prev = #schedule.records end
-        if schedule.records[prev].station == settings.refueling.station then prev = prev-1 end
+        if schedule.records[prev].station == glob.settings.refuel.station then prev = prev-1 end
         schedule.records[prev].time_to_wait = glob.waitingTrains[found].wait
         train.schedule = schedule
         table.remove(glob.waitingTrains, found)
@@ -530,6 +526,14 @@ remote.addinterface("st",
         debugLog(serpent.dump(glob), true)
       end
     end,
+    
+    printG = function()
+    if _G then
+      printToFile( serpent.block(_G), "log" )
+    else
+      globalPrint("Global not found.")
+    end
+  end,
 
     resetWaiting = function()
       glob.waitingTrains = {}
@@ -543,3 +547,8 @@ remote.addinterface("st",
     end
   }
 )
+function printToFile(line, path)
+  path = path or "log"
+  path = table.concat({ "st", "/", path, ".txt" })
+  game.makefile( path,  line)
+end
