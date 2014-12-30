@@ -27,6 +27,7 @@ end
 game.onevent(defines.events.onplayercreated, function(event)
   local player = game.getplayer(event.playerindex)
   local gui = player.gui
+--  buildGUI(player)
   if gui.left.stGui == nil or gui.center.stGui == nil or gui.top.stButtons == nil then
     buildGUI(player)
   end
@@ -127,9 +128,8 @@ end)
 
 game.onload(function()
   initGlob()
-  glob.guiInit = false
   local rem = removeInvalidTrains()
-  if rem > 0 then game.player.print("You should never see this! Removed "..rem.." invalid trains") end
+  if rem > 0 then debugLog("You should never see this! Removed "..rem.." invalid trains", true) end
 end)
 
 function initGlob()
@@ -137,13 +137,15 @@ function initGlob()
     glob.settings = {refuel={}}
     glob.settings.refuel = {station = refuelStation, rangeMin = refuelRangeMin, rangeMax = refuelRangeMax, time = refuelTime}
   end
-  if glob.waitingTrains == nil then
-    glob.waitingTrains = {}
+  if glob.waitingTrains == nil then glob.waitingTrains = {} end
+  if glob.trains == nil then glob.trains = {} end
+  if glob.guiDone == nil then glob.guiDone = {} end
+  for i,p in ipairs(game.players) do
+    if not glob.guiDone[p.name] then
+      buildGUI(p)
+      glob.guiDone[p.name] = true
+    end
   end
-  if glob.trains == nil then
-    glob.trains = {}
-  end
-  glob.guiInit = false
   if glob.init ~= nil then return end
   glob.init = true
 end
@@ -268,11 +270,20 @@ function removeInvalidTrains()
       if not t.name then
         t.name = t.train.locomotives.frontmovers[1].backername or t.train.locomotives.backmovers[1].backername or "wagonOnly"
       end
+      if not t.settings then t.settings = {refueling = glob.settings.refuel} end
+      if not t.settings.refueling.autoRefuel then t.settings.refueling.autoRefuel = true end
+      if not t.settings.refueling.range then t.settings.refueling.range = {min=t.settings.refueling.rangeMin, max=t.settings.refueling.rangeMax} end
+      if t.settings.refueling.rangeMin then t.settings.refueling.rangeMin = nil end
+      if t.settings.refueling.rangeMax then t.settings.refueling.rangeMax = nil end
     end
   end
   for i,t in ipairs(glob.waitingTrains) do
     if not t.train.valid then
       table.remove(glob.waitingTrains, i)
+    else
+      if not t.settings then
+        t.settings = {refueling = glob.settings.refuel}
+      end
     end
   end
   return removed
@@ -372,9 +383,7 @@ function getKeyByValue(tableA, value)
     end
   end
 end
-game.onevent(defines.events.ontrainchangedstate, function(event)
 
-  end)
 game.onevent(defines.events.ontrainchangedstate, function(event)
   local train = event.train
   local trainKey = getKeyByTrain(glob.trains, train)
