@@ -1,4 +1,6 @@
 require "defines"
+require "util"
+
 local refuelStation = "Refuel" -- name of the refueling station
 local refuelRangeMin = 25 -- in coal, add refuelStation to schedule when below min, remove refuelStation when above max
 local refuelRangeMax = 50
@@ -12,8 +14,8 @@ function buildGUI(player)
   destroyGui(player.gui.top.stButtons)
   
   player.gui.left.add({type="flow", name="stGui", direction="vertical"}) 
-  local stButtons = player.gui.top.add({type="flow", name="stButtons", direction="horizontal"})--, style="fatcontroller_thin_flow"})
-  stButtons.add({type="button", name="toggleSTSettings", caption = {"text-st-collapsed"}})--, style="fatcontroller_button_style"})
+  local stButtons = player.gui.top.add({type="flow", name="stButtons", direction="horizontal"})
+  stButtons.add({type="button", name="toggleSTSettings", caption = {"text-st-collapsed"}})
 end
 
 function destroyGui(guiA)
@@ -35,7 +37,6 @@ function showTrainInfoWindow(index)
   if gui.trainInfo ~= nil then
     gui.trainInfo.destroy()
   end
-  
   gui = gui.add({type="flow", name="st_settingsButton", direction="vertical"})
   gui.add({type="flow", name="flowh", direction="horizontal"})
   gui = gui.add({type="frame", name="frm", direction="vertical"})
@@ -43,13 +44,13 @@ function showTrainInfoWindow(index)
   gui.buttons.add({type="button", name="st_toggle_Settings", caption = "Settings"})
   if #glob.trains > 0 then
     local trainGui = gui.add({type="table", name="tbl", colspan=3})
-    trainGui.add({type="label", caption=""})    
     trainGui.add({type="label", caption=""})
+    trainGui.add({type="label", caption=""})        
     trainGui.add({type="label", caption="Autorefuel"})
     for i,t in ipairs(glob.trains) do
-      trainGui.add({type="label", caption=scheduleToString(t.train.schedule), name="lbl"..i})
+      trainGui.add({type="label", caption=t.name, name="lbl"..i})
       trainGui.add({type="button", name="btn_schedule__"..i, caption=" S "})
-      trainGui.add({type="checkbox", name="btn_refuel__"..i, state=t.settings.refueling.autoRefuel})
+      trainGui.add({type="checkbox", name="btn_refuel__"..i, state=t.settings.refueling.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
     end
   end
 end
@@ -58,8 +59,8 @@ function globalSettingsWindow(index)
   local gui = game.players[index].gui.center
   if gui.stGui == nil then
     gui.add({type="flow", name="stGui", direction="vertical"})
-    gui.stGui.add({ type="flow", name="stSettings", direction="vertical"})--, style="fatcontroller_thin_flow"})
-    gui.stGui.stSettings.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})--, style="fatcontroller_thin_frame"})
+    gui.stGui.add({ type="flow", name="stSettings", direction="vertical"})
+    gui.stGui.stSettings.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Refuel settings"})
     gui.stGui.stSettings.stGlobalSettings.add{type="table", name="tbl", colspan=5}
     local tbl = gui.stGui.stSettings.stGlobalSettings.tbl
   
@@ -83,10 +84,8 @@ function globalSettingsWindow(index)
 end
 
 game.onevent(defines.events.onguiclick, function(event)
-  debugLog(event.element.name,true)
   local index = type(event.element)=="table" and event.element.playerindex or element
   local player = game.players[index]
-  --debugLog(serpent.dump(player.gui.center.childrennames),true)
   local element = event.element
   if element.name == "toggleSTSettings" then
     if player.gui.left.stGui.st_settingsButton == nil then
@@ -248,7 +247,11 @@ function getNewTrainInfo(train)
       local newTrainInfo = {}
       local refuel = glob.settings.refuel
       newTrainInfo.train = train
-      
+      if train.locomotives ~= nil and (#train.locomotives.frontmovers > 0 or #train.locomotives.backmovers > 0) then
+        newTrainInfo.name = train.locomotives.frontmovers[1].backername or train.locomotives.backmovers[1].backername
+      else
+        newTrainInfo.name = "cargoOnly"
+      end
       newTrainInfo.settings = {refueling = {autoRefuel = true, station= refuel.station, range = {min = refuel.rangeMin,max = refuel.rangeMax}, time = refuel.time}}
       return newTrainInfo
     end
@@ -261,6 +264,10 @@ function removeInvalidTrains()
     if not t.train.valid then
       table.remove(glob.trains, i)
       removed = removed + 1
+    else
+      if not t.name then
+        t.name = t.train.locomotives.frontmovers[1].backername or t.train.locomotives.backmovers[1].backername or "wagonOnly"
+      end
     end
   end
   for i,t in ipairs(glob.waitingTrains) do
@@ -310,12 +317,12 @@ function nextStation(train)
   local schedule = train.schedule
   if #schedule.records > 0 then
     schedule.records[schedule.current].time_to_wait = 0
-    debugLog("advance from "..schedule.records[schedule.current].station)
+    --debugLog("advance from "..schedule.records[schedule.current].station)
     train.schedule = schedule
   end
 end
 
-local function fuelvalue(item)
+function fuelvalue(item)
   return game.itemprototypes[item].fuelvalue
 end
 
@@ -328,13 +335,7 @@ local function calcFuel(contents)
   return value
 end
 
-local function distance(point1, point2)
-  local diffX = point1.x - point2.x
-  local diffY = point1.y - point2.y
-  return math.sqrt(diffX ^ 2 + diffY ^ 2)
-end
-
-local function lowestFuel(train)
+function lowestFuel(train)
   local minfuel = nil
   local c
   for i,carriage in ipairs(train.carriages) do
@@ -388,7 +389,6 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
   --debugLog(getKeyByValue(defines.trainstate, train.state))
   if train.state == defines.trainstate["waitstation"] then
     if settings.refueling.autoRefuel then
-      debugLog("Fuel: "..fuel.." req: "..(settings.refueling.range.max * fuelvalue("coal")))
       if fuel >= (settings.refueling.range.max * fuelvalue("coal")) and schedule.records[schedule.current].station ~= settings.refueling.station then
         if inSchedule(settings.refueling.station, schedule) and #schedule.records >= 3 then
           train.schedule = removeStation(settings.refueling.station, schedule)
@@ -396,7 +396,6 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
       end
     end
     if schedule.records[schedule.current].station ~= settings.refueling.station then
-      --debugLog("wCargo: "..cargoCount(train).."@"..game.tick,true)
       local tanker = false
       -- for _, wagon in ipairs(train.carriages) do
       -- if wagon.name == "rail-tanker" then
@@ -422,7 +421,6 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
     if found then
       local settings = glob.waitingTrains[found].settings
       if train.state == defines.trainstate["onthepath"] then
-        --debugLog("oCargo: "..cargoCount(train).."@"..game.tick,true)
         local schedule = train.schedule
         local prev = schedule.current - 1
         if prev == 0 then prev = #schedule.records end
@@ -443,18 +441,19 @@ game.onevent(defines.events.ontick,
 --      buildGUI()
 --      glob.guiInit = true
 --    end
-    if event.tick % minWait == 0 then
-      if #glob.waitingTrains > 0 then
-        for i,t in ipairs(glob.waitingTrains) do
+    if #glob.waitingTrains > 0 then
+      for i,t in ipairs(glob.waitingTrains) do
+        if event.tick >= t.tick+minWait then
           local cargo = cargoCount(t.train)
-          if (t.tick + minWait) <= event.tick then
-            if cargo == t.cargo then
-              nextStation(t.train)
-            else
-              --debugLog(t.train.schedule.records[t.train.schedule.current].station..": "..(math.abs(cargo-t.cargo)/(minWait/60)).."items/s",true)
-              t.cargo = cargo
-            end
+          --local data = util.formattime(event.tick).." "..cargo.." r:"..(cargo-t.cargo)/(minWait/60)
+          --debugLog(data, true)
+          if cargo == t.cargo then
+            nextStation(t.train)
+          else
+            --debugLog(t.train.schedule.records[t.train.schedule.current].station..": "..(math.abs(cargo-t.cargo)/(minWait/60)).."items/s",true)
+            t.tick = event.tick
           end
+          t.cargo = cargo
         end
       end
     end
@@ -487,7 +486,7 @@ game.onevent(defines.events.ontick, function(event)
         game.player.print("end: "..serpent.dump(stop))
         game.player.print("dur: "..(stop-start)/60)
         game.player.print("formula: ".. 8000000 / 600000)
-        --game.player.print("dist: "..distance(start,stop))
+        --game.player.print("dist: "..util.distance(start,stop))
         printed = true
       end
     else
@@ -497,11 +496,7 @@ game.onevent(defines.events.ontick, function(event)
     end
 end)
 --]]
-function make_placeholder(element,count)
-  for i=1,count do
-    element.add({ type="label", caption="" })
-  end
-end
+
 function scheduleToString(schedule)
   local tmp = "Schedule: "
   for i=1,#schedule.records do
@@ -512,7 +507,9 @@ end
 
 function debugLog(msg, force)
   if false or force then
-    game.player.print(msg)
+    for i,player in ipairs(game.players) do
+      player.print(msg)
+    end
   end
 end
 remote.addinterface("st",
@@ -527,7 +524,6 @@ remote.addinterface("st",
 
     resetWaiting = function()
       glob.waitingTrains = {}
-      glob.trains = {}
     end,
     resetGui = function()
       for i, player in pairs(game.players) do
