@@ -133,12 +133,12 @@ game.onload(function()
 end)
 
 function initGlob()
+  if glob.waitingTrains == nil then glob.waitingTrains = {} end
+  if glob.trains == nil then glob.trains = {} end
   if glob.settings == nil then
     glob.settings = {refuel={}}
     glob.settings.refuel = {station = refuelStation, rangeMin = refuelRangeMin, rangeMax = refuelRangeMax, time = refuelTime}
   end
-  if glob.waitingTrains == nil then glob.waitingTrains = {} end
-  if glob.trains == nil then glob.trains = {} end
   if glob.guiDone == nil then glob.guiDone = {} end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
@@ -146,8 +146,23 @@ function initGlob()
       glob.guiDone[p.name] = true
     end
   end
-  if glob.init ~= nil then return end
-  glob.init = true
+  if glob.version == nil then
+    glob.version = "0.0.1"
+    for i,t in ipairs(glob.trains) do
+      if not t.name then
+        if t.train.locomotives ~= nil and (#t.train.locomotives.frontmovers > 0 or #t.train.locomotives.backmovers > 0) then
+          t.name = t.train.locomotives.frontmovers[1].backername or t.train.locomotives.backmovers[1].backername
+        else
+          t.name = "cargoOnly"
+        end
+      end
+      if not t.settings then t.settings = {autoRefuel = true} end
+      if t.settings.refueling then t.settings.refueling = nil end
+    end
+    for i,t in ipairs(glob.waitingTrains) do
+      if not t.settings then t.settings = {autoRefuel = true} end
+    end
+  end
 end
 
 game.onevent(defines.events.onbuiltentity,
@@ -265,21 +280,11 @@ function removeInvalidTrains()
     if not t.train.valid then
       table.remove(glob.trains, i)
       removed = removed + 1
-    else
-      if not t.name then
-        t.name = t.train.locomotives.frontmovers[1].backername or t.train.locomotives.backmovers[1].backername or "wagonOnly"
-      end
-      if not t.settings then t.settings = {autoRefuel = true} end
-      if t.settings.refueling then t.settings.refueling = nil end
     end
   end
   for i,t in ipairs(glob.waitingTrains) do
     if not t.train.valid then
       table.remove(glob.waitingTrains, i)
-    else
-      if not t.settings then
-        t.settings = {autoRefuel = true}
-      end
     end
   end
   return removed
