@@ -24,16 +24,6 @@ function destroyGui(guiA)
   end
 end
 
-function onplayercreated(event)
-  local player = game.getplayer(event.playerindex)
-  local gui = player.gui
---  buildGUI(player)
-  if gui.left.stGui == nil or gui.center.stGui == nil or gui.top.stButtons == nil then
-    buildGUI(player)
-  end
-end
-
-
 function showTrainInfoWindow(index, trainKey)
   local gui = game.players[index].gui.left.stGui
   if gui["trainSettings__"..trainKey] ~= nil then
@@ -138,6 +128,15 @@ function onguiclick(event)
   end
 end
 
+function onplayercreated(event)
+  local player = game.getplayer(event.playerindex)
+  local gui = player.gui
+--  buildGUI(player)
+  if gui.left.stGui == nil or gui.center.stGui == nil or gui.top.stButtons == nil then
+    buildGUI(player)
+  end
+end
+
 function oninit() initGlob() end
 
 function onload()
@@ -179,19 +178,6 @@ end
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
 
-function onbuiltentity(event)
-  local ent = event.createdentity
-  local ctype = ent.type
-  if ctype == "locomotive" or ctype == "cargo-wagon" then
-    local newTrainInfo = getNewTrainInfo(ent.train)
-    if newTrainInfo ~= nil then
-      removeInvalidTrains()
-      table.insert(glob.trains, newTrainInfo)
-      printGlob()
-    end
-  end
-end
-
 function trainEquals(trainA, trainB)
   if trainA.carriages[1].equals(trainB.carriages[1]) then
     return true
@@ -206,67 +192,6 @@ function getKeyByTrain(tableA, train)
     end
   end
   return false
-end
-
-function onpreplayermineditem(event)
-  local ent = event.entity
-  local ctype = ent.type
-  if ctype == "locomotive" or ctype == "cargo-wagon" then
-    local oldTrain = ent.train
-    local ownPos
-    for i,carriage in ipairs(ent.train.carriages) do
-      if ent.equals(carriage) then
-        ownPos = i
-        break
-      end
-    end
-    removeInvalidTrains()
-    local old = getKeyByTrain(glob.trains, ent.train)
-    if old then table.remove(glob.trains, old) end
-    old = getKeyByTrain(glob.waitingTrains, ent.train)
-    if old then table.remove(glob.waitingTrains, old) end
-
-    if #ent.train.carriages > 1 then
-      if ent.train.carriages[ownPos-1] ~= nil then
-        table.insert(tmpPos, ent.train.carriages[ownPos-1].position)
-      end
-      if ent.train.carriages[ownPos+1] ~= nil then
-        table.insert(tmpPos, ent.train.carriages[ownPos+1].position)
-      end
-    end
-  end
-end
-
-function onplayermineditem(event)
-  local name = event.itemstack.name
-  local results = {}
-  if name == "diesel-locomotive" or name == "cargo-wagon" and #tmpPos > 0 then
-    for i,pos in ipairs(tmpPos) do
-      area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
-      local loco = game.findentitiesfiltered{area=area, type="locomotive"}
-      local wagon = game.findentitiesfiltered{area=area, type="cargo-wagon"}
-      if #loco > 0 then
-        table.insert(results, loco)
-      elseif #wagon > 0 then
-        table.insert(results, wagon)
-      end
-    end
-    for _, result in ipairs(results) do
-      for i, t in ipairs(result) do
-        table.insert(glob.trains, getNewTrainInfo(t.train))
-      end
-    end
-    removeInvalidTrains()
-    printGlob()
-    tmpPos = {}
-  end
-end
-
-function printGlob()
-  debugLog("# "..#glob.trains)
-  for i,t in ipairs(glob.trains) do
-    debugLog("Train "..i..": carriages:"..#t.train.carriages)
-  end
 end
 
 function getNewTrainInfo(train)
@@ -502,6 +427,72 @@ function ontick(event)
     end
 end
 
+
+function onbuiltentity(event)
+  local ent = event.createdentity
+  local ctype = ent.type
+  if ctype == "locomotive" or ctype == "cargo-wagon" then
+    local newTrainInfo = getNewTrainInfo(ent.train)
+    if newTrainInfo ~= nil then
+      removeInvalidTrains()
+      table.insert(glob.trains, newTrainInfo)
+    end
+  end
+end
+
+function onpreplayermineditem(event)
+  local ent = event.entity
+  local ctype = ent.type
+  if ctype == "locomotive" or ctype == "cargo-wagon" then
+    local oldTrain = ent.train
+    local ownPos
+    for i,carriage in ipairs(ent.train.carriages) do
+      if ent.equals(carriage) then
+        ownPos = i
+        break
+      end
+    end
+    removeInvalidTrains()
+    local old = getKeyByTrain(glob.trains, ent.train)
+    if old then table.remove(glob.trains, old) end
+    old = getKeyByTrain(glob.waitingTrains, ent.train)
+    if old then table.remove(glob.waitingTrains, old) end
+
+    if #ent.train.carriages > 1 then
+      if ent.train.carriages[ownPos-1] ~= nil then
+        table.insert(tmpPos, ent.train.carriages[ownPos-1].position)
+      end
+      if ent.train.carriages[ownPos+1] ~= nil then
+        table.insert(tmpPos, ent.train.carriages[ownPos+1].position)
+      end
+    end
+  end
+end
+
+function onplayermineditem(event)
+  local name = event.itemstack.name
+  local results = {}
+  if name == "diesel-locomotive" or name == "cargo-wagon" and #tmpPos > 0 then
+    for i,pos in ipairs(tmpPos) do
+      area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
+      local loco = game.findentitiesfiltered{area=area, type="locomotive"}
+      local wagon = game.findentitiesfiltered{area=area, type="cargo-wagon"}
+      if #loco > 0 then
+        table.insert(results, loco)
+      elseif #wagon > 0 then
+        table.insert(results, wagon)
+      end
+    end
+    for _, result in ipairs(results) do
+      for i, t in ipairs(result) do
+        table.insert(glob.trains, getNewTrainInfo(t.train))
+      end
+    end
+    removeInvalidTrains()
+    tmpPos = {}
+  end
+end
+
 game.onevent(defines.events.ontick, function(event) ontick(event) end)
 game.onevent(defines.events.ontrainchangedstate, function(event) ontrainchangedstate(event) end)
 game.onevent(defines.events.onplayermineditem, function(event) onplayermineditem(event) end)
@@ -510,13 +501,9 @@ game.onevent(defines.events.onbuiltentity, function(event) onbuiltentity(event) 
 game.onevent(defines.events.onguiclick, function(event) onguiclick(event) end)
 game.onevent(defines.events.onplayercreated, function(event) onplayercreated(event) end)
 --[[
-
 local start = nil
-
 local stop = nil
-
 local printed = nil
-
 game.onevent(defines.events.ontick, function(event)
     if game.player.character and game.player.character.vehicle and game.player.character.vehicle.name == "diesel-locomotive" then
       if game.player.character.vehicle.train.locomotives.frontmovers[1].getitemcount("raw-wood") == 2 and start == nil then
@@ -524,13 +511,11 @@ game.onevent(defines.events.ontick, function(event)
         start = game.tick
         game.player.print("start: "..serpent.dump(start))
       end
-
       if stop == nil and game.player.character.vehicle.train.locomotives.frontmovers[1].getitemcount("raw-wood") < 1 then
         --stop = game.player.character.vehicle.train.locomotives.frontmovers[1].position
         stop = game.tick
         game.player.print("stop: "..serpent.dump(stop))
       end
-
       if not printed and game.player.character.vehicle.train.locomotives.frontmovers[1].getitemcount("raw-wood") < 1 then
         game.player.print("start: "..serpent.dump(start))
         game.player.print("end: "..serpent.dump(stop))
@@ -544,8 +529,7 @@ game.onevent(defines.events.ontick, function(event)
         start, stop, printed = nil,nil,nil
       end
     end
-end)
---]]
+end) --]]
 
 function scheduleToString(schedule)
   local tmp = "Schedule: "
@@ -562,6 +546,13 @@ function debugLog(msg, force)
     end
   end
 end
+
+function printToFile(line, path)
+  path = path or "log"
+  path = table.concat({ "st", "/", path, ".txt" })
+  game.makefile( path,  line)
+end
+
 remote.addinterface("st",
   {
     printGlob = function(name)
@@ -599,8 +590,3 @@ remote.addinterface("st",
     end
   }
 )
-function printToFile(line, path)
-  path = path or "log"
-  path = table.concat({ "st", "/", path, ".txt" })
-  game.makefile( path,  line)
-end
