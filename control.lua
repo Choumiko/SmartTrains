@@ -24,14 +24,15 @@ function destroyGui(guiA)
   end
 end
 
-game.onevent(defines.events.onplayercreated, function(event)
+function onplayercreated(event)
   local player = game.getplayer(event.playerindex)
   local gui = player.gui
 --  buildGUI(player)
   if gui.left.stGui == nil or gui.center.stGui == nil or gui.top.stButtons == nil then
     buildGUI(player)
   end
-end)
+end
+
 
 function showTrainInfoWindow(index, trainKey)
   local gui = game.players[index].gui.left.stGui
@@ -98,7 +99,7 @@ function globalSettingsWindow(index)
   end
 end
 
-game.onevent(defines.events.onguiclick, function(event)
+function onguiclick(event)
   local index = type(event.element)=="table" and event.element.playerindex or element
   local player = game.players[index]
   local element = event.element
@@ -135,19 +136,21 @@ game.onevent(defines.events.onguiclick, function(event)
       glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
     end
   end
-end)
+end
 
-game.oninit(function()
-  initGlob()
-end)
+function oninit() initGlob() end
 
-game.onload(function()
+function onload()
   initGlob()
   local rem = removeInvalidTrains()
   if rem > 0 then debugLog("You should never see this! Removed "..rem.." invalid trains") end
-end)
+end
 
 function initGlob()
+  if glob.version == nil or glob.version == "0.0.1" then
+    glob.waitingTrains = nil
+    glob.trains = nil
+  end    
   if glob.waitingTrains == nil then glob.waitingTrains = {} end
   if glob.trains == nil then glob.trains = {} end
   if glob.settings == nil then
@@ -161,44 +164,33 @@ function initGlob()
       glob.guiDone[p.name] = true
     end
   end
-  if glob.version == nil then
+  if glob.version == nil or glob.version == "0.0.1" then
     glob.version = "0.0.2"
     if not glob.settings.depart then glob.settings.depart = {minWait = minWait, interval = 120} end
     for i,t in ipairs(glob.trains) do
       glob.trains[i] = getNewTrainInfo(t)
---      if not t.name then
---        if t.train.locomotives ~= nil and (#t.train.locomotives.frontmovers > 0 or #t.train.locomotives.backmovers > 0) then
---          t.name = t.train.locomotives.frontmovers[1].backername or t.train.locomotives.backmovers[1].backername
---        else
---          t.name = "cargoOnly"
---        end
---      end
---      if not t.settings then t.settings = {autoRefuel = true, autoDepart = true} end
---      if t.settings.refueling then t.settings.refueling = nil end
---      if #t.settings < 2 then
---        if not t.settings.autoRefuel 
---      end
     end
-    for i,t in ipairs(glob.waitingTrains) do
-      if not t.settings then t.settings = {autoRefuel = true, autoDepart = true} end
+    glob.waitingTrains = {}
+--    for i,t in ipairs(glob.waitingTrains) do
+--      if not t.settings then t.settings = {autoRefuel = true, autoDepart = true} end
+--    end
+  end
+end
+game.oninit(function() oninit() end)
+game.onload(function() onload() end)
+
+function onbuiltentity(event)
+  local ent = event.createdentity
+  local ctype = ent.type
+  if ctype == "locomotive" or ctype == "cargo-wagon" then
+    local newTrainInfo = getNewTrainInfo(ent.train)
+    if newTrainInfo ~= nil then
+      removeInvalidTrains()
+      table.insert(glob.trains, newTrainInfo)
+      printGlob()
     end
   end
 end
-
-game.onevent(defines.events.onbuiltentity,
-  function(event)
-    local ent = event.createdentity
-    local ctype = ent.type
-    if ctype == "locomotive" or ctype == "cargo-wagon" then
-      local newTrainInfo = getNewTrainInfo(ent.train)
-      if newTrainInfo ~= nil then
-        removeInvalidTrains()
-        table.insert(glob.trains, newTrainInfo)
-        printGlob()
-      end
-    end
-  end
-)
 
 function trainEquals(trainA, trainB)
   if trainA.carriages[1].equals(trainB.carriages[1]) then
@@ -216,7 +208,7 @@ function getKeyByTrain(tableA, train)
   return false
 end
 
-game.onevent(defines.events.onpreplayermineditem, function(event)
+function onpreplayermineditem(event)
   local ent = event.entity
   local ctype = ent.type
   if ctype == "locomotive" or ctype == "cargo-wagon" then
@@ -243,9 +235,9 @@ game.onevent(defines.events.onpreplayermineditem, function(event)
       end
     end
   end
-end)
+end
 
-game.onevent(defines.events.onplayermineditem, function(event)
+function onplayermineditem(event)
   local name = event.itemstack.name
   local results = {}
   if name == "diesel-locomotive" or name == "cargo-wagon" and #tmpPos > 0 then
@@ -268,7 +260,7 @@ game.onevent(defines.events.onplayermineditem, function(event)
     printGlob()
     tmpPos = {}
   end
-end)
+end
 
 function printGlob()
   debugLog("# "..#glob.trains)
@@ -310,7 +302,7 @@ function removeInvalidTrains()
   return removed
 end
 
-local function inSchedule(station, schedule)
+function inSchedule(station, schedule)
   for i, rec in ipairs(schedule.records) do
     if rec.station == station then
       return true
@@ -319,7 +311,7 @@ local function inSchedule(station, schedule)
   return false
 end
 
-local function removeStation(station, schedule)
+function removeStation(station, schedule)
   local found = false
   local tmp = schedule
   for i, rec in ipairs(schedule.records) do
@@ -333,7 +325,7 @@ local function removeStation(station, schedule)
   return tmp
 end
 
-local function addStation(station, schedule, wait, after)
+function addStation(station, schedule, wait, after)
   local wait = wait or 600
   local count = #schedule.records
   local tmp = {time_to_wait = wait, station = station}
@@ -347,9 +339,10 @@ end
 
 function nextStation(train)
   local schedule = train.schedule
+  local tmp = schedule.current
   if #schedule.records > 0 then
     schedule.records[schedule.current].time_to_wait = 0
-    --debugLog("advance from "..schedule.records[schedule.current].station)
+    --debugLog("advance from "..schedule.records[schedule.current].station,true)
     train.schedule = schedule
   end
 end
@@ -358,7 +351,7 @@ function fuelvalue(item)
   return game.itemprototypes[item].fuelvalue
 end
 
-local function calcFuel(contents)
+function calcFuel(contents)
   local value = 0
   --/c game.player.print(game.player.character.vehicle.train.locomotives.frontmovers[1].energy)
   for i, c in pairs(contents) do
@@ -407,7 +400,7 @@ function getKeyByValue(tableA, value)
   end
 end
 
-game.onevent(defines.events.ontrainchangedstate, function(event)
+function ontrainchangedstate(event)
   local train = event.train
   local trainKey = getKeyByTrain(glob.trains, train)
   if not trainKey then
@@ -465,10 +458,9 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
       end
     end
   end
-end)
+end
 
-game.onevent(defines.events.ontick,
-  function(event)
+function ontick(event)
 --    if glob.guiInit == false then
 --      buildGUI()
 --      glob.guiInit = true
@@ -508,8 +500,15 @@ game.onevent(defines.events.ontick,
         end
       end
     end
-  end
-)
+end
+
+game.onevent(defines.events.ontick, function(event) ontick(event) end)
+game.onevent(defines.events.ontrainchangedstate, function(event) ontrainchangedstate(event) end)
+game.onevent(defines.events.onplayermineditem, function(event) onplayermineditem(event) end)
+game.onevent(defines.events.onpreplayermineditem, function(event) onpreplayermineditem(event) end)
+game.onevent(defines.events.onbuiltentity, function(event) onbuiltentity(event) end)
+game.onevent(defines.events.onguiclick, function(event) onguiclick(event) end)
+game.onevent(defines.events.onplayercreated, function(event) onplayercreated(event) end)
 --[[
 
 local start = nil
@@ -579,9 +578,10 @@ remote.addinterface("st",
       end
     end,
     
-    printG = function()
+    printG = function(name)
+    local name = name or "log"
     if _G then
-      printToFile( serpent.block(_G), "log" )
+      printToFile( serpent.block(_G), name )
     else
       globalPrint("Global not found.")
     end
