@@ -68,7 +68,7 @@ function globalSettingsWindow(index)
   if gui.stGui == nil then
     gui.add({type="flow", name="stGui", direction="vertical"})
     gui.stGui.add({ type="flow", name="stSettings", direction="vertical"})
-    gui.stGui.stSettings.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Refuel settings"})
+    gui.stGui.stSettings.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
     gui.stGui.stSettings.stGlobalSettings.add{type="table", name="tbl", colspan=5}
     local tbl = gui.stGui.stSettings.stGlobalSettings.tbl
   
@@ -82,12 +82,19 @@ function globalSettingsWindow(index)
     tbl.add({type="textfield", name="refuelTime", style="number_textfield_style"})
     tbl.add({type= "label", name="lblRefuelStation", caption="Refuel station:"})
     tbl.add({type= "textfield", name="refuelStation"})
+    tbl.add({type= "label", caption=""})
+    
+    tbl.add({type= "label", caption="Check interval for autodepart (1/s)"})
+    tbl.add({type= "textfield", name="departInterval", style="number_textfield_style"})
+    tbl.add({type= "label", caption=""})
+    tbl.add({type= "label", caption=""})
     tbl.add({type= "button", name="refuelSave", caption="Ok"})
     
     tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin or refuelRangeMin
     tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax or refuelRangeMax
     tbl.refuelStation.text = glob.settings.refuel.station
     tbl.refuelTime.text = glob.settings.refuel.time / 60
+    tbl.departInterval.text = glob.settings.depart.interval / 60
   end
 end
 
@@ -95,7 +102,7 @@ game.onevent(defines.events.onguiclick, function(event)
   local index = type(event.element)=="table" and event.element.playerindex or element
   local player = game.players[index]
   local element = event.element
-  debugLog("index: "..index.." element:"..element.name,true)
+  --debugLog("index: "..index.." element:"..element.name,true)
   if element.name == "toggleSTSettings" then
 --    if player.gui.left.stGui.st_settingsButton == nil then
 --      showTrainInfoWindow(index)
@@ -114,11 +121,9 @@ game.onevent(defines.events.onguiclick, function(event)
     local settings = player.gui.center.stGui.stSettings.stGlobalSettings.tbl
     local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.refuelRangeMax.text), settings.refuelStation.text
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
---    for i,t in ipairs(glob.trains) do
---      if t.settings.refueling.autoRefuel then
---        t.settings.refueling = {autoRefuel = t.settings.refueling.autoRefuel, station=station, range={min=min, max=max}, time=time}
---      end
---    end
+    local interval = tonumber(settings.departInterval.text)*60
+    glob.settings.depart.interval = interval
+
     destroyGui(player.gui.center.stGui)
   else
     local _, _, option1, option2 = event.element.name:find("(%a+)__(%d+)")
@@ -139,7 +144,7 @@ end)
 game.onload(function()
   initGlob()
   local rem = removeInvalidTrains()
-  if rem > 0 then debugLog("You should never see this! Removed "..rem.." invalid trains", true) end
+  if rem > 0 then debugLog("You should never see this! Removed "..rem.." invalid trains") end
 end)
 
 function initGlob()
@@ -157,17 +162,22 @@ function initGlob()
     end
   end
   if glob.version == nil then
-    glob.version = "0.0.1"
+    glob.version = "0.0.2"
+    if not glob.settings.depart then glob.settings.depart = {minWait = minWait, interval = 120} end
     for i,t in ipairs(glob.trains) do
-      if not t.name then
-        if t.train.locomotives ~= nil and (#t.train.locomotives.frontmovers > 0 or #t.train.locomotives.backmovers > 0) then
-          t.name = t.train.locomotives.frontmovers[1].backername or t.train.locomotives.backmovers[1].backername
-        else
-          t.name = "cargoOnly"
-        end
-      end
-      if not t.settings then t.settings = {autoRefuel = true, autoDepart = true} end
-      if t.settings.refueling then t.settings.refueling = nil end
+      glob.trains[i] = getNewTrainInfo(t)
+--      if not t.name then
+--        if t.train.locomotives ~= nil and (#t.train.locomotives.frontmovers > 0 or #t.train.locomotives.backmovers > 0) then
+--          t.name = t.train.locomotives.frontmovers[1].backername or t.train.locomotives.backmovers[1].backername
+--        else
+--          t.name = "cargoOnly"
+--        end
+--      end
+--      if not t.settings then t.settings = {autoRefuel = true, autoDepart = true} end
+--      if t.settings.refueling then t.settings.refueling = nil end
+--      if #t.settings < 2 then
+--        if not t.settings.autoRefuel 
+--      end
     end
     for i,t in ipairs(glob.waitingTrains) do
       if not t.settings then t.settings = {autoRefuel = true, autoDepart = true} end
@@ -465,7 +475,7 @@ game.onevent(defines.events.ontick,
 --    end
     if #glob.waitingTrains > 0 then
       for i,t in ipairs(glob.waitingTrains) do
-        if t.settings.autoDepart and event.tick >= t.tick+minWait then
+        if t.settings.autoDepart and event.tick >= t.tick + glob.settings.depart.interval then
           local cargo = cargoCount(t.train)
           --local data = util.formattime(event.tick).." "..cargo.." r:"..(cargo-t.cargo)/(minWait/60)
           --debugLog(data, true)
@@ -560,6 +570,12 @@ remote.addinterface("st",
         debugLog(serpent.dump(glob[name]), true)
       else
         debugLog(serpent.dump(glob), true)
+      end
+    end,
+    
+    printTrains = function()
+      for i,t in ipairs(glob.trains) do
+        debugLog(i.." name: "..t.name.." carriages:"..#t.train.carriages.." settings:"..serpent.line(t.settings), true)
       end
     end,
     
