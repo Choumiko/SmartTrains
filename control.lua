@@ -15,7 +15,7 @@ function buildGUI(player)
   
   player.gui.left.add({type="flow", name="stGui", direction="vertical"}) 
   local stButtons = player.gui.top.add({type="flow", name="stButtons", direction="horizontal"})
-  stButtons.add({type="button", name="toggleSTSettings", caption = {"text-st-collapsed"}})
+  stButtons.add({type="button", name="toggleSTSettings", caption = {"text-st"}})
 end
 
 function destroyGui(guiA)
@@ -33,26 +33,33 @@ game.onevent(defines.events.onplayercreated, function(event)
   end
 end)
 
-function showTrainInfoWindow(index)
+function showTrainInfoWindow(index, trainKey)
   local gui = game.players[index].gui.left.stGui
-  if gui.trainInfo ~= nil then
-    gui.trainInfo.destroy()
+  if gui["trainSettings__"..trainKey] ~= nil then
+    gui["trainSettings__"..trainKey].destroy()
   end
-  gui = gui.add({type="flow", name="st_settingsButton", direction="vertical"})
-  gui.add({type="flow", name="flowh", direction="horizontal"})
-  gui = gui.add({type="frame", name="frm", direction="vertical"})
-  gui.add({type="flow", name="buttons", direction="horizontal"})
-  gui.buttons.add({type="button", name="st_toggle_Settings", caption = "Settings"})
-  if #glob.trains > 0 then
-    local trainGui = gui.add({type="table", name="tbl", colspan=2})
+--  gui = gui.add({type="flow", name="st_settingsButton", direction="vertical"})
+--  gui.add({type="flow", name="flowh", direction="horizontal"})
+  gui = gui.add({type="frame", name="trainSettings__"..trainKey, direction="vertical"})
+--  gui.add({type="flow", name="buttons", direction="horizontal"})
+--  gui.buttons.add({type="button", name="st_toggle_Settings", caption = "Settings"})
+  --if #glob.trains > 0 then
+  if glob.trains[trainKey].train.valid then
+    local t = glob.trains[trainKey]
+    local trainGui = gui.add({type="table", name="tbl", colspan=3})
+    trainGui.add({type="label", caption="Name"})
+    trainGui.add({type="label", caption=""})        
+    trainGui.add({type="label", caption="Auto-"})
+    
     trainGui.add({type="label", caption=""})
-    --trainGui.add({type="label", caption=""})        
-    trainGui.add({type="label", caption="Autorefuel"})
-    for i,t in ipairs(glob.trains) do
-      trainGui.add({type="label", caption=t.name, name="lbl"..i})
-      --trainGui.add({type="button", name="btn_schedule__"..i, caption=" S "})
-      trainGui.add({type="checkbox", name="btn_refuel__"..i, state=t.settings.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
-    end
+    trainGui.add({type="label", caption="Refuel"})
+    trainGui.add({type="label", caption="Depart"})
+    --for i,t in ipairs(glob.trains) do
+      trainGui.add({type="label", caption=t.name, name="lbl"..trainKey})
+      --trainGui.add({type="button", name="btn_schedule__"..trainKey, caption=" S "})
+      trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
+      trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
+    --end
   end
 end
 
@@ -88,15 +95,16 @@ game.onevent(defines.events.onguiclick, function(event)
   local index = type(event.element)=="table" and event.element.playerindex or element
   local player = game.players[index]
   local element = event.element
+  debugLog("index: "..index.." element:"..element.name,true)
   if element.name == "toggleSTSettings" then
-    if player.gui.left.stGui.st_settingsButton == nil then
-      showTrainInfoWindow(index)
-      event.element.caption = {"text-st"}
-    else
-      destroyGui(player.gui.left.stGui.st_settingsButton)
-      event.element.caption = {"text-st-collapsed"}
-    end
-  elseif element.name == "st_toggle_Settings" then
+--    if player.gui.left.stGui.st_settingsButton == nil then
+--      showTrainInfoWindow(index)
+--      event.element.caption = {"text-st"}
+--    else
+--      destroyGui(player.gui.left.stGui.st_settingsButton)
+--      event.element.caption = {"text-st-collapsed"}
+--    end
+  --elseif element.name == "st_toggle_Settings" then
     if player.gui.center.stGui == nil then
       globalSettingsWindow(index)
     else
@@ -118,6 +126,8 @@ game.onevent(defines.events.onguiclick, function(event)
     option2 = tonumber(option2)
     if option1 == "refuel" then
       glob.trains[option2].settings.autoRefuel = not glob.trains[option2].settings.autoRefuel
+    elseif option1 == "depart" then
+      glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
     end
   end
 end)
@@ -156,11 +166,11 @@ function initGlob()
           t.name = "cargoOnly"
         end
       end
-      if not t.settings then t.settings = {autoRefuel = true} end
+      if not t.settings then t.settings = {autoRefuel = true, autoDepart = true} end
       if t.settings.refueling then t.settings.refueling = nil end
     end
     for i,t in ipairs(glob.waitingTrains) do
-      if not t.settings then t.settings = {autoRefuel = true} end
+      if not t.settings then t.settings = {autoRefuel = true, autoDepart = true} end
     end
   end
 end
@@ -268,7 +278,7 @@ function getNewTrainInfo(train)
       else
         newTrainInfo.name = "cargoOnly"
       end
-      newTrainInfo.settings = {autoRefuel = true}
+      newTrainInfo.settings = {autoRefuel = true, autoDepart = true}
       return newTrainInfo
     end
   end
@@ -368,9 +378,11 @@ function cargoCount(train)
       if wagon.name ~= "rail-tanker" then
         sum = sum + wagon.getitemcount()
       else
-        local d = remote.call("railtanker", "getLiquidByWagon", wagon)
+        if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+          local d = remote.call("railtanker", "getLiquidByWagon", wagon)
         --debugLog(serpent.dump(d),true)
-        sum = sum + d.amount
+          sum = sum + d.amount
+        end
       end
     end
   end
@@ -405,17 +417,17 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
         end
       end
     end
-    if schedule.records[schedule.current].station ~= glob.settings.refuel.station then
-      local tanker = false
-      -- for _, wagon in ipairs(train.carriages) do
-      -- if wagon.name == "rail-tanker" then
-      -- tanker = true
-      -- break
-      -- end
-      -- end
-      if not tanker then
+    if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
+--      local tanker = false
+--      -- for _, wagon in ipairs(train.carriages) do
+--      -- if wagon.name == "rail-tanker" then
+--      -- tanker = true
+--      -- break
+--      -- end
+--      -- end
+--      if not tanker then
         table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), tick = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, settings=settings})
-      end
+--      end
     end
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
     if settings.autoRefuel then
@@ -426,7 +438,7 @@ game.onevent(defines.events.ontrainchangedstate, function(event)
     end
   end
 
-  if #glob.waitingTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
+  if settings.autoDepart and #glob.waitingTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
     local found = getKeyByTrain(glob.waitingTrains, train)
     if found then
       local settings = glob.waitingTrains[found].settings
@@ -453,7 +465,7 @@ game.onevent(defines.events.ontick,
 --    end
     if #glob.waitingTrains > 0 then
       for i,t in ipairs(glob.waitingTrains) do
-        if event.tick >= t.tick+minWait then
+        if t.settings.autoDepart and event.tick >= t.tick+minWait then
           local cargo = cargoCount(t.train)
           --local data = util.formattime(event.tick).." "..cargo.." r:"..(cargo-t.cargo)/(minWait/60)
           --debugLog(data, true)
@@ -464,6 +476,25 @@ game.onevent(defines.events.ontick,
             t.tick = event.tick
           end
           t.cargo = cargo
+        elseif not t.settings.autoDepart then
+          table.remove(glob.waitingTrains, i)
+        end
+      end
+    end
+    if event.tick%10==9  then
+      for pi, player in ipairs(game.players) do
+        if player.opened ~= nil and player.opened.valid and player.opened.type == "locomotive" and player.opened.train ~= nil then
+          local key = getKeyByTrain(glob.trains, player.opened.train)
+          if not key then
+            table.insert(glob.trains, getNewTrainInfo(player.opened.train))
+            key = getKeyByTrain(glob.trains, player.opened.train)
+          elseif player.gui.left.stGui["trainSettings__"..key] == nil then
+            showTrainInfoWindow(pi, key) 
+          end
+        elseif player.opened == nil then --and glob.opened[pi] ~= nil then
+          for n, name in ipairs(player.gui.left.stGui.childrennames) do
+            destroyGui(player.gui.left.stGui[name])
+          end
         end
       end
     end
