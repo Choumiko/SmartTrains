@@ -1,11 +1,13 @@
 require "defines"
 require "util"
 
-local refuelStation = "Refuel" -- name of the refueling station
-local refuelRangeMin = 25 -- in coal, add refuelStation to schedule when below min, remove refuelStation when above max
-local refuelRangeMax = 50
-local refuelTime = 300 -- 1s = 60
-local minWait = 120 -- 1s = 60
+-- range in coal, add refuelStation to schedule when below min, remove refuelStation when above max
+-- times in ticks (60/s)
+local defaultSettings =
+  { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
+    depart={minWait = 120, interval = 120}}
+
+local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local tmpPos = {}
 
 function buildGUI(player)
@@ -136,10 +138,7 @@ function initGlob()
   end
   if glob.waitingTrains == nil then glob.waitingTrains = {} end
   if glob.trains == nil then glob.trains = {} end
-  if glob.settings == nil then
-    glob.settings = {refuel={}}
-    glob.settings.refuel = {station = refuelStation, rangeMin = refuelRangeMin, rangeMax = refuelRangeMax, time = refuelTime}
-  end
+  if glob.settings == nil then glob.settings = defaultSettings end
   if glob.guiDone == nil then glob.guiDone = {} end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
@@ -149,7 +148,7 @@ function initGlob()
   end
   if glob.version == nil or glob.version == "0.0.1" then
     glob.version = "0.0.2"
-    if not glob.settings.depart then glob.settings.depart = {minWait = minWait, interval = 120} end
+    if not glob.settings.depart then glob.settings.depart = defaultSettings.depart end
     for i,t in ipairs(glob.trains) do
       glob.trains[i] = getNewTrainInfo(t)
     end
@@ -186,7 +185,7 @@ function getNewTrainInfo(train)
       else
         newTrainInfo.name = "cargoOnly"
       end
-      newTrainInfo.settings = {autoRefuel = true, autoDepart = true}
+      newTrainInfo.settings = defaultTrainSettings
       return newTrainInfo
     end
   end
@@ -326,7 +325,7 @@ function ontrainchangedstate(event)
       end
     end
     if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
-      table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), tick = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, settings=settings})
+      table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, settings=settings})
     end
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
     if settings.autoRefuel then
@@ -358,17 +357,19 @@ end
 function ontick(event)
   if #glob.waitingTrains > 0 then
     for i,t in ipairs(glob.waitingTrains) do
-      if t.settings.autoDepart and event.tick >= t.tick + glob.settings.depart.interval then
+      local wait = t.arrived and t.arrived + glob.settings.depart.minWait or t.lastCheck + glob.settings.depart.interval
+      if t.settings.autoDepart and event.tick >= wait then
         local cargo = cargoCount(t.train)
-        --local data = util.formattime(event.tick).." "..cargo.." r:"..(cargo-t.cargo)/(minWait/60)
-        --debugLog(data, true)
+        local data = util.formattime(event.tick).." "..cargo
+        debugLog(data, true)
         if cargo == t.cargo then
           nextStation(t.train)
+          t.arrived = false
         else
-          --debugLog(t.train.schedule.records[t.train.schedule.current].station..": "..(math.abs(cargo-t.cargo)/(minWait/60)).."items/s",true)
-          t.tick = event.tick
+          t.lastCheck = event.tick
+          t.cargo = cargo
+          t.arrived = false
         end
-        t.cargo = cargo
       elseif not t.settings.autoDepart then
         table.remove(glob.waitingTrains, i)
       end
@@ -440,7 +441,7 @@ function onplayermineditem(event)
   local results = {}
   if name == "diesel-locomotive" or name == "cargo-wagon" and #tmpPos > 0 then
     for i,pos in ipairs(tmpPos) do
-      area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
+      local area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
       local loco = game.findentitiesfiltered{area=area, type="locomotive"}
       local wagon = game.findentitiesfiltered{area=area, type="cargo-wagon"}
       if #loco > 0 then
