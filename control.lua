@@ -64,23 +64,24 @@ function globalSettingsWindow(index)
     tbl.add({type= "textfield", name="refuelRangeMax", style="number_textfield_style"})
     tbl.add({type= "label", name="lblRangeEnd", caption="coal"})
 
-    tbl.add({type= "label", name="lblRefuelTime", caption="Refuel time(1/s):"})
+    tbl.add({type= "label", name="lblRefuelTime", caption="Refuel time:"})
     tbl.add({type="textfield", name="refuelTime", style="number_textfield_style"})
     tbl.add({type= "label", name="lblRefuelStation", caption="Refuel station:"})
     tbl.add({type= "textfield", name="refuelStation"})
     tbl.add({type= "label", caption=""})
 
-    tbl.add({type= "label", caption="Check interval for autodepart (1/s)"})
+    tbl.add({type= "label", caption="Minimum waiting time"})
+    tbl.add({type= "textfield", name="minWait", style="number_textfield_style"})
+    tbl.add({type= "label", caption="Check interval for autodepart"})
     tbl.add({type= "textfield", name="departInterval", style="number_textfield_style"})
-    tbl.add({type= "label", caption=""})
-    tbl.add({type= "label", caption=""})
     tbl.add({type= "button", name="refuelSave", caption="Ok"})
 
-    tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin or refuelRangeMin
-    tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax or refuelRangeMax
+    tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
+    tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax
     tbl.refuelStation.text = glob.settings.refuel.station
     tbl.refuelTime.text = glob.settings.refuel.time / 60
     tbl.departInterval.text = glob.settings.depart.interval / 60
+    tbl.minWait.text = glob.settings.depart.minWait / 60
   end
 end
 
@@ -99,8 +100,8 @@ function onguiclick(event)
     local settings = player.gui.center.stGui.stSettings.stGlobalSettings.tbl
     local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.refuelRangeMax.text), settings.refuelStation.text
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
-    local interval = tonumber(settings.departInterval.text)*60
-    glob.settings.depart.interval = interval
+    local interval, minWait = tonumber(settings.departInterval.text)*60, tonumber(settings.minWait.text)*60
+    glob.settings.depart = {interval = interval, minWait = minWait}
 
     destroyGui(player.gui.center.stGui)
   else
@@ -127,6 +128,7 @@ function oninit() initGlob() end
 
 function onload()
   initGlob()
+  --debugLog(util.formattime(game.tick).." onload",true)
   local rem = removeInvalidTrains()
   if rem > 0 then debugLog("You should never see this! Removed "..rem.." invalid trains") end
 end
@@ -135,6 +137,13 @@ function initGlob()
   if glob.version == nil or glob.version == "0.0.1" then
     glob.waitingTrains = nil
     glob.trains = nil
+  end
+  if glob.version == "0.0.2" then
+    for i,t in ipairs(glob.waitingTrains) do
+      t.arrived = t.tick
+      t.station = t.train.schedule.current
+    end
+    glob.waitingTrains = {}
   end
   if glob.waitingTrains == nil then glob.waitingTrains = {} end
   if glob.trains == nil then glob.trains = {} end
@@ -147,13 +156,13 @@ function initGlob()
     end
   end
   if glob.version == nil or glob.version == "0.0.1" then
-    glob.version = "0.0.2"
     if not glob.settings.depart then glob.settings.depart = defaultSettings.depart end
     for i,t in ipairs(glob.trains) do
       glob.trains[i] = getNewTrainInfo(t)
     end
     glob.waitingTrains = {}
   end
+  glob.version = "0.0.3"
 end
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
@@ -244,7 +253,6 @@ end
 
 function nextStation(train)
   local schedule = train.schedule
-  local tmp = schedule.current
   if #schedule.records > 0 then
     schedule.records[schedule.current].time_to_wait = 0
     train.schedule = schedule
@@ -279,21 +287,41 @@ function lowestFuel(train)
 end
 
 function cargoCount(train)
-  local sum = 0
-  for _, wagon in ipairs(train.carriages) do
+  local sum = {}
+  for i, wagon in ipairs(train.carriages) do
     if wagon.type == "cargo-wagon" then
       if wagon.name ~= "rail-tanker" then
-        sum = sum + wagon.getitemcount()
+        --sum = sum + wagon.getcontents()
+        sum = addInventoryContents(sum, wagon.getinventory(1).getcontents())
       else
         if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
           local d = remote.call("railtanker", "getLiquidByWagon", wagon)
           --debugLog(serpent.dump(d),true)
-          sum = sum + d.amount
+          if d.type ~= nil then
+            sum[d.type] = sum[d.type] or 0
+            sum[d.type] = sum[d.type] + d.amount
+          end
         end
       end
     end
   end
+  --debugLog(serpent.dump(sum),true)
   return sum
+end
+
+function addInventoryContents(invA, invB)
+  local res = {}
+  for item, c in pairs(invA) do
+    invB[item] = invB[item] or 0
+    res[item] = c + invB[item]
+    invB[item] = nil
+    if res[item] == 0 then res[item] = nil end
+  end
+  for item,c in pairs(invB) do
+    res[item] = c
+    if res[item] == 0 then res[item] = nil end
+  end
+  return res
 end
 
 function getKeyByValue(tableA, value)
@@ -315,7 +343,8 @@ function ontrainchangedstate(event)
   local settings = glob.trains[trainKey].settings
   local fuel = lowestFuel(train)
   local schedule = train.schedule
-  --debugLog(getKeyByValue(defines.trainstate, train.state))
+  --debugLog(getKeyByValue(defines.trainstate, train.state), true)
+
   if train.state == defines.trainstate["waitstation"] then
     if settings.autoRefuel then
       if fuel >= (glob.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
@@ -325,8 +354,11 @@ function ontrainchangedstate(event)
       end
     end
     if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
-      table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, settings=settings})
+      table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, station = train.schedule.current, settings=settings})
+      --debugLog(util.formattime(event.tick).." arrived Station:"..train.schedule.current.." "..train.schedule.records[train.schedule.current].station,true)
     end
+  elseif train.state == defines.trainstate["arrivestation"] and schedule.records[schedule.current].station ~= glob.settings.refuel.station and settings.autoDepart then
+    --insert waiting      
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
     if settings.autoRefuel then
       if fuel < (glob.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(glob.settings.refuel.station, schedule) then
@@ -338,13 +370,16 @@ function ontrainchangedstate(event)
   if settings.autoDepart and #glob.waitingTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
     local found = getKeyByTrain(glob.waitingTrains, train)
     if found then
-      local settings = glob.waitingTrains[found].settings
       if train.state == defines.trainstate["onthepath"] then
+--        local settings = glob.waitingTrains[found].settings
+        local t = glob.waitingTrains[found]
+        local station, time = t.station, t.wait
         local schedule = train.schedule
-        local prev = schedule.current - 1
-        if prev == 0 then prev = #schedule.records end
-        if schedule.records[prev].station == glob.settings.refuel.station then prev = prev-1 end
-        schedule.records[prev].time_to_wait = glob.waitingTrains[found].wait
+--        local prev = schedule.current - 1
+--        if prev == 0 then prev = #schedule.records end
+--        if schedule.records[prev].station == glob.settings.refuel.station then prev = prev-1 end
+--        schedule.records[prev].time_to_wait = glob.waitingTrains[found].wait
+        schedule.records[station].time_to_wait = time
         train.schedule = schedule
         table.remove(glob.waitingTrains, found)
       elseif train.state == defines.trainstate["manualcontrol"] then
@@ -354,15 +389,40 @@ function ontrainchangedstate(event)
   end
 end
 
+--function tableCompare( tbl1, tbl2 )
+--    for k, v in pairs( tbl1 ) do
+--        if  type(v) == "table" and type(tbl2[k]) == "table" then
+--            if not table.compare( v, tbl2[k] )  then return false end
+--        else
+--            if ( v ~= tbl2[k] ) then return false end
+--            --if not equalOrNilAnd0(v, tbl2[k]) then return false end
+--        end
+--    end
+--    for k, v in pairs( tbl2 ) do
+--        if type(v) == "table" and type(tbl1[k]) == "table" then
+--            if not table.compare( v, tbl1[k] ) then return false end
+--        else 
+--            if v ~= tbl1[k] then return false end
+--            --if not equalOrNilAnd0(v, tbl2[k]) then return false end
+--        end
+--    end
+--    return true
+--end
+--function equalOrNilAnd0(v1, v2)
+--  return v1 == v2 or (v1 == nil and v2 == 0) or (v1 == 0 and v2 == nil)
+--end
+
 function ontick(event)
   if #glob.waitingTrains > 0 then
     for i,t in ipairs(glob.waitingTrains) do
-      local wait = t.arrived and t.arrived + glob.settings.depart.minWait or t.lastCheck + glob.settings.depart.interval
+      local wait = (type(t.arrived) == "number") and t.arrived + glob.settings.depart.minWait or t.lastCheck + glob.settings.depart.interval
       if t.settings.autoDepart and event.tick >= wait then
         local cargo = cargoCount(t.train)
-        local data = util.formattime(event.tick).." "..cargo
-        debugLog(data, true)
-        if cargo == t.cargo then
+        --local data = util.formattime(event.tick).." "..table.concat(table.pack(table.unpack(cargo)), " ")
+        --debugLog(serpent.dump({cargo, t.cargo}), true)
+        --debugLog(serpent.dump(tableCompare(cargo, t.cargo)),true)
+        --debugLog(data, true)
+        if table.compare(cargo, t.cargo) then
           nextStation(t.train)
           t.arrived = false
         else
@@ -531,29 +591,12 @@ remote.addinterface("st",
       end
     end,
 
-    printTrains = function()
-      for i,t in ipairs(glob.trains) do
-        debugLog(i.." name: "..t.name.." carriages:"..#t.train.carriages.." settings:"..serpent.line(t.settings), true)
-      end
-    end,
-
     printG = function(name)
       local name = name or "log"
       if _G then
         printToFile( serpent.block(_G), name )
       else
         globalPrint("Global not found.")
-      end
-    end,
-
-    resetWaiting = function()
-      glob.waitingTrains = {}
-    end,
-    resetGui = function()
-      for i, player in pairs(game.players) do
-        if player.gui.center.stGui ~= nil then
-          player.gui.center.stGui.destroy()
-        end
       end
     end
   }
