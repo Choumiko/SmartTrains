@@ -9,16 +9,16 @@ local defaultSettings =
 
 local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local tmpPos = {}
-MOD = {version="0.0.3"}
+MOD = {version="0.1.0"}
 
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
-  destroyGui(player.gui.center.stGui)
-  destroyGui(player.gui.top.stButtons)
+  --destroyGui(player.gui.center.stGui)
+  --destroyGui(player.gui.top.stButtons)
 
-  player.gui.left.add({type="flow", name="stGui", direction="vertical"})
-  local stButtons = player.gui.top.add({type="flow", name="stButtons", direction="horizontal"})
-  stButtons.add({type="button", name="toggleSTSettings", caption = {"text-st"}})
+  local stGui = player.gui.left.add({type="flow", name="stGui", direction="vertical"})
+  stGui.add({type="flow", name="stButtons", direction="horizontal"})
+  stGui.add({type="flow", name="stSettings", direction="vertical"})
 end
 
 function destroyGui(guiA)
@@ -27,12 +27,20 @@ function destroyGui(guiA)
   end
 end
 
+function showSettingsButton(index)
+  local gui = game.players[index].gui.left.stGui.stButtons
+  if gui.toggleSTSettings ~= nil then
+    gui.toggleSTSettings.destroy()
+  end
+  gui.add({type="button", name="toggleSTSettings", caption = {"text-st"}})
+end
+
 function showTrainInfoWindow(index, trainKey)
   local gui = game.players[index].gui.left.stGui
-  if gui["trainSettings__"..trainKey] ~= nil then
-    gui["trainSettings__"..trainKey].destroy()
+  if gui.trainSettings ~= nil then
+    gui.trainSettings.destroy()
   end
-  gui = gui.add({type="frame", name="trainSettings__"..trainKey, direction="vertical"})
+  gui = gui.add({type="frame", name="trainSettings", direction="vertical"})
   if glob.trains[trainKey].train.valid then
     local t = glob.trains[trainKey]
     local trainGui = gui.add({type="table", name="tbl", colspan=3})
@@ -51,13 +59,11 @@ function showTrainInfoWindow(index, trainKey)
 end
 
 function globalSettingsWindow(index)
-  local gui = game.players[index].gui.center
-  if gui.stGui == nil then
-    gui.add({type="flow", name="stGui", direction="vertical"})
-    gui.stGui.add({ type="flow", name="stSettings", direction="vertical"})
-    gui.stGui.stSettings.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
-    gui.stGui.stSettings.stGlobalSettings.add{type="table", name="tbl", colspan=5}
-    local tbl = gui.stGui.stSettings.stGlobalSettings.tbl
+  local gui = game.players[index].gui.left.stGui.stSettings
+  if gui.stGlobalSettings == nil then
+    gui.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
+    gui.stGlobalSettings.add{type="table", name="tbl", colspan=5}
+    local tbl = gui.stGlobalSettings.tbl
 
     tbl.add({type= "label", name="lblRangeMin", caption="Refuel below"})
     tbl.add({type= "textfield",name="refuelRangeMin", style="number_textfield_style"})
@@ -77,6 +83,8 @@ function globalSettingsWindow(index)
     tbl.add({type= "textfield", name="departInterval", style="number_textfield_style"})
     tbl.add({type= "button", name="refuelSave", caption="Ok"})
 
+    tbl.add({type="label", name="lblTrackedTrains", caption = "Tracked trains: "..#glob.trains})
+    
     tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
     tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax
     tbl.refuelStation.text = glob.settings.refuel.station
@@ -92,19 +100,19 @@ function onguiclick(event)
   local element = event.element
   --debugLog("index: "..index.." element:"..element.name,true)
   if element.name == "toggleSTSettings" then
-    if player.gui.center.stGui == nil then
+    if player.gui.left.stGui.stSettings.stGlobalSettings == nil then
       globalSettingsWindow(index)
     else
-      destroyGui(player.gui.center.stGui)
+      player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
     end
   elseif element.name == "refuelSave" then
-    local settings = player.gui.center.stGui.stSettings.stGlobalSettings.tbl
+    local settings = player.gui.left.stGui.stSettings.stGlobalSettings.tbl
     local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.refuelRangeMax.text), settings.refuelStation.text
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
     local interval, minWait = tonumber(settings.departInterval.text)*60, tonumber(settings.minWait.text)*60
     glob.settings.depart = {interval = interval, minWait = minWait}
 
-    destroyGui(player.gui.center.stGui)
+    player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
   else
     local _, _, option1, option2 = event.element.name:find("(%a+)__(%d+)")
     --debugLog("o1: "..option1.." o2: "..option2,true)
@@ -120,7 +128,7 @@ end
 function onplayercreated(event)
   local player = game.getplayer(event.playerindex)
   local gui = player.gui
-  if gui.left.stGui == nil or gui.center.stGui == nil or gui.top.stButtons == nil then
+  if gui.left.stGui == nil then
     buildGUI(player)
   end
 end
@@ -129,30 +137,29 @@ function oninit() initGlob() end
 
 function onload()
   initGlob()
-  --debugLog(util.formattime(game.tick).." onload",true)
-  local rem = removeInvalidTrains()
-  if rem > 0 then debugLog("You should never see this! Removed "..rem.." invalid trains") end
+  --printToFile(util.formattime(game.tick).." onload", "onload")
+  local rem, remWaiting = removeInvalidTrains()
+  if rem > 0 or remWaiting > 0 then debugLog("You should never see this! Removed "..rem.." invalid trains and "..remWaiting.." waiting trains") end
 end
 
 function initGlob()
+  if glob.version == nil or glob.version ~= MOD.version then
+    glob.trains = nil
+    glob.waitingTrains = nil
+    glob.settings = nil
+    glob.guiDone = nil
+  end
   if glob.waitingTrains == nil then glob.waitingTrains = {} end
   if glob.trains == nil then glob.trains = {} end
   if glob.settings == nil then glob.settings = defaultSettings end
-  if glob.version ~= nil and glob.version ~= MOD.version then
-    if not glob.settings.depart then glob.settings.depart = defaultSettings.depart end
-    for i,t in ipairs(glob.trains) do
-      glob.trains[i] = getNewTrainInfo(t)
-    end
-    for i,t in ipairs(glob.waitingTrains) do
-      t.arrived = t.tick or game.tick
-      t.station = t.train.schedule.current
-      if type(t.cargo) ~= "table" then
-        t.cargo = cargoCount(t.train)
-      end
-    end    
-  end
+
   if glob.guiDone == nil then glob.guiDone = {} end
   for i,p in ipairs(game.players) do
+if glob.version == nil or glob.version ~= MOD.version then
+  destroyGui(p.gui.left.stGui)
+  destroyGui(p.gui.center.stGui)
+  destroyGui(p.gui.top.stButtons)
+end  
     if not glob.guiDone[p.name] then
       buildGUI(p)
       glob.guiDone[p.name] = true
@@ -198,6 +205,7 @@ end
 
 function removeInvalidTrains()
   local removed = 0
+  local remWaiting = 0
   for i,t in ipairs(glob.trains) do
     if not t.train.valid then
       table.remove(glob.trains, i)
@@ -205,11 +213,12 @@ function removeInvalidTrains()
     end
   end
   for i,t in ipairs(glob.waitingTrains) do
-    if not t.train.valid then
+    if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
       table.remove(glob.waitingTrains, i)
+      remWaiting = remWaiting + 1
     end
   end
-  return removed
+  return removed, remWaiting
 end
 
 function inSchedule(station, schedule)
@@ -420,11 +429,12 @@ function ontick(event)
         --debugLog(data, true)
         if table.compare(cargo, t.cargo) then
           nextStation(t.train)
+          t.lastCheck = false
           t.arrived = false
         else
           t.lastCheck = event.tick
+          t.arrived = false          
           t.cargo = cargo
-          t.arrived = false
         end
       elseif not t.settings.autoDepart then
         table.remove(glob.waitingTrains, i)
@@ -433,23 +443,27 @@ function ontick(event)
   end
   if event.tick%10==9  then
     for pi, player in ipairs(game.players) do
-      if player.opened ~= nil and player.opened.valid and player.opened.type == "locomotive" and player.opened.train ~= nil then
-        local key = getKeyByTrain(glob.trains, player.opened.train)
-        if not key then
-          table.insert(glob.trains, getNewTrainInfo(player.opened.train))
-          key = getKeyByTrain(glob.trains, player.opened.train)
-        elseif player.gui.left.stGui["trainSettings__"..key] == nil then
-          showTrainInfoWindow(pi, key)
-        end
+      if player.opened ~= nil and player.opened.valid then
+        if player.opened.type == "locomotive" and player.opened.train ~= nil then
+          local key = getKeyByTrain(glob.trains, player.opened.train)
+          if not key then
+            table.insert(glob.trains, getNewTrainInfo(player.opened.train))
+            key = getKeyByTrain(glob.trains, player.opened.train)
+          elseif player.gui.left.stGui.trainSettings == nil then
+            showTrainInfoWindow(pi, key)
+            showSettingsButton(pi)
+          end
+        elseif player.opened.type == "train-stop" and player.gui.left.stGui.stButtons.toggleSTSettings == nil then
+          showSettingsButton(pi)
+        end 
       elseif player.opened == nil then --and glob.opened[pi] ~= nil then
-        for n, name in ipairs(player.gui.left.stGui.childrennames) do
-          destroyGui(player.gui.left.stGui[name])
-      end
+            destroyGui(player.gui.left.stGui.stButtons.toggleSTSettings)
+            destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
+            destroyGui(player.gui.left.stGui.trainSettings)
       end
     end
   end
 end
-
 
 function onbuiltentity(event)
   local ent = event.createdentity
@@ -574,6 +588,7 @@ end
 function printToFile(line, path)
   path = path or "log"
   path = table.concat({ "st", "/", path, ".txt" })
+  debugLog(line, true)
   game.makefile( path,  line)
 end
 
@@ -594,6 +609,11 @@ remote.addinterface("st",
       else
         globalPrint("Global not found.")
       end
+    end,
+    
+    resetTrains = function()
+      glob.trains = {}
+      glob.waitingTrains = {}
     end
   }
 )
