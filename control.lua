@@ -5,7 +5,7 @@ require "util"
 -- times in ticks (60/s)
 local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
-    depart={minWait = 120, interval = 120}}
+    depart={minWait = 240, interval = 120}}
 
 local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local tmpPos = {}
@@ -155,11 +155,11 @@ function initGlob()
 
   if glob.guiDone == nil then glob.guiDone = {} end
   for i,p in ipairs(game.players) do
-if glob.version == nil or glob.version ~= MOD.version then
-  destroyGui(p.gui.left.stGui)
-  destroyGui(p.gui.center.stGui)
-  destroyGui(p.gui.top.stButtons)
-end  
+    if glob.version == nil or glob.version ~= MOD.version then
+      destroyGui(p.gui.left.stGui)
+      destroyGui(p.gui.center.stGui)
+      destroyGui(p.gui.top.stButtons)
+    end  
     if not glob.guiDone[p.name] then
       buildGUI(p)
       glob.guiDone[p.name] = true
