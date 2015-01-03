@@ -9,6 +9,7 @@ local defaultSettings =
 
 local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local tmpPos = {}
+MOD = {version="0.0.3"}
 
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
@@ -134,20 +135,22 @@ function onload()
 end
 
 function initGlob()
-  if glob.version == nil or glob.version == "0.0.1" then
-    glob.waitingTrains = nil
-    glob.trains = nil
-  end
-  if glob.version == "0.0.2" then
-    for i,t in ipairs(glob.waitingTrains) do
-      t.arrived = t.tick
-      t.station = t.train.schedule.current
-    end
-    glob.waitingTrains = {}
-  end
   if glob.waitingTrains == nil then glob.waitingTrains = {} end
   if glob.trains == nil then glob.trains = {} end
   if glob.settings == nil then glob.settings = defaultSettings end
+  if glob.version ~= nil and glob.version ~= MOD.version then
+    if not glob.settings.depart then glob.settings.depart = defaultSettings.depart end
+    for i,t in ipairs(glob.trains) do
+      glob.trains[i] = getNewTrainInfo(t)
+    end
+    for i,t in ipairs(glob.waitingTrains) do
+      t.arrived = t.tick or game.tick
+      t.station = t.train.schedule.current
+      if type(t.cargo) ~= "table" then
+        t.cargo = cargoCount(t.train)
+      end
+    end    
+  end
   if glob.guiDone == nil then glob.guiDone = {} end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
@@ -155,14 +158,7 @@ function initGlob()
       glob.guiDone[p.name] = true
     end
   end
-  if glob.version == nil or glob.version == "0.0.1" then
-    if not glob.settings.depart then glob.settings.depart = defaultSettings.depart end
-    for i,t in ipairs(glob.trains) do
-      glob.trains[i] = getNewTrainInfo(t)
-    end
-    glob.waitingTrains = {}
-  end
-  glob.version = "0.0.3"
+  glob.version = MOD.version
 end
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
