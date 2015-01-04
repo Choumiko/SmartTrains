@@ -32,7 +32,7 @@ function showSettingsButton(index)
   if gui.toggleSTSettings ~= nil then
     gui.toggleSTSettings.destroy()
   end
-  gui.add({type="button", name="toggleSTSettings", caption = {"text-st"}})
+  gui.add({type="button", name="toggleSTSettings", caption = "ST-Settings", style="st_button"})
 end
 
 function showTrainInfoWindow(index, trainKey)
@@ -44,15 +44,15 @@ function showTrainInfoWindow(index, trainKey)
   if glob.trains[trainKey].train.valid then
     local t = glob.trains[trainKey]
     local trainGui = gui.add({type="table", name="tbl", colspan=3})
-    trainGui.add({type="label", caption="Name"})
+    trainGui.add({type="label", caption="Name", style="st_label"})
     trainGui.add({type="label", caption=""})
-    trainGui.add({type="label", caption="Auto-"})
+    trainGui.add({type="label", caption="Auto-", style="st_label"})
 
     trainGui.add({type="label", caption=""})
-    trainGui.add({type="label", caption="Refuel"})
-    trainGui.add({type="label", caption="Depart"})
+    trainGui.add({type="label", caption="Refuel", style="st_label"})
+    trainGui.add({type="label", caption="Depart", style="st_label"})
 
-    trainGui.add({type="label", caption=t.name, name="lbl"..trainKey})
+    trainGui.add({type="label", caption=t.name, name="lbl"..trainKey, style="st_label"})
     trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
     trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
   end
@@ -65,28 +65,30 @@ function globalSettingsWindow(index)
     gui.stGlobalSettings.add{type="table", name="tbl", colspan=5}
     local tbl = gui.stGlobalSettings.tbl
 
-    tbl.add({type= "label", name="lblRangeMin", caption="Refuel below"})
-    tbl.add({type= "textfield",name="refuelRangeMin", style="number_textfield_style"})
-    tbl.add({type= "label", name="lblRangeMax", caption="coal, remove Station above"})
-    tbl.add({type= "textfield", name="refuelRangeMax", style="number_textfield_style"})
-    tbl.add({type= "label", name="lblRangeEnd", caption="coal"})
-
-    tbl.add({type= "label", name="lblRefuelTime", caption="Refuel time:"})
-    tbl.add({type="textfield", name="refuelTime", style="number_textfield_style"})
-    tbl.add({type= "label", name="lblRefuelStation", caption="Refuel station:"})
-    tbl.add({type= "textfield", name="refuelStation"})
+    tbl.add({type= "label", name="lblRangeMin", caption="Add Refuel station below", style="st_label"})
+    tbl.add({type= "textfield",name="refuelRangeMin", style="st_textfield_small"})
+    tbl.add({type= "label", name="lblRangeMax", caption="coal, remove above", style="st_label"})
+    local r = tbl.add({type="flow", name="row1", direction="horizontal"})
+    r.add({type= "textfield", name="refuelRangeMax", style="st_textfield_small"})
+    r.add({type= "label", name="lblRangeEnd", caption="coal", style="st_label"})
     tbl.add({type= "label", caption=""})
 
-    tbl.add({type= "label", caption="Minimum waiting time"})
-    tbl.add({type= "textfield", name="minWait", style="number_textfield_style"})
-    tbl.add({type= "label", caption="Check interval for autodepart"})
-    tbl.add({type= "textfield", name="departInterval", style="number_textfield_style"})
-    tbl.add({type= "button", name="refuelSave", caption="Ok"})
+    tbl.add({type= "label", name="lblRefuelTime", caption="Refuel time:", style="st_label"})
+    tbl.add({type="textfield", name="refuelTime", style="st_textfield_small"})
+    tbl.add({type= "label", name="lblRefuelStation", caption="Refuel station:", style="st_label"})
+    tbl.add({type= "textfield", name="refuelStation", style="st_textfield"})
+    tbl.add({type= "label", caption=""})
 
-    tbl.add({type="label", name="lblTrackedTrains", caption = "Tracked trains: "..#glob.trains})
+    tbl.add({type= "label", caption="Min. waiting time", style="st_label"})
+    tbl.add({type= "textfield", name="minWait", style="st_textfield_small"})
+    tbl.add({type= "label", caption="Interval for autodepart", style="st_label"})
+    tbl.add({type= "textfield", name="departInterval", style="st_textfield_small"})
+    tbl.add({type= "button", name="refuelSave", caption="Ok", style="st_button"})
+
+    tbl.add({type="label", name="lblTrackedTrains", caption = "Tracked trains: "..#glob.trains, style="st_label"})
     
     tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
-    tbl.refuelRangeMax.text = glob.settings.refuel.rangeMax
+    tbl.row1.refuelRangeMax.text = glob.settings.refuel.rangeMax
     tbl.refuelStation.text = glob.settings.refuel.station
     tbl.refuelTime.text = glob.settings.refuel.time / 60
     tbl.departInterval.text = glob.settings.depart.interval / 60
@@ -107,7 +109,7 @@ function onguiclick(event)
     end
   elseif element.name == "refuelSave" then
     local settings = player.gui.left.stGui.stSettings.stGlobalSettings.tbl
-    local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.refuelRangeMax.text), settings.refuelStation.text
+    local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.row1.refuelRangeMax.text), settings.refuelStation.text
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
     local interval, minWait = tonumber(settings.departInterval.text)*60, tonumber(settings.minWait.text)*60
     glob.settings.depart = {interval = interval, minWait = minWait}
