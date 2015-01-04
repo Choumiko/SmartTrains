@@ -5,7 +5,7 @@ require "util"
 -- times in ticks (60/s)
 local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
-    depart={minWait = 240, interval = 120}}
+    depart={minWait = 240, interval = 120, minFlow = 1}}
 
 local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local tmpPos = {}
@@ -150,13 +150,23 @@ function initGlob()
     glob.trains = nil
     glob.waitingTrains = nil
     glob.settings = nil
+    for i,p in ipairs(game.players) do
+      if glob.version == nil or glob.version < "0.1.0" then
+        destroyGui(p.gui.left.stGui)
+        destroyGui(p.gui.center.stGui)
+        destroyGui(p.gui.top.stButtons)
+      end 
+    end
     glob.guiDone = nil
+    glob.version = "0.1.0"
   end
   if glob.waitingTrains == nil then glob.waitingTrains = {} end
   if glob.trains == nil then glob.trains = {} end
   if glob.settings == nil then glob.settings = defaultSettings end
-
   if glob.guiDone == nil then glob.guiDone = {} end
+  if glob.version < "0.1.1" then
+    if not glob.settings.depart.minFlow then glob.settings.depart.minFlow = defaultSettings.depart.minFlow end
+  end
   for i,p in ipairs(game.players) do
 --    if glob.version == nil or glob.version ~= MOD.version then
 --      destroyGui(p.gui.left.stGui)
@@ -420,17 +430,41 @@ end
 --  return v1 == v2 or (v1 == nil and v2 == 0) or (v1 == 0 and v2 == nil)
 --end
 
+function cargoCompare(c1, c2, minFlow, interval)
+  local oil1, oil2 = false, false
+  local flow = 0
+  if c1["crude-oil"] ~= nil or c2["crude-oil"] ~= nil then
+    oil1 = c1["crude-oil"] or 0
+    oil2 = c2["crude-oil"] or 0
+    flow = (oil1 - oil2)/(interval/60)
+    c1["crude-oil"] = nil
+    c2["crude-oil"] = nil
+  end
+  local eq = table.compare(c1, c2)
+  if oil1 ~= false and oil1 > 0 then c1["crude-oil"] = oil1 end
+  if oil2 ~= false and oil2 > 0 then c2["crude-oil"] = oil2 end
+  debugLog(util.formattime(game.tick).." flow: "..flow.." i:"..interval, true)
+  return (eq and math.abs(flow) < minFlow)  
+end
+
 function ontick(event)
   if #glob.waitingTrains > 0 then
     for i,t in ipairs(glob.waitingTrains) do
       local wait = (type(t.arrived) == "number") and t.arrived + glob.settings.depart.minWait or t.lastCheck + glob.settings.depart.interval
       if t.settings.autoDepart and event.tick >= wait then
         local cargo = cargoCount(t.train)
-        --local data = util.formattime(event.tick).." "..table.concat(table.pack(table.unpack(cargo)), " ")
+        local last = t.arrived or t.lastCheck
         --debugLog(serpent.dump({cargo, t.cargo}), true)
         --debugLog(serpent.dump(tableCompare(cargo, t.cargo)),true)
-        --debugLog(data, true)
-        if table.compare(cargo, t.cargo) then
+--        local flow = false
+--        if cargo["crude-oil"] ~= nil or t.cargo["crude-oil"] ~= nil then
+--          cargo["crude-oil"] = cargo["crude-oil"] or 0
+--          t.cargo["crude-oil"] = t.cargo["crude-oil"] or 0
+--          flow = (cargo["crude-oil"] - t.cargo["crude-oil"])/((event.tick - last)/60)
+--          local data = util.formattime(event.tick).." oil flow/s: "..flow
+--          debugLog(data, true)
+--        end
+        if cargoCompare(cargo, t.cargo, glob.settings.depart.minFlow, event.tick - last) then
           nextStation(t.train)
           t.lastCheck = false
           t.arrived = false
