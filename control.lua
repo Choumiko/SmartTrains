@@ -9,15 +9,12 @@ local defaultSettings =
 
 local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local tmpPos = {}
-MOD = {version="0.1.0"}
+MOD = {version="0.1.1"}
 
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
-  --destroyGui(player.gui.center.stGui)
-  --destroyGui(player.gui.top.stButtons)
 
   local stGui = player.gui.left.add({type="flow", name="stGui", direction="vertical"})
-  stGui.add({type="flow", name="stButtons", direction="horizontal"})
   stGui.add({type="flow", name="stSettings", direction="vertical"})
 end
 
@@ -28,7 +25,7 @@ function destroyGui(guiA)
 end
 
 function showSettingsButton(index)
-  local gui = game.players[index].gui.left.stGui.stButtons
+  local gui = game.players[index].gui.left.stGui.stSettings
   if gui.toggleSTSettings ~= nil then
     gui.toggleSTSettings.destroy()
   end
@@ -83,9 +80,12 @@ function globalSettingsWindow(index)
     tbl.add({type= "textfield", name="minWait", style="st_textfield_small"})
     tbl.add({type= "label", caption="Interval for autodepart", style="st_label"})
     tbl.add({type= "textfield", name="departInterval", style="st_textfield_small"})
-    tbl.add({type= "button", name="refuelSave", caption="Ok", style="st_button"})
-
+    tbl.add({type= "label", caption=""})
+    
     tbl.add({type="label", name="lblTrackedTrains", caption = "Tracked trains: "..#glob.trains, style="st_label"})
+    tbl.add({type= "label", caption=""})
+    tbl.add({type= "label", caption=""})
+    tbl.add({type= "button", name="refuelSave", caption="Ok", style="st_button"})
     
     tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
     tbl.row1.refuelRangeMax.text = glob.settings.refuel.rangeMax
@@ -104,8 +104,9 @@ function onguiclick(event)
   if element.name == "toggleSTSettings" then
     if player.gui.left.stGui.stSettings.stGlobalSettings == nil then
       globalSettingsWindow(index)
+      destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
     else
-      player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
+      player.gui.left.stGui.stSettings.toggleSTSettings.destroy()
     end
   elseif element.name == "refuelSave" then
     local settings = player.gui.left.stGui.stSettings.stGlobalSettings.tbl
@@ -113,8 +114,8 @@ function onguiclick(event)
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
     local interval, minWait = tonumber(settings.departInterval.text)*60, tonumber(settings.minWait.text)*60
     glob.settings.depart = {interval = interval, minWait = minWait}
-
     player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
+    showSettingsButton(index)
   else
     local _, _, option1, option2 = event.element.name:find("(%a+)__(%d+)")
     --debugLog("o1: "..option1.." o2: "..option2,true)
@@ -145,7 +146,7 @@ function onload()
 end
 
 function initGlob()
-  if glob.version == nil or glob.version ~= MOD.version then
+  if glob.version == nil or glob.version < "0.1.0" then
     glob.trains = nil
     glob.waitingTrains = nil
     glob.settings = nil
@@ -157,11 +158,11 @@ function initGlob()
 
   if glob.guiDone == nil then glob.guiDone = {} end
   for i,p in ipairs(game.players) do
-    if glob.version == nil or glob.version ~= MOD.version then
-      destroyGui(p.gui.left.stGui)
-      destroyGui(p.gui.center.stGui)
-      destroyGui(p.gui.top.stButtons)
-    end  
+--    if glob.version == nil or glob.version ~= MOD.version then
+--      destroyGui(p.gui.left.stGui)
+--      destroyGui(p.gui.center.stGui)
+--      destroyGui(p.gui.top.stButtons)
+--    end 
     if not glob.guiDone[p.name] then
       buildGUI(p)
       glob.guiDone[p.name] = true
@@ -455,11 +456,11 @@ function ontick(event)
             showTrainInfoWindow(pi, key)
             showSettingsButton(pi)
           end
-        elseif player.opened.type == "train-stop" and player.gui.left.stGui.stButtons.toggleSTSettings == nil then
-          showSettingsButton(pi)
+        elseif player.opened.type == "train-stop" and player.gui.left.stGui.stSettings.toggleSTSettings == nil and player.gui.left.stGui.stSettings.stGlobalSettings == nil then
+            showSettingsButton(pi)
         end 
       elseif player.opened == nil then --and glob.opened[pi] ~= nil then
-            destroyGui(player.gui.left.stGui.stButtons.toggleSTSettings)
+            destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
             destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
             destroyGui(player.gui.left.stGui.trainSettings)
       end
