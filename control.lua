@@ -37,8 +37,8 @@ function showTrainInfoWindow(index, trainKey)
   if gui.trainSettings ~= nil then
     gui.trainSettings.destroy()
   end
-  gui = gui.add({type="frame", name="trainSettings", direction="vertical"})
   if glob.trains[trainKey].train.valid then
+    gui = gui.add({type="frame", name="trainSettings", direction="vertical"})
     local t = glob.trains[trainKey]
     local trainGui = gui.add({type="table", name="tbl", colspan=3})
     trainGui.add({type="label", caption="Name", style="st_label"})
@@ -52,6 +52,56 @@ function showTrainInfoWindow(index, trainKey)
     trainGui.add({type="label", caption=t.name, name="lbl"..trainKey, style="st_label"})
     trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
     trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
+    
+    trainGui.add({ type="checkbox", name="filter__" ..trainKey, style="tm-icon-"..glob.filter, state = true })
+    trainGui.add({type="button", name="togglefilter__"..trainKey, caption = glob.filterbool, style="st_button"})
+    trainGui.add({type="textfield", name="filteramount", style="st_textfield_small"})
+    showLinesWindow(index, trainKey)
+  end
+end
+
+function showLinesWindow(index, trainKey)
+  local gui = game.players[index].gui.left.stGui
+  if glob.trains[trainKey].train.valid then
+    if gui.lineSettings ~= nil then
+      gui.lineSettings.destroy()
+    end
+    local t = glob.trains[trainKey]
+    if #t.train.schedule.records > 0 then
+      gui = gui.add({type="frame", name="lineSettings", direction="vertical"})
+      local tbl = gui.add({type="table", name="tbl1", colspan=4})
+      tbl.add({type="label", caption="Station", style="st_label"})
+      tbl.add({type="label", caption="Time", style="st_label"})
+      tbl.add({type="label", caption="Dynamic", style="st_label"})
+      tbl.add({type="label", caption="Edit", style="st_label"})
+      local current = t.train.schedule.current
+      for i, s in ipairs(t.train.schedule.records) do
+        tbl.add({type="label", caption=s.station, style="st_label"})
+        tbl.add({type="label", caption=s.time_to_wait/60, style="st_label"})
+        tbl.add({type="checkbox", name="togglecon__"..i, state=false})
+        tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i, state=false})
+      end
+      local btns = gui.add({type="flow", name="btns", direction="horizontal"})
+      btns.add({type="button", name="readSchedule__"..trainKey, caption="Read", style="st_button"})
+      btns.add({type="button", name="loadSchedule__"..trainKey, caption="Load", style="st_button"})
+      btns.add({type="button", name="saveSchedule__"..trainKey, caption="Save", style="st_button"})
+      btns.add({type="textfield", name="lineName", text="", style="st_textfield_big"})
+    end
+  else
+    if gui.lineSettings ~= nil then
+      gui.lineSettings.destroy()
+    end
+  end
+end
+
+function updateLineEdit(index, trainKey, stationKey)
+  local gui = game.players[index].gui.left.stGui
+  if gui.lineSettings ~= nil then
+    gui = gui.lineSettings.tbl1
+    local records = glob.trains[trainKey].train.schedule.records
+    for i,s in ipairs(records) do
+      gui["toggleedit__"..trainKey.."__"..i].state = (i==stationKey)
+    end
   end
 end
 
@@ -117,13 +167,44 @@ function onguiclick(event)
     player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
     showSettingsButton(index)
   else
-    local _, _, option1, option2 = event.element.name:find("(%a+)__(%d+)")
-    --debugLog("o1: "..option1.." o2: "..option2,true)
-    option2 = tonumber(option2)
+    local option1, option2, option3 = event.element.name:match("(%a+)__(%d*)_*(%d*)")
+    option1 = option1 or ""
+    option2 = option2 or ""
+    option3 = option3 or ""
+    debugLog("o1: "..option1.." o2: "..option2.." o3: "..option3,true)
+    
     if option1 == "refuel" then
+      option2 = tonumber(option2)
       glob.trains[option2].settings.autoRefuel = not glob.trains[option2].settings.autoRefuel
     elseif option1 == "depart" then
+      option2 = tonumber(option2)
       glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
+    elseif option1 == "filter" then
+      debugLog(serpent.dump(event.element),true)
+      option2 = tonumber(option2)
+      local item = "iron-plate"
+      if player.cursorstack then item = player.cursorstack.name end 
+      glob.filter = item or glob.filter
+      game.players[index].gui.left.stGui.trainSettings.tbl["filter__"..option2].style = "tm-icon-"..glob.filter
+      --showTrainInfoWindow(index,option2)
+    elseif option1 == "togglefilter" then
+      if element.caption == ">" then
+        element.caption = "<"
+        glob.filterbool = "lesser" 
+      else 
+        element.caption = ">"
+        glob.filterbool = "greater"
+      end
+      debugLog(glob.filterbool, true)
+      option2 = tonumber(option2)
+      --showTrainInfoWindow(index,option2)
+    elseif option1 == "toggleedit" then
+      option2 = tonumber(option2)
+      option3 = tonumber(option3)
+      updateLineEdit(index,option2,option3)
+    elseif option1 == "readSchedule" then
+      option2 = tonumber(option2)
+      showLinesWindow(index, option2)
     end
   end
 end
@@ -150,22 +231,24 @@ function initGlob()
     glob.trains = nil
     glob.waitingTrains = nil
     glob.refuelTrains = nil
+    glob.trainLines = nil
     glob.settings = nil
     for i,p in ipairs(game.players) do
-      if glob.version == nil or glob.version < "0.1.0" then
         destroyGui(p.gui.left.stGui)
         destroyGui(p.gui.center.stGui)
         destroyGui(p.gui.top.stButtons)
-      end 
     end
     glob.guiDone = nil
     glob.version = "0.1.0"
   end
-  if glob.waitingTrains == nil then glob.waitingTrains = {} end
-  if glob.trains == nil then glob.trains = {} end
-  if glob.refuelTrains == nil then glob.refuelTrains = {} end
-  if glob.settings == nil then glob.settings = defaultSettings end
-  if glob.guiDone == nil then glob.guiDone = {} end
+  glob.filter = glob.filter or "iron-plate"
+  glob.filterbool = glob.filterbool or "<"
+  glob.waitingTrains = glob.waitingTrains or {}
+  glob.trains = glob.trains or {}
+  glob.refuelTrains = glob.refuelTrains or {}
+  glob.trainLines = glob.trainLines or {}
+  glob.settings = glob.settings or defaultSettings
+  glob.guiDone = glob.guiDone or {}
   if glob.version < "0.1.1" then
     if not glob.settings.depart.minFlow then glob.settings.depart.minFlow = defaultSettings.depart.minFlow end
   end
@@ -513,6 +596,7 @@ function ontick(event)
             destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
             destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
             destroyGui(player.gui.left.stGui.trainSettings)
+            destroyGui(player.gui.left.stGui.lineSettings)
       end
     end
   end

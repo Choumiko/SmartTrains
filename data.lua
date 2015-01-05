@@ -41,6 +41,15 @@ data.raw["gui-style"].default["st_textfield_small"] =
     minimal_width = 30,
     font = "st-small"
   }
+  
+data.raw["gui-style"].default["st_textfield_big"] =
+  {
+    type = "textfield_style",
+    left_padding = 3,
+    right_padding = 2,
+    minimal_width = 120,
+    font = "st-small"
+  }  
 data.raw["gui-style"].default["st_button"] =
   {
     type = "button_style",
