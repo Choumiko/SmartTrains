@@ -357,7 +357,7 @@ end
 function inSchedule(station, schedule)
   for i, rec in ipairs(schedule.records) do
     if rec.station == station then
-      return true
+      return i
     end
   end
   return false
@@ -508,6 +508,22 @@ function ontrainchangedstate(event)
       end
     end
   end
+  if settings.autoRefuel and #glob.refuelTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
+    local found = getKeyByTrain(glob.refuelTrains, train)
+    if found then
+      if train.state == defines.trainstate["onthepath"] then
+        local t = glob.refuelTrains[found]
+        local schedule = train.schedule
+-- Try: train.schedule = t.origSchedule
+        local station = inSchedule(glob.settings.refuel.station, schedule)
+        schedule.records[station].time_to_wait = glob.settings.refuel.time
+        train.schedule = schedule
+        table.remove(glob.refuelTrains, found)
+      elseif train.state == defines.trainstate["manualcontrol"] then
+        table.remove(glob.refuelTrains, found)
+      end
+    end
+  end
   if settings.autoDepart and #glob.waitingTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
     local found = getKeyByTrain(glob.waitingTrains, train)
     if found then
@@ -575,12 +591,10 @@ function ontick(event)
   if #glob.refuelTrains > 0 then
     for i,t in ipairs(glob.refuelTrains) do
       local wait = t.arrived + glob.settings.depart.interval
-      local max = t.arrived + glob.settings.refuel.time
       if event.tick >= wait then
-        if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") or event.tick >= max then
+        if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
           flyingText("Refueling done", YELLOW, t.train.carriages[1].position)
           nextStation(t.train)
-          table.remove(glob.refuelTrains, getKeyByTrain(glob.refuelTrains, t.train))
         end
       end 
     end
