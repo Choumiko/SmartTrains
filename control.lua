@@ -62,15 +62,15 @@ function globalSettingsWindow(index)
     gui.stGlobalSettings.add{type="table", name="tbl", colspan=5}
     local tbl = gui.stGlobalSettings.tbl
 
-    tbl.add({type= "label", name="lblRangeMin", caption="Add Refuel station below", style="st_label"})
+    tbl.add({type= "label", name="lblRangeMin", caption="Go to Refuel station below", style="st_label"})
     tbl.add({type= "textfield",name="refuelRangeMin", style="st_textfield_small"})
-    tbl.add({type= "label", name="lblRangeMax", caption="coal, remove above", style="st_label"})
+    tbl.add({type= "label", name="lblRangeMax", caption="coal, leave above", style="st_label"})
     local r = tbl.add({type="flow", name="row1", direction="horizontal"})
     r.add({type= "textfield", name="refuelRangeMax", style="st_textfield_small"})
     r.add({type= "label", name="lblRangeEnd", caption="coal", style="st_label"})
     tbl.add({type= "label", caption=""})
 
-    tbl.add({type= "label", name="lblRefuelTime", caption="Refuel time:", style="st_label"})
+    tbl.add({type= "label", name="lblRefuelTime", caption="max. refuel time:", style="st_label"})
     tbl.add({type="textfield", name="refuelTime", style="st_textfield_small"})
     tbl.add({type= "label", name="lblRefuelStation", caption="Refuel station:", style="st_label"})
     tbl.add({type= "textfield", name="refuelStation", style="st_textfield"})
@@ -149,6 +149,7 @@ function initGlob()
   if glob.version == nil or glob.version < "0.1.0" then
     glob.trains = nil
     glob.waitingTrains = nil
+    glob.refuelTrains = nil
     glob.settings = nil
     for i,p in ipairs(game.players) do
       if glob.version == nil or glob.version < "0.1.0" then
@@ -162,17 +163,13 @@ function initGlob()
   end
   if glob.waitingTrains == nil then glob.waitingTrains = {} end
   if glob.trains == nil then glob.trains = {} end
+  if glob.refuelTrains == nil then glob.refuelTrains = {} end
   if glob.settings == nil then glob.settings = defaultSettings end
   if glob.guiDone == nil then glob.guiDone = {} end
   if glob.version < "0.1.1" then
     if not glob.settings.depart.minFlow then glob.settings.depart.minFlow = defaultSettings.depart.minFlow end
   end
   for i,p in ipairs(game.players) do
---    if glob.version == nil or glob.version ~= MOD.version then
---      destroyGui(p.gui.left.stGui)
---      destroyGui(p.gui.center.stGui)
---      destroyGui(p.gui.top.stButtons)
---    end 
     if not glob.guiDone[p.name] then
       buildGUI(p)
       glob.guiDone[p.name] = true
@@ -229,6 +226,11 @@ function removeInvalidTrains()
     if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
       table.remove(glob.waitingTrains, i)
       remWaiting = remWaiting + 1
+    end
+  end
+  for i,t in ipairs(glob.refuelTrains) do
+    if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
+      table.remove(glob.refuelTrains, i)
     end
   end
   return removed, remWaiting
@@ -370,8 +372,10 @@ function ontrainchangedstate(event)
           train.schedule = removeStation(glob.settings.refuel.station, schedule)
         end
       end
-    end
-    if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
+      if schedule.records[schedule.current].station == glob.settings.refuel.station then
+        table.insert(glob.refuelTrains, {train = train, arrived = game.tick})
+      end
+    elseif settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
       table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, station = train.schedule.current, settings=settings})
       --debugLog(util.formattime(event.tick).." arrived Station:"..train.schedule.current.." "..train.schedule.records[train.schedule.current].station,true)
     end
@@ -443,11 +447,23 @@ function cargoCompare(c1, c2, minFlow, interval)
   local eq = table.compare(c1, c2)
   if oil1 ~= false and oil1 > 0 then c1["crude-oil"] = oil1 end
   if oil2 ~= false and oil2 > 0 then c2["crude-oil"] = oil2 end
-  debugLog(util.formattime(game.tick).." flow: "..flow.." i:"..interval, true)
+  --debugLog(util.formattime(game.tick).." flow: "..flow.." i:"..interval, true)
   return (eq and math.abs(flow) < minFlow)  
 end
 
 function ontick(event)
+  if #glob.refuelTrains > 0 then
+    for i,t in ipairs(glob.refuelTrains) do
+      local wait = t.arrived + glob.settings.depart.interval
+      local max = t.arrived + glob.settings.refuel.time
+      if event.tick >= wait then
+        if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") or event.tick >= max then
+          nextStation(t.train)
+          table.remove(glob.refuelTrains, getKeyByTrain(glob.refuelTrains, t.train))
+        end
+      end 
+    end
+  end
   if #glob.waitingTrains > 0 then
     for i,t in ipairs(glob.waitingTrains) do
       local wait = (type(t.arrived) == "number") and t.arrived + glob.settings.depart.minWait or t.lastCheck + glob.settings.depart.interval
