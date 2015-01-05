@@ -1,6 +1,8 @@
 require "defines"
 require "util"
-
+local RED = {r = 0.9}
+local GREEN = {g = 0.7}
+local YELLOW = {r = 0.8, g = 0.8}
 -- range in coal, add refuelStation to schedule when below min, remove refuelStation when above max
 -- times in ticks (60/s)
 local defaultSettings =
@@ -171,6 +173,7 @@ function onguiclick(event)
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
     local interval, minWait = tonumber(settings.departInterval.text)*60, tonumber(settings.minWait.text)*60
     glob.settings.depart = {interval = interval, minWait = minWait}
+    glob.settings.depart.minFlow = defaultSettings.depart.minFlow
     player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
     showSettingsButton(index)
   else
@@ -478,8 +481,7 @@ function ontrainchangedstate(event)
   local settings = glob.trains[trainKey].settings
   local fuel = lowestFuel(train)
   local schedule = train.schedule
-  --debugLog(getKeyByValue(defines.trainstate, train.state), true)
-
+  --flyingText(getKeyByValue(defines.trainstate, train.state), YELLOW, train.carriages[1].position)
   if train.state == defines.trainstate["waitstation"] then
     if settings.autoRefuel then
       if fuel >= (glob.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
@@ -489,9 +491,12 @@ function ontrainchangedstate(event)
       end
       if schedule.records[schedule.current].station == glob.settings.refuel.station then
         table.insert(glob.refuelTrains, {train = train, arrived = game.tick})
+        flyingText("refueling", YELLOW, train.carriages[1].position)
       end
-    elseif settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
+    end
+    if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
       table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, station = train.schedule.current, settings=settings})
+      flyingText("waiting", YELLOW, train.carriages[1].position)
       --debugLog(util.formattime(event.tick).." arrived Station:"..train.schedule.current.." "..train.schedule.records[train.schedule.current].station,true)
     end
   elseif train.state == defines.trainstate["arrivestation"] and schedule.records[schedule.current].station ~= glob.settings.refuel.station and settings.autoDepart then
@@ -503,7 +508,6 @@ function ontrainchangedstate(event)
       end
     end
   end
-
   if settings.autoDepart and #glob.waitingTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
     local found = getKeyByTrain(glob.waitingTrains, train)
     if found then
@@ -574,6 +578,7 @@ function ontick(event)
       local max = t.arrived + glob.settings.refuel.time
       if event.tick >= wait then
         if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") or event.tick >= max then
+          flyingText("Refueling done", YELLOW, t.train.carriages[1].position)
           nextStation(t.train)
           table.remove(glob.refuelTrains, getKeyByTrain(glob.refuelTrains, t.train))
         end
@@ -583,6 +588,7 @@ function ontick(event)
   if #glob.waitingTrains > 0 then
     for i,t in ipairs(glob.waitingTrains) do
       local wait = (type(t.arrived) == "number") and t.arrived + glob.settings.depart.minWait or t.lastCheck + glob.settings.depart.interval
+      --debugLog("depart: "..serpent.dump({t.settings.autoDepart, event.tick >= wait}),true)
       if t.settings.autoDepart and event.tick >= wait then
         local cargo = cargoCount(t.train)
         local last = t.arrived or t.lastCheck
@@ -597,10 +603,12 @@ function ontick(event)
 --          debugLog(data, true)
 --        end
         if cargoCompare(cargo, t.cargo, glob.settings.depart.minFlow, event.tick - last) then
+          flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position)
           nextStation(t.train)
           t.lastCheck = false
           t.arrived = false
         else
+          flyingText("cargoCompare -> stay at station", YELLOW, t.train.carriages[1].position)
           t.lastCheck = event.tick
           t.arrived = false          
           t.cargo = cargo
@@ -753,6 +761,12 @@ function debugLog(msg, force)
       player.print(msg)
     end
   end
+end
+
+function flyingText(line, colour, pos)
+  pos = pos or game.player.position
+  colour = colour or RED
+  game.createentity({name="flying-text", position=pos, text=line, color=colour})
 end
 
 function printToFile(line, path)
