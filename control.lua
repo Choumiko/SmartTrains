@@ -205,6 +205,17 @@ function onguiclick(event)
     elseif option1 == "readSchedule" then
       option2 = tonumber(option2)
       showLinesWindow(index, option2)
+    elseif option1 == "saveSchedule" then
+      option2 = tonumber(option2)
+      local name = player.gui.left.stGui.lineSettings.btns.lineName.text
+      glob.trainLines[name] = glob.trains[option2].train.schedule.records       
+    elseif option1 == "loadSchedule" then
+      option2 = tonumber(option2)
+      local name = player.gui.left.stGui.lineSettings.btns.lineName.text
+      local schedule = glob.trains[option2].train.schedule 
+      schedule.records = glob.trainLines[name]
+      glob.trains[option2].train.schedule = schedule
+      showLinesWindow(index, option2)
     end
   end
 end
