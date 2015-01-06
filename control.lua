@@ -11,7 +11,7 @@ local defaultSettings =
 
 local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local tmpPos = {}
-MOD = {version="0.1.2"}
+MOD = {version="0.1.3"}
 
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
@@ -54,7 +54,7 @@ function showTrainInfoWindow(index, trainKey)
     trainGui.add({type="label", caption=t.name, name="lbl"..trainKey, style="st_label"})
     trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
     trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
-    showLinesWindow(index, trainKey)
+    showLinesWindow(index, trainKey, t.line)
   end
 end
 
@@ -99,9 +99,9 @@ function showLinesWindow(index, trainKey, lineKey)
       end
     end
     local btns = gui.add({type="flow", name="btns", direction="horizontal"})
-    btns.add({type="button", name="readSchedule__"..trainKey.."__"..lineKey, caption="Read", style="st_button"})
-    btns.add({type="button", name="loadSchedule__"..trainKey.."__"..lineKey, caption="Load", style="st_button"})
-    btns.add({type="button", name="saveSchedule__"..trainKey.."__"..lineKey, caption="Save", style="st_button"})
+    btns.add({type="button", name="readSchedule__"..trainKey..lineKey, caption="Read", style="st_button"})
+    btns.add({type="button", name="loadSchedule__"..trainKey..lineKey, caption="Load", style="st_button"})
+    btns.add({type="button", name="saveSchedule__"..trainKey..lineKey, caption="Save", style="st_button"})
     btns.add({type="textfield", name="lineName", text="", style="st_textfield_big"})
     btns.lineName.text = line
   else
@@ -258,11 +258,14 @@ function onguiclick(event)
         --option3 = tonumber(option3)
         local t = glob.trains[option2]
         if lineKey then
-          glob.trainLines[lineKey].line = t.train.schedule.records
+          glob.trainLines[lineKey].records = t.train.schedule.records
         else
           table.insert(glob.trainLines, {name = name, records = t.train.schedule.records})
           lineKey = getLineByName(glob.trainLines, name)
         end
+        local schedule = t.train.schedule 
+        schedule.records = glob.trainLines[lineKey].records
+        t.train.schedule = schedule
         t.line = lineKey
         showLinesWindow(index, option2, lineKey)
       end       
@@ -324,12 +327,15 @@ function initGlob()
   glob.trainLines = glob.trainLines or {}
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
-  if glob.version < "0.1.2" then
+  if glob.version < "0.1.3" then
     glob.settings.depart.minFlow = glob.settings.depart.minFlow or defaultSettings.depart.minFlow
     for i,t in ipairs(glob.trains) do
       t.dynamic = t.dynamic or false
       t.line = t.line or false
-    end    
+    end
+    for i,l in ipairs(glob.trainLines) do
+      if l.line then l.line=nil end
+    end  
   end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
