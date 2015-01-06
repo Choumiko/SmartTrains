@@ -40,7 +40,7 @@ function showTrainInfoWindow(index, trainKey)
     gui.trainSettings.destroy()
   end
   if glob.trains[trainKey].train.valid then
-    gui = gui.add({type="frame", name="trainSettings", direction="vertical"})
+    gui = gui.add({type="flow", name="trainSettings", direction="vertical"})
     local t = glob.trains[trainKey]
     local trainGui = gui.add({type="table", name="tbl", colspan=3})
     trainGui.add({type="label", caption="Name", style="st_label"})
@@ -70,7 +70,7 @@ function showLinesWindow(index, trainKey, line)
       gui.lineSettings.destroy()
     end
     local t = glob.trains[trainKey]
-    gui = gui.add({type="frame", name="lineSettings", direction="vertical"})
+    gui = gui.add({type="flow", name="lineSettings", direction="vertical"})
     if #t.train.schedule.records > 0 then
       local tbl = gui.add({type="table", name="tbl1", colspan=4})
       tbl.add({type="label", name="activeLine", caption="Active line: "..line, style="st_label"})
@@ -117,7 +117,7 @@ end
 function globalSettingsWindow(index)
   local gui = game.players[index].gui.left.stGui.stSettings
   if gui.stGlobalSettings == nil then
-    gui.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
+    gui.add({type = "flow", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
     gui.stGlobalSettings.add{type="table", name="tbl", colspan=5}
     local tbl = gui.stGlobalSettings.tbl
 
