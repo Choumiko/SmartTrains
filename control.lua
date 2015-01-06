@@ -250,10 +250,7 @@ function onguiclick(event)
       showDynamicRules(index, option4, option3, option2)
     elseif option1 == "readSchedule" then
       option2 = tonumber(option2)
-      option3 = tonumber(option3)
-      local name = player.gui.left.stGui.lineSettings.btns.lineName.text
-      glob.trains[option2].line = false
-      showLinesWindow(index, option2)
+      uiReadSchedule(index,option2)
     elseif option1 == "saveSchedule" then
       local name = player.gui.left.stGui.lineSettings.btns.lineName.text
       option2 = tonumber(option2)
@@ -275,10 +272,10 @@ function onguiclick(event)
       end       
     elseif option1 == "loadSchedule" then
       local name = player.gui.left.stGui.lineSettings.btns.lineName.text
+      option2 = tonumber(option2)
       if name ~= "" then
         local lineKey = getLineByName(glob.trainLines, name)
         if lineKey then
-          option2 = tonumber(option2)
           local t = glob.trains[option2]
           local schedule = t.train.schedule 
           schedule.records = glob.trainLines[lineKey].records
@@ -286,9 +283,17 @@ function onguiclick(event)
           t.line = lineKey
           showLinesWindow(index, option2, lineKey)
         end
+      else
+        uiReadSchedule(index, option2)
       end
     end
   end
+end
+
+function uiReadSchedule(index, trainKey)
+  local name = game.players[index].gui.left.stGui.lineSettings.btns.lineName.text
+  glob.trains[trainKey].line = false
+  showLinesWindow(index, trainKey)
 end
 
 function onplayercreated(event)
