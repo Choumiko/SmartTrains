@@ -11,7 +11,7 @@ local defaultSettings =
 
 local defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 local tmpPos = {}
-MOD = {version="0.1.3"}
+MOD = {version="0.1.4"}
 
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
@@ -190,10 +190,10 @@ function globalSettingsWindow(index)
 end
 
 function onguiclick(event)
-  local index = type(event.element)=="table" and event.element.playerindex or element
+  local index = event.playerindex
   local player = game.players[index]
   local element = event.element
-  --debugLog("index: "..index.." element:"..element.name,true)
+  --debugLog(serpent.dump(event),true)
   if element.name == "toggleSTSettings" then
     if player.gui.left.stGui.stSettings.stGlobalSettings == nil then
       globalSettingsWindow(index)
@@ -215,14 +215,16 @@ function onguiclick(event)
     option1 = option1 or ""
     option2 = option2 or ""
     option3 = option3 or ""
-    --debugLog("o1: "..option1.." o2: "..option2.." o3: "..option3,true)
+    debugLog("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
     
     if option1 == "refuel" then
       option2 = tonumber(option2)
       glob.trains[option2].settings.autoRefuel = not glob.trains[option2].settings.autoRefuel
+      --glob.trains[option2].settings.autoRefuel = game.players[index].gui.left.stGui.trainSettings.tbl["btn_refuel__"..option2].state
     elseif option1 == "depart" then
       option2 = tonumber(option2)
       glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
+      --glob.trains[option2].settings.autoDepart = game.players[index].gui.left.stGui.trainSettings.tbl["btn_depart__"..option2].state
       --assert(glob.trains[option2].settings.autoDepart == game.players[index].gui.left.stGui.trainSettings.tbl["btn_depart__"..option2].state)
     elseif option1 == "filter" then
       debugLog(serpent.dump(event.element),true)
@@ -257,11 +259,13 @@ function onguiclick(event)
       option2 = tonumber(option2)
       if name ~= "" then
         local lineKey = getLineByName(glob.trainLines,name)
+        local changed = game.tick
         local t = glob.trains[option2]
         if lineKey then
           glob.trainLines[lineKey].records = t.train.schedule.records
+          glob.trainLines[lineKey].changed = changed
         else
-          table.insert(glob.trainLines, {name = name, records = t.train.schedule.records})
+          table.insert(glob.trainLines, {name = name, records = t.train.schedule.records, changed = changed})
           lineKey = getLineByName(glob.trainLines, name)
         end
         local schedule = t.train.schedule 
@@ -336,14 +340,16 @@ function initGlob()
   glob.trainLines = glob.trainLines or {}
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
-  if glob.version < "0.1.3" then
+  if glob.version < "0.1.4" then
     glob.settings.depart.minFlow = glob.settings.depart.minFlow or defaultSettings.depart.minFlow
     for i,t in ipairs(glob.trains) do
       t.dynamic = t.dynamic or false
       t.line = t.line or false
+      t.lineVersion = t.lineVersion or false
     end
     for i,l in ipairs(glob.trainLines) do
       if l.line then l.line=nil end
+      l.changed = 0
     end  
   end
   for i,p in ipairs(game.players) do
@@ -390,10 +396,12 @@ function getNewTrainInfo(train)
       newTrainInfo.train = train
       if train.locomotives ~= nil and (#train.locomotives.frontmovers > 0 or #train.locomotives.backmovers > 0) then
         newTrainInfo.name = train.locomotives.frontmovers[1].backername or train.locomotives.backmovers[1].backername
+        newTrainInfo.name = string.gsub(newTrainInfo.name, "%.", "")
       else
         newTrainInfo.name = "cargoOnly"
       end
       newTrainInfo.settings = defaultTrainSettings
+      newTrainInfo.lineVersion = 0
       return newTrainInfo
     end
   end
@@ -546,11 +554,18 @@ function ontrainchangedstate(event)
     removeInvalidTrains()
     trainKey = #glob.trains
   end
+  local t = glob.trains[trainKey]
   local settings = glob.trains[trainKey].settings
   local fuel = lowestFuel(train)
   local schedule = train.schedule
   --flyingText(getKeyByValue(defines.trainstate, train.state), YELLOW, train.carriages[1].position)
   if train.state == defines.trainstate["waitstation"] then
+    if t.line and glob.trainLines[t.line].changed ~= t.lineVersion then
+      local trainLine = glob.trainLines[t.line]
+      schedule.records = trainLine.records
+      t.train.schedule = schedule
+      t.lineVersion = trainLine.changed 
+    end
     if settings.autoRefuel then
       if fuel >= (glob.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
         if inSchedule(glob.settings.refuel.station, schedule) and #schedule.records >= 3 then
@@ -708,7 +723,8 @@ function ontick(event)
           if not key then
             table.insert(glob.trains, getNewTrainInfo(player.opened.train))
             key = getKeyByTrain(glob.trains, player.opened.train)
-          elseif player.gui.left.stGui.trainSettings == nil then
+          end
+          if player.gui.left.stGui.trainSettings == nil then
             showTrainInfoWindow(pi, key)
             showSettingsButton(pi)
           end
