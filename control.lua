@@ -215,7 +215,7 @@ function onguiclick(event)
     option1 = option1 or ""
     option2 = option2 or ""
     option3 = option3 or ""
-    debugLog("o1: "..option1.." o2: "..option2.." o3: "..option3,true)
+    --debugLog("o1: "..option1.." o2: "..option2.." o3: "..option3,true)
     
     if option1 == "refuel" then
       option2 = tonumber(option2)
@@ -223,6 +223,7 @@ function onguiclick(event)
     elseif option1 == "depart" then
       option2 = tonumber(option2)
       glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
+      --assert(glob.trains[option2].settings.autoDepart == game.players[index].gui.left.stGui.trainSettings.tbl["btn_depart__"..option2].state)
     elseif option1 == "filter" then
       debugLog(serpent.dump(event.element),true)
       option2 = tonumber(option2)
@@ -256,7 +257,6 @@ function onguiclick(event)
       option2 = tonumber(option2)
       if name ~= "" then
         local lineKey = getLineByName(glob.trainLines,name)
-        --option3 = tonumber(option3)
         local t = glob.trains[option2]
         if lineKey then
           glob.trainLines[lineKey].records = t.train.schedule.records
