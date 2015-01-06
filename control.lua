@@ -54,26 +54,34 @@ function showTrainInfoWindow(index, trainKey)
     trainGui.add({type="label", caption=t.name, name="lbl"..trainKey, style="st_label"})
     trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
     trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
-    
-    trainGui.add({ type="checkbox", name="filter__" ..trainKey, style="tm-icon-"..glob.filter, state = true })
-    trainGui.add({type="button", name="togglefilter__"..trainKey, caption = glob.filterbool, style="st_button"})
-    trainGui.add({type="textfield", name="filteramount", style="st_textfield_small"})
     showLinesWindow(index, trainKey)
   end
 end
 
-function showLinesWindow(index, trainKey, line)
-  local line = line or ""
+function showLinesWindow(index, trainKey, lineKey)
   local gui = game.players[index].gui.left.stGui
   if glob.trains[trainKey].train.valid then
+    local t = glob.trains[trainKey]
     if gui.lineSettings ~= nil then
       gui.lineSettings.destroy()
     end
-    local t = glob.trains[trainKey]
+    local line = ""
+    local activeLine = ""
+    if glob.trainLines[lineKey] then
+      line = glob.trainLines[lineKey].name
+      if lineKey and t.line == lineKey then
+        activeLine = glob.trainLines[lineKey].name
+      end
+    end
+    if lineKey then
+      lineKey = "__"..lineKey
+    else
+      lineKey = ""
+    end
     gui = gui.add({type="flow", name="lineSettings", direction="vertical"})
     if #t.train.schedule.records > 0 then
       local tbl = gui.add({type="table", name="tbl1", colspan=4})
-      tbl.add({type="label", name="activeLine", caption="Active line: "..line, style="st_label"})
+      tbl.add({type="label", name="activeLine", caption="Active line: "..activeLine, style="st_label"})
       tbl.add({type="label", caption=""})
       tbl.add({type="label", caption=""})
       tbl.add({type="label", caption=""})
@@ -91,9 +99,9 @@ function showLinesWindow(index, trainKey, line)
       end
     end
     local btns = gui.add({type="flow", name="btns", direction="horizontal"})
-    btns.add({type="button", name="readSchedule__"..trainKey, caption="Read", style="st_button"})
-    btns.add({type="button", name="loadSchedule__"..trainKey, caption="Load", style="st_button"})
-    btns.add({type="button", name="saveSchedule__"..trainKey, caption="Save", style="st_button"})
+    btns.add({type="button", name="readSchedule__"..trainKey.."__"..lineKey, caption="Read", style="st_button"})
+    btns.add({type="button", name="loadSchedule__"..trainKey.."__"..lineKey, caption="Load", style="st_button"})
+    btns.add({type="button", name="saveSchedule__"..trainKey.."__"..lineKey, caption="Save", style="st_button"})
     btns.add({type="textfield", name="lineName", text="", style="st_textfield_big"})
     btns.lineName.text = line
   else
@@ -103,13 +111,35 @@ function showLinesWindow(index, trainKey, line)
   end
 end
 
-function updateLineEdit(index, trainKey, stationKey)
+function showDynamicRules(index, line, stationKey, trainKey)
+  local trainKey = trainKey or ""
+  local line = line or ""
+  local station = ""
+  if trainKey and stationKey then
+    --debugLog(serpent.dump(glob.trains[trainKey].train.schedule.records),true)
+    --station = glob.trains[trainKey].train.schedule.records[stationKey].name
+  end
+  local gui = game.players[index].gui.left.stGui
+  if gui.dynamicRules ~= nil then
+    gui.dynamicRules.destroy()
+  end
+  gui = gui.add({type="flow", name="dynamicRules", direction="horizontal"})
+  gui.add({ type="checkbox", name="filter__" ..trainKey, style="tm-icon-"..glob.filter, state = true })
+  gui.add({type="button", name="togglefilter__"..trainKey, caption = glob.filterbool, style="st_button"})
+  gui.add({type="textfield", name="filteramount", style="st_textfield_small"})
+  gui.add({type="label", name="line", caption="Line: "..line, style="st_label"})
+  --gui.add({type="label", name="station", caption="Station: "..station, style="st_label"})
+end
+
+function updateLineEdit(index, trainKey, stationKey, line)
   local gui = game.players[index].gui.left.stGui
   if gui.lineSettings ~= nil then
     gui = gui.lineSettings.tbl1
     local records = glob.trains[trainKey].train.schedule.records
     for i,s in ipairs(records) do
-      gui["toggleedit__"..trainKey.."__"..i].state = (i==stationKey)
+      if i ~= stationKey then
+        gui["toggleedit__"..trainKey.."__"..i.."__"..line].state = (i==stationKey)
+      end
     end
   end
 end
@@ -177,7 +207,7 @@ function onguiclick(event)
     player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
     showSettingsButton(index)
   else
-    local option1, option2, option3 = event.element.name:match("(%a+)__(%d*)_*(%d*)")
+    local option1, option2, option3, option4 = event.element.name:match("(%a+)__(%d*)_*(%d*)_*(%a*)")
     option1 = option1 or ""
     option2 = option2 or ""
     option3 = option3 or ""
@@ -211,30 +241,44 @@ function onguiclick(event)
     elseif option1 == "toggleedit" then
       option2 = tonumber(option2)
       option3 = tonumber(option3)
+      -- @TODO save changes
       updateLineEdit(index,option2,option3)
+      showDynamicRules(index, option4, option3, option2)
     elseif option1 == "readSchedule" then
       option2 = tonumber(option2)
+      option3 = tonumber(option3)
       local name = player.gui.left.stGui.lineSettings.btns.lineName.text
-      showLinesWindow(index, option2, name)
+      glob.trains[option2].line = false
+      showLinesWindow(index, option2)
     elseif option1 == "saveSchedule" then
       local name = player.gui.left.stGui.lineSettings.btns.lineName.text
+      option2 = tonumber(option2)
       if name ~= "" then
-        option2 = tonumber(option2)
+        local lineKey = getLineByName(glob.trainLines,name)
+        --option3 = tonumber(option3)
         local t = glob.trains[option2]
-        glob.trainLines[name] = t.train.schedule.records
-        t.line = name
-        showLinesWindow(index, option2, name)
+        if lineKey then
+          glob.trainLines[lineKey].line = t.train.schedule.records
+        else
+          table.insert(glob.trainLines, {name = name, records = t.train.schedule.records})
+          lineKey = getLineByName(glob.trainLines, name)
+        end
+        t.line = lineKey
+        showLinesWindow(index, option2, lineKey)
       end       
     elseif option1 == "loadSchedule" then
       local name = player.gui.left.stGui.lineSettings.btns.lineName.text
-      if name ~= "" and glob.trainLines[name] then
-        option2 = tonumber(option2)
-        local t = glob.trains[option2]
-        local schedule = t.train.schedule 
-        schedule.records = glob.trainLines[name]
-        t.train.schedule = schedule
-        t.line = name
-        showLinesWindow(index, option2, name)
+      if name ~= "" then
+        local lineKey = getLineByName(glob.trainLines, name)
+        if lineKey then
+          option2 = tonumber(option2)
+          local t = glob.trains[option2]
+          local schedule = t.train.schedule 
+          schedule.records = glob.trainLines[lineKey].records
+          t.train.schedule = schedule
+          t.line = lineKey
+          showLinesWindow(index, option2, lineKey)
+        end
       end
     end
   end
@@ -297,6 +341,15 @@ function initGlob()
 end
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
+
+function getLineByName(tableA, line)
+  for i,l in ipairs(tableA) do
+    if l.name == line then
+      return i
+    end
+  end
+  return false
+end
 
 function trainEquals(trainA, trainB)
   if trainA.carriages[1].equals(trainB.carriages[1]) then
@@ -652,6 +705,7 @@ function ontick(event)
             destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
             destroyGui(player.gui.left.stGui.trainSettings)
             destroyGui(player.gui.left.stGui.lineSettings)
+            destroyGui(player.gui.left.stGui.dynamicRules)
       end
     end
   end
