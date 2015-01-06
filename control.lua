@@ -9,7 +9,7 @@ local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
     depart={minWait = 240, interval = 120, minFlow = 1}}
 
-local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
+local defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 local tmpPos = {}
 MOD = {version="0.1.3"}
 
@@ -88,14 +88,18 @@ function showLinesWindow(index, trainKey, lineKey)
             
       tbl.add({type="label", caption="Station", style="st_label"})
       tbl.add({type="label", caption="Time", style="st_label"})
-      tbl.add({type="label", caption="Dynamic", style="st_label"})
-      tbl.add({type="label", caption="Edit", style="st_label"})
+--      tbl.add({type="label", caption="Dynamic", style="st_label"})
+--      tbl.add({type="label", caption="Edit", style="st_label"})
+      tbl.add({type="label", caption=""})
+      tbl.add({type="label", caption=""})
       local current = t.train.schedule.current
       for i, s in ipairs(t.train.schedule.records) do
         tbl.add({type="label", caption=s.station, style="st_label"})
         tbl.add({type="label", caption=s.time_to_wait/60, style="st_label"})
-        tbl.add({type="checkbox", name="togglecon__"..i, state=false})
-        tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i, state=false})
+--        tbl.add({type="checkbox", name="togglecon__"..i, state=false})
+--        tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i, state=false})
+        tbl.add({type="label", caption=""})
+        tbl.add({type="label", caption=""})
       end
     end
     local btns = gui.add({type="flow", name="btns", direction="horizontal"})
