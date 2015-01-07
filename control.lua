@@ -120,7 +120,7 @@ function showDynamicRules(index, line, stationKey, trainKey)
   local line = line or ""
   local station = ""
   if trainKey and stationKey then
-    --debugLog(serpent.dump(glob.trains[trainKey].train.schedule.records),true)
+    --debugDump(glob.trains[trainKey].train.schedule.records,true)
     --station = glob.trains[trainKey].train.schedule.records[stationKey].name
   end
   local gui = game.players[index].gui.left.stGui
@@ -193,7 +193,7 @@ function onguiclick(event)
   local index = event.playerindex
   local player = game.players[index]
   local element = event.element
-  --debugLog(serpent.dump(event),true)
+  --debugDump(event,true)
   if element.name == "toggleSTSettings" then
     if player.gui.left.stGui.stSettings.stGlobalSettings == nil then
       globalSettingsWindow(index)
@@ -215,7 +215,7 @@ function onguiclick(event)
     option1 = option1 or ""
     option2 = option2 or ""
     option3 = option3 or ""
-    debugLog("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
+    debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
     
     if option1 == "refuel" then
       option2 = tonumber(option2)
@@ -224,7 +224,6 @@ function onguiclick(event)
       option2 = tonumber(option2)
       glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
     elseif option1 == "filter" then
-      debugLog(serpent.dump(event.element),true)
       option2 = tonumber(option2)
       local item = "iron-plate"
       if player.cursorstack then item = player.cursorstack.name end 
@@ -239,7 +238,7 @@ function onguiclick(event)
         element.caption = ">"
         glob.filterbool = "greater"
       end
-      debugLog(glob.filterbool, true)
+      debugDump(glob.filterbool, true)
       option2 = tonumber(option2)
       --showTrainInfoWindow(index,option2)
     elseif option1 == "toggleedit" then
@@ -311,7 +310,7 @@ function onload()
   initGlob()
   --printToFile(util.formattime(game.tick).." onload", "onload")
   local rem, remWaiting = removeInvalidTrains()
-  if rem > 0 or remWaiting > 0 then debugLog("You should never see this! Removed "..rem.." invalid trains and "..remWaiting.." waiting trains") end
+  if rem > 0 or remWaiting > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains and "..remWaiting.." waiting trains") end
 end
 
 function initGlob()
@@ -507,7 +506,7 @@ function cargoCount(train)
       else
         if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
           local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-          --debugLog(serpent.dump(d),true)
+          --debugDump(d,true)
           if d.type ~= nil then
             sum[d.type] = sum[d.type] or 0
             sum[d.type] = sum[d.type] + d.amount
@@ -516,7 +515,7 @@ function cargoCount(train)
       end
     end
   end
-  --debugLog(serpent.dump(sum),true)
+  --debugDump(sum,true)
   return sum
 end
 
@@ -577,7 +576,7 @@ function ontrainchangedstate(event)
     if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
       table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, station = train.schedule.current, settings=settings})
       flyingText("waiting", YELLOW, train.carriages[1].position)
-      --debugLog(util.formattime(event.tick).." arrived Station:"..train.schedule.current.." "..train.schedule.records[train.schedule.current].station,true)
+      --debugDump(util.formattime(event.tick).." arrived Station:"..train.schedule.current.." "..train.schedule.records[train.schedule.current].station,true)
     end
   elseif train.state == defines.trainstate["arrivestation"] and schedule.records[schedule.current].station ~= glob.settings.refuel.station and settings.autoDepart then
     --insert waiting      
@@ -663,7 +662,7 @@ function cargoCompare(c1, c2, minFlow, interval)
   local eq = table.compare(c1, c2)
   if oil1 ~= false and oil1 > 0 then c1["crude-oil"] = oil1 end
   if oil2 ~= false and oil2 > 0 then c2["crude-oil"] = oil2 end
-  --debugLog(util.formattime(game.tick).." flow: "..flow.." i:"..interval, true)
+  --debugDump(util.formattime(game.tick).." flow: "..flow.." i:"..interval, true)
   return (eq and math.abs(flow) < minFlow)  
 end
 
@@ -682,19 +681,18 @@ function ontick(event)
   if #glob.waitingTrains > 0 then
     for i,t in ipairs(glob.waitingTrains) do
       local wait = (type(t.arrived) == "number") and t.arrived + glob.settings.depart.minWait or t.lastCheck + glob.settings.depart.interval
-      --debugLog("depart: "..serpent.dump({t.settings.autoDepart, event.tick >= wait}),true)
       if t.settings.autoDepart and event.tick >= wait then
         local cargo = cargoCount(t.train)
         local last = t.arrived or t.lastCheck
-        --debugLog(serpent.dump({cargo, t.cargo}), true)
-        --debugLog(serpent.dump(tableCompare(cargo, t.cargo)),true)
+        --debugDump({cargo, t.cargo}, true)
+        --debugDump(tableCompare(cargo, t.cargo),true)
 --        local flow = false
 --        if cargo["crude-oil"] ~= nil or t.cargo["crude-oil"] ~= nil then
 --          cargo["crude-oil"] = cargo["crude-oil"] or 0
 --          t.cargo["crude-oil"] = t.cargo["crude-oil"] or 0
 --          flow = (cargo["crude-oil"] - t.cargo["crude-oil"])/((event.tick - last)/60)
 --          local data = util.formattime(event.tick).." oil flow/s: "..flow
---          debugLog(data, true)
+--          debugDump(data, true)
 --        end
         if cargoCompare(cargo, t.cargo, glob.settings.depart.minFlow, event.tick - last) then
           flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position)
@@ -814,37 +812,6 @@ game.onevent(defines.events.onbuiltentity, function(event) onbuiltentity(event) 
 game.onevent(defines.events.onguiclick, function(event) onguiclick(event) end)
 game.onevent(defines.events.onplayercreated, function(event) onplayercreated(event) end)
 
-
---local start = nil
---local stop = nil
---local printed = nil
---game.onevent(defines.events.ontick, function(event)
---    if game.player.character and game.player.character.vehicle and game.player.character.vehicle.name == "diesel-locomotive" then
---      if game.player.character.vehicle.train.locomotives.frontmovers[1].getitemcount("raw-wood") == 2 and start == nil then
---        --start = game.player.character.vehicle.train.locomotives.frontmovers[1].position
---        start = game.tick
---        game.player.print("start: "..serpent.dump(start))
---      end
---      if stop == nil and game.player.character.vehicle.train.locomotives.frontmovers[1].getitemcount("raw-wood") < 1 then
---        --stop = game.player.character.vehicle.train.locomotives.frontmovers[1].position
---        stop = game.tick
---        game.player.print("stop: "..serpent.dump(stop))
---      end
---      if not printed and game.player.character.vehicle.train.locomotives.frontmovers[1].getitemcount("raw-wood") < 1 then
---        game.player.print("start: "..serpent.dump(start))
---        game.player.print("end: "..serpent.dump(stop))
---        game.player.print("dur: "..(stop-start)/60)
---        game.player.print("formula: ".. 8000000 / 600000)
---        --game.player.print("dist: "..util.distance(start,stop))
---        printed = true
---      end
---    else
---      if printed then
---        start, stop, printed = nil,nil,nil
---      end
---    end
---end)
-
 function scheduleToString(schedule)
   local tmp = "Schedule: "
   for i=1,#schedule.records do
@@ -853,9 +820,17 @@ function scheduleToString(schedule)
   return tmp.." next: "..schedule.current
 end
 
-function debugLog(msg, force)
+function debugDump(var, force)
   if false or force then
     for i,player in ipairs(game.players) do
+    local msg
+    if type(var) == "string" then
+      msg = var
+    else
+      msg = serpent.line(var, {name="var", comment=false})
+      msg = string.gsub(msg, "do local var =", "",1)
+      msg = string.gsub(msg, "; return var; end", "",1)
+    end
       player.print(msg)
     end
   end
@@ -870,7 +845,7 @@ end
 function printToFile(line, path)
   path = path or "log"
   path = table.concat({ "st", "/", path, ".txt" })
-  debugLog(line, true)
+  debugDump(line, true)
   game.makefile( path,  line)
 end
 
@@ -878,16 +853,16 @@ remote.addinterface("st",
   {
     printGlob = function(name)
       if name then
-        debugLog(serpent.dump(glob[name]), true)
+        debugDump(glob[name], true)
       else
-        debugLog(serpent.dump(glob), true)
+        debugDump(glob, true)
       end
     end,
 
     printG = function(name)
       local name = name or "log"
       if _G then
-        printToFile( serpent.block(_G), name )
+        printToFile(serpent.block(_G), name )
       else
         globalPrint("Global not found.")
       end
