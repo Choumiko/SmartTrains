@@ -26,16 +26,16 @@ function destroyGui(guiA)
   end
 end
 
-function showSettingsButton(index)
-  local gui = game.players[index].gui.left.stGui.stSettings
+function showSettingsButton(index, parent)
+  local gui = parent or game.players[index].gui.left.stGui.stSettings
   if gui.toggleSTSettings ~= nil then
     gui.toggleSTSettings.destroy()
   end
   gui.add({type="button", name="toggleSTSettings", caption = "ST-Settings", style="st_button"})
 end
 
-function showTrainInfoWindow(index, trainKey)
-  local gui = game.players[index].gui.left.stGui
+function showTrainInfoWindow(index, trainKey, parent)
+  local gui = parent or game.players[index].gui.left.stGui
   if gui.trainSettings ~= nil then
     gui.trainSettings.destroy()
   end
@@ -60,12 +60,12 @@ function showTrainInfoWindow(index, trainKey)
       local fl = gui.add({type="flow", direction="horizontal"})
       fl.add({type="label", caption="Active line: "..glob.trainLines[t.line].name})
     end
-    showScheduleWindow(index, trainKey, t.line)
+    --showScheduleWindow(index, trainKey, t.line)
   end
 end
 
-function showScheduleWindow(index, trainKey, lineKey)
-  local gui = game.players[index].gui.left.stGui
+function showScheduleWindow(index, trainKey, lineKey, parent)
+  local gui = parent or game.players[index].gui.left.stGui
   if glob.trains[trainKey].train.valid then
     local t = glob.trains[trainKey]
     if gui.scheduleSettings ~= nil then
@@ -105,11 +105,11 @@ function showScheduleWindow(index, trainKey, lineKey)
       end
     end
     local btns = gui.add({type="flow", name="btns", direction="horizontal"})
-    btns.add({type="button", name="readSchedule__"..trainKey..lineKey, caption="Read", style="st_button"})
-    btns.add({type="button", name="loadSchedule__"..trainKey..lineKey, caption="Load", style="st_button"})
+    btns.add({type="button", name="editSchedule__"..trainKey..lineKey, caption="Edit", style="st_button"})
     btns.add({type="button", name="saveSchedule__"..trainKey..lineKey, caption="Save", style="st_button"})
-    btns.add({type="textfield", name="lineName", text="", style="st_textfield_big"})
-    btns.lineName.text = line
+    btns.add({type="button", name="saveAsLine__"..trainKey..lineKey, caption="Save as line", style="st_button"})
+    btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
+--    btns.lineName.text = line
     
     
   else
@@ -117,6 +117,34 @@ function showScheduleWindow(index, trainKey, lineKey)
       gui.scheduleSettings.destroy()
     end
   end
+end
+
+function showTrainLinesWindow(index, trainKey, parent)
+--  local gui = parent or game.players[index].gui.left.stGui
+--  if gui.trainLines ~= nil then
+--    gui.trainLines.destroy()
+--  end
+--    gui = gui.add({type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
+--    if #glob.trainLines > 0 then
+--      local t = glob.trains[trainKey]
+--      local tbl = gui.add({type="table", name="tbl1", colspan=4})
+--      tbl.add({type="label", caption="Line", style="st_label"})
+--      tbl.add({type="label", caption="Stations", style="st_label"})
+--      tbl.add({type="label", caption="Active"})
+--      tbl.add({type="label", caption="Edit"})
+--      for i, l in ipairs(glob.trainLines) do
+--        tbl.add({type="label", caption=l.name, style="st_label"})
+--        tbl.add({type="label", caption=#l.records, style="st_label"})
+--        tbl.add({type="checkbox", state=(i==t.line)})
+--        tbl.add({type="button", caption="e", style="st_button"})
+--      end
+--    end
+--    local btns = gui.add({type="flow", name="btns", direction="horizontal"})
+--    btns.add({type="button", name="readSchedule__"..trainKey, caption="Read", style="st_button"})
+--    btns.add({type="button", name="loadSchedule__"..trainKey, caption="Load", style="st_button"})
+--    btns.add({type="button", name="saveSchedule__"..trainKey, caption="Save", style="st_button"})
+--    btns.add({type="textfield", name="lineName", text="", style="st_textfield_big"})
+    --btns.lineName.text = line    
 end
 
 function showDynamicRules(index, line, stationKey, trainKey)
@@ -152,8 +180,8 @@ function updateLineEdit(index, trainKey, stationKey, line)
   end
 end
 
-function globalSettingsWindow(index)
-  local gui = game.players[index].gui.left.stGui.stSettings
+function globalSettingsWindow(index, parent)
+  local gui = parent or game.players[index].gui.left.stGui.stSettings
   if gui.stGlobalSettings == nil then
     gui.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
     gui.stGlobalSettings.add{type="table", name="tbl", colspan=5}
@@ -256,7 +284,7 @@ function onguiclick(event)
       uiReadSchedule(index,option2)
     elseif option1 == "saveSchedule" then
       debugDump("saveSchedule",true)
-      local name = player.gui.left.stGui.scheduleSettings.btns.lineName.text
+      local name = player.gui.left.stGui.trainLines.btns.lineName.text
       option2 = tonumber(option2)
       if name ~= "" then
         local lineKey = getLineByName(glob.trainLines,name)
@@ -276,7 +304,7 @@ function onguiclick(event)
         showScheduleWindow(index, option2, lineKey)
       end
     elseif option1 == "loadSchedule" then
-      local name = player.gui.left.stGui.scheduleSettings.btns.lineName.text
+      local name = player.gui.left.stGui.trainLines.btns.lineName.text
       option2 = tonumber(option2)
       if name ~= "" then
         local lineKey = getLineByName(glob.trainLines, name)
@@ -296,7 +324,7 @@ function onguiclick(event)
 end
 
 function uiReadSchedule(index, trainKey)
-  local name = game.players[index].gui.left.stGui.scheduleSettings.btns.lineName.text
+  --local name = game.players[index].gui.left.stGui.scheduleSettings.btns.lineName.text
   glob.trains[trainKey].line = false
   showScheduleWindow(index, trainKey)
 end
@@ -547,6 +575,10 @@ function getKeyByValue(tableA, value)
   end
 end
 
+function autoDepart(train)
+
+end
+
 function ontrainchangedstate(event)
   local train = event.train
   local trainKey = getKeyByTrain(glob.trains, train)
@@ -744,7 +776,9 @@ function ontick(event)
           end
           if player.gui.left.stGui.trainSettings == nil then
             showTrainInfoWindow(pi, key)
+            showScheduleWindow(pi,key,nil)
             showSettingsButton(pi)
+            showTrainLinesWindow(pi,key)
           end
         elseif player.opened.type == "train-stop" and player.gui.left.stGui.stSettings.toggleSTSettings == nil and player.gui.left.stGui.stSettings.stGlobalSettings == nil then
           showSettingsButton(pi)
@@ -755,6 +789,7 @@ function ontick(event)
         destroyGui(player.gui.left.stGui.trainSettings)
         destroyGui(player.gui.left.stGui.scheduleSettings)
         destroyGui(player.gui.left.stGui.dynamicRules)
+        destroyGui(player.gui.left.stGui.trainLines)
       end
     end
   end
