@@ -220,13 +220,9 @@ function onguiclick(event)
     if option1 == "refuel" then
       option2 = tonumber(option2)
       glob.trains[option2].settings.autoRefuel = not glob.trains[option2].settings.autoRefuel
-      --glob.trains[option2].settings.autoRefuel = game.players[index].gui.left.stGui.trainSettings.tbl["btn_refuel__"..option2].state
     elseif option1 == "depart" then
       option2 = tonumber(option2)
-      debugLog(glob.trains[option2].name, true)
       glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
-      --glob.trains[option2].settings.autoDepart = game.players[index].gui.left.stGui.trainSettings.tbl["btn_depart__"..option2].state
-      --assert(glob.trains[option2].settings.autoDepart == game.players[index].gui.left.stGui.trainSettings.tbl["btn_depart__"..option2].state)
     elseif option1 == "filter" then
       debugLog(serpent.dump(event.element),true)
       option2 = tonumber(option2)
@@ -389,8 +385,7 @@ function getKeyByTrain(tableA, train)
   return false
 end
 
-function getNewTrainInfo(train, msg)
-  if msg then debugLog(msg,true) end
+function getNewTrainInfo(train)
   if train ~= nil then
     local carriages = train.carriages
     if carriages ~= nil and carriages[1] ~= nil and carriages[1].valid then
@@ -402,7 +397,7 @@ function getNewTrainInfo(train, msg)
       else
         newTrainInfo.name = "cargoOnly"
       end
-      newTrainInfo.settings = defaultTrainSettings
+      newTrainInfo.settings = {autoDepart = defaultTrainSettings.autoDepart, autoRefuel = defaultTrainSettings.autoRefuel}
       newTrainInfo.lineVersion = 0
       return newTrainInfo
     end
@@ -723,22 +718,19 @@ function ontick(event)
         if player.opened.type == "locomotive" and player.opened.train ~= nil
           then --and player.gui.left.stGui.trainSettings == nil then
             local key = getKeyByTrain(glob.trains, player.opened.train)
-            debugLog("key: "..serpent.dump(key),true)
             if not key then
-              local ti = getNewTrainInfo(player.opened.train, "ontick")
-              debugLog("ti:"..serpent.dump(ti),true)
+              local ti = getNewTrainInfo(player.opened.train)
               table.insert(glob.trains, ti)
-              debugLog("glob.trains:"..serpent.dump(glob.trains),true)
               key = getKeyByTrain(glob.trains, player.opened.train)
             end
             if player.gui.left.stGui.trainSettings == nil then
-              --showTrainInfoWindow(pi, key)
-              --showSettingsButton(pi)
+              showTrainInfoWindow(pi, key)
+              showSettingsButton(pi)
             end
         elseif player.opened.type == "train-stop" and player.gui.left.stGui.stSettings.toggleSTSettings == nil and player.gui.left.stGui.stSettings.stGlobalSettings == nil then
-            --showSettingsButton(pi)
+            showSettingsButton(pi)
         end 
-      elseif player.opened == nil then --and glob.opened[pi] ~= nil then
+      elseif player.opened == nil then
             destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
             destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
             destroyGui(player.gui.left.stGui.trainSettings)
