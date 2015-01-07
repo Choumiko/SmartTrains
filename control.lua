@@ -9,7 +9,7 @@ local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
     depart={minWait = 240, interval = 120, minFlow = 1}}
 
-defaultTrainSettings = {autoRefuel = false, autoDepart = false}
+local defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 local tmpPos = {}
 MOD = {version="0.1.4"}
 
@@ -40,7 +40,7 @@ function showTrainInfoWindow(index, trainKey)
     gui.trainSettings.destroy()
   end
   if glob.trains[trainKey].train.valid then
-    gui = gui.add({type="flow", name="trainSettings", direction="vertical"})
+    gui = gui.add({type="frame", name="trainSettings", direction="vertical"})
     local t = glob.trains[trainKey]
     local trainGui = gui.add({type="table", name="tbl", colspan=3})
     trainGui.add({type="label", caption="Name", style="st_label"})
@@ -67,10 +67,12 @@ function showLinesWindow(index, trainKey, lineKey)
     end
     local line = ""
     local activeLine = ""
+    local records = t.train.schedule.records
     if glob.trainLines[lineKey] then
       line = glob.trainLines[lineKey].name
       if lineKey and t.line == lineKey then
         activeLine = glob.trainLines[lineKey].name
+        records = glob.trainLines[lineKey].records
       end
     end
     if lineKey then
@@ -78,26 +80,25 @@ function showLinesWindow(index, trainKey, lineKey)
     else
       lineKey = ""
     end
-    gui = gui.add({type="flow", name="lineSettings", direction="vertical"})
-    if #t.train.schedule.records > 0 then
+    gui = gui.add({type="frame", name="lineSettings", direction="vertical"})
+    if #records > 0 then
       local tbl = gui.add({type="table", name="tbl1", colspan=4})
       tbl.add({type="label", name="activeLine", caption="Active line: "..activeLine, style="st_label"})
       tbl.add({type="label", caption=""})
       tbl.add({type="label", caption=""})
       tbl.add({type="label", caption=""})
-            
+
       tbl.add({type="label", caption="Station", style="st_label"})
       tbl.add({type="label", caption="Time", style="st_label"})
---      tbl.add({type="label", caption="Dynamic", style="st_label"})
---      tbl.add({type="label", caption="Edit", style="st_label"})
+      --      tbl.add({type="label", caption="Dynamic", style="st_label"})
+      --      tbl.add({type="label", caption="Edit", style="st_label"})
       tbl.add({type="label", caption=""})
       tbl.add({type="label", caption=""})
-      local current = t.train.schedule.current
-      for i, s in ipairs(t.train.schedule.records) do
+      for i, s in ipairs(records) do
         tbl.add({type="label", caption=s.station, style="st_label"})
         tbl.add({type="label", caption=s.time_to_wait/60, style="st_label"})
---        tbl.add({type="checkbox", name="togglecon__"..i, state=false})
---        tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i, state=false})
+        --        tbl.add({type="checkbox", name="togglecon__"..i, state=false})
+        --        tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i, state=false})
         tbl.add({type="label", caption=""})
         tbl.add({type="label", caption=""})
       end
@@ -120,8 +121,8 @@ function showDynamicRules(index, line, stationKey, trainKey)
   local line = line or ""
   local station = ""
   if trainKey and stationKey then
-    --debugDump(glob.trains[trainKey].train.schedule.records,true)
-    --station = glob.trains[trainKey].train.schedule.records[stationKey].name
+  --debugDump(glob.trains[trainKey].train.schedule.records,true)
+  --station = glob.trains[trainKey].train.schedule.records[stationKey].name
   end
   local gui = game.players[index].gui.left.stGui
   if gui.dynamicRules ~= nil then
@@ -151,7 +152,7 @@ end
 function globalSettingsWindow(index)
   local gui = game.players[index].gui.left.stGui.stSettings
   if gui.stGlobalSettings == nil then
-    gui.add({type = "flow", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
+    gui.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
     gui.stGlobalSettings.add{type="table", name="tbl", colspan=5}
     local tbl = gui.stGlobalSettings.tbl
 
@@ -174,12 +175,12 @@ function globalSettingsWindow(index)
     tbl.add({type= "label", caption="Interval for autodepart", style="st_label"})
     tbl.add({type= "textfield", name="departInterval", style="st_textfield_small"})
     tbl.add({type= "label", caption=""})
-    
+
     tbl.add({type="label", name="lblTrackedTrains", caption = "Tracked trains: "..#glob.trains, style="st_label"})
     tbl.add({type= "label", caption=""})
     tbl.add({type= "label", caption=""})
     tbl.add({type= "button", name="refuelSave", caption="Ok", style="st_button"})
-    
+
     tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
     tbl.row1.refuelRangeMax.text = glob.settings.refuel.rangeMax
     tbl.refuelStation.text = glob.settings.refuel.station
@@ -215,8 +216,8 @@ function onguiclick(event)
     option1 = option1 or ""
     option2 = option2 or ""
     option3 = option3 or ""
-    debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
-    
+    --debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
+
     if option1 == "refuel" then
       option2 = tonumber(option2)
       glob.trains[option2].settings.autoRefuel = not glob.trains[option2].settings.autoRefuel
@@ -226,15 +227,15 @@ function onguiclick(event)
     elseif option1 == "filter" then
       option2 = tonumber(option2)
       local item = "iron-plate"
-      if player.cursorstack then item = player.cursorstack.name end 
+      if player.cursorstack then item = player.cursorstack.name end
       glob.filter = item or glob.filter
       game.players[index].gui.left.stGui.trainSettings.tbl["filter__"..option2].style = "tm-icon-"..glob.filter
       --showTrainInfoWindow(index,option2)
     elseif option1 == "togglefilter" then
       if element.caption == ">" then
         element.caption = "<"
-        glob.filterbool = "lesser" 
-      else 
+        glob.filterbool = "lesser"
+      else
         element.caption = ">"
         glob.filterbool = "greater"
       end
@@ -251,6 +252,7 @@ function onguiclick(event)
       option2 = tonumber(option2)
       uiReadSchedule(index,option2)
     elseif option1 == "saveSchedule" then
+      debugDump("saveSchedule",true)
       local name = player.gui.left.stGui.lineSettings.btns.lineName.text
       option2 = tonumber(option2)
       if name ~= "" then
@@ -264,12 +266,12 @@ function onguiclick(event)
           table.insert(glob.trainLines, {name = name, records = t.train.schedule.records, changed = changed})
           lineKey = getLineByName(glob.trainLines, name)
         end
-        local schedule = t.train.schedule 
+        local schedule = t.train.schedule
         schedule.records = glob.trainLines[lineKey].records
         t.train.schedule = schedule
         t.line = lineKey
         showLinesWindow(index, option2, lineKey)
-      end       
+      end
     elseif option1 == "loadSchedule" then
       local name = player.gui.left.stGui.lineSettings.btns.lineName.text
       option2 = tonumber(option2)
@@ -277,7 +279,7 @@ function onguiclick(event)
         local lineKey = getLineByName(glob.trainLines, name)
         if lineKey then
           local t = glob.trains[option2]
-          local schedule = t.train.schedule 
+          local schedule = t.train.schedule
           schedule.records = glob.trainLines[lineKey].records
           t.train.schedule = schedule
           t.line = lineKey
@@ -321,9 +323,9 @@ function initGlob()
     glob.trainLines = nil
     glob.settings = nil
     for i,p in ipairs(game.players) do
-        destroyGui(p.gui.left.stGui)
-        destroyGui(p.gui.center.stGui)
-        destroyGui(p.gui.top.stButtons)
+      destroyGui(p.gui.left.stGui)
+      destroyGui(p.gui.center.stGui)
+      destroyGui(p.gui.top.stButtons)
     end
     glob.guiDone = nil
     glob.version = "0.1.0"
@@ -346,7 +348,7 @@ function initGlob()
     for i,l in ipairs(glob.trainLines) do
       if l.line then l.line=nil end
       l.changed = 0
-    end  
+    end
   end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
@@ -555,13 +557,29 @@ function ontrainchangedstate(event)
   local fuel = lowestFuel(train)
   local schedule = train.schedule
   --flyingText(getKeyByValue(defines.trainstate, train.state), YELLOW, train.carriages[1].position)
+  debugDump(getKeyByValue(defines.trainstate, train.state),true)
   if train.state == defines.trainstate["waitstation"] then
     if t.line and glob.trainLines[t.line].changed ~= t.lineVersion then
+      debugDump("start update: "..t.train.schedule.records[t.train.schedule.current].station,true)
+      local waitingAt = t.train.schedule.records[t.train.schedule.current]
+      t.train.manualmode = true
       local trainLine = glob.trainLines[t.line]
+      local inLine = inSchedule(waitingAt.station,{records=trainLine.records})
+      if inLine then
+        schedule.current = inLine
+      else
+        schedule.current = 1
+      end
       schedule.records = trainLine.records
+      debugDump(schedule, true)
       t.train.schedule = schedule
-      t.lineVersion = trainLine.changed 
+      t.train.manualmode = false
+      debugDump("end update: "..t.train.schedule.records[t.train.schedule.current].station,true)
+      t.lineVersion = trainLine.changed
+--      flyingText("updating schedule", YELLOW, train.carriages[1].position)
     end
+  end
+  if train.state == defines.trainstate["waitstation"] then
     if settings.autoRefuel then
       if fuel >= (glob.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
         if inSchedule(glob.settings.refuel.station, schedule) and #schedule.records >= 3 then
@@ -575,11 +593,11 @@ function ontrainchangedstate(event)
     end
     if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
       table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, station = train.schedule.current, settings=settings})
-      flyingText("waiting", YELLOW, train.carriages[1].position)
+      --flyingText("waiting", YELLOW, train.carriages[1].position)
       --debugDump(util.formattime(event.tick).." arrived Station:"..train.schedule.current.." "..train.schedule.records[train.schedule.current].station,true)
     end
   elseif train.state == defines.trainstate["arrivestation"] and schedule.records[schedule.current].station ~= glob.settings.refuel.station and settings.autoDepart then
-    --insert waiting      
+  --insert waiting
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
     if settings.autoRefuel then
       if fuel < (glob.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(glob.settings.refuel.station, schedule) then
@@ -593,7 +611,7 @@ function ontrainchangedstate(event)
       if train.state == defines.trainstate["onthepath"] then
         local t = glob.refuelTrains[found]
         local schedule = train.schedule
--- Try: train.schedule = t.origSchedule
+        -- Try: train.schedule = t.origSchedule
         local station = inSchedule(glob.settings.refuel.station, schedule)
         schedule.records[station].time_to_wait = glob.settings.refuel.time
         train.schedule = schedule
@@ -607,15 +625,15 @@ function ontrainchangedstate(event)
     local found = getKeyByTrain(glob.waitingTrains, train)
     if found then
       if train.state == defines.trainstate["onthepath"] then
---        local settings = glob.waitingTrains[found].settings
+        --        local settings = glob.waitingTrains[found].settings
         local t = glob.waitingTrains[found]
         local station, time = t.station, t.wait
         local schedule = train.schedule
---        local prev = schedule.current - 1
---        if prev == 0 then prev = #schedule.records end
---        if schedule.records[prev].station == glob.settings.refuel.station then prev = prev-1 end
---        schedule.records[prev].time_to_wait = glob.waitingTrains[found].wait
--- Try: train.schedule = t.origSchedule
+        --        local prev = schedule.current - 1
+        --        if prev == 0 then prev = #schedule.records end
+        --        if schedule.records[prev].station == glob.settings.refuel.station then prev = prev-1 end
+        --        schedule.records[prev].time_to_wait = glob.waitingTrains[found].wait
+        -- Try: train.schedule = t.origSchedule
         schedule.records[station].time_to_wait = time
         train.schedule = schedule
         table.remove(glob.waitingTrains, found)
@@ -638,7 +656,7 @@ end
 --    for k, v in pairs( tbl2 ) do
 --        if type(v) == "table" and type(tbl1[k]) == "table" then
 --            if not table.compare( v, tbl1[k] ) then return false end
---        else 
+--        else
 --            if v ~= tbl1[k] then return false end
 --            --if not equalOrNilAnd0(v, tbl2[k]) then return false end
 --        end
@@ -663,7 +681,7 @@ function cargoCompare(c1, c2, minFlow, interval)
   if oil1 ~= false and oil1 > 0 then c1["crude-oil"] = oil1 end
   if oil2 ~= false and oil2 > 0 then c2["crude-oil"] = oil2 end
   --debugDump(util.formattime(game.tick).." flow: "..flow.." i:"..interval, true)
-  return (eq and math.abs(flow) < minFlow)  
+  return (eq and math.abs(flow) < minFlow)
 end
 
 function ontick(event)
@@ -675,7 +693,7 @@ function ontick(event)
           flyingText("Refueling done", YELLOW, t.train.carriages[1].position)
           nextStation(t.train)
         end
-      end 
+      end
     end
   end
   if #glob.waitingTrains > 0 then
@@ -686,14 +704,14 @@ function ontick(event)
         local last = t.arrived or t.lastCheck
         --debugDump({cargo, t.cargo}, true)
         --debugDump(tableCompare(cargo, t.cargo),true)
---        local flow = false
---        if cargo["crude-oil"] ~= nil or t.cargo["crude-oil"] ~= nil then
---          cargo["crude-oil"] = cargo["crude-oil"] or 0
---          t.cargo["crude-oil"] = t.cargo["crude-oil"] or 0
---          flow = (cargo["crude-oil"] - t.cargo["crude-oil"])/((event.tick - last)/60)
---          local data = util.formattime(event.tick).." oil flow/s: "..flow
---          debugDump(data, true)
---        end
+        --        local flow = false
+        --        if cargo["crude-oil"] ~= nil or t.cargo["crude-oil"] ~= nil then
+        --          cargo["crude-oil"] = cargo["crude-oil"] or 0
+        --          t.cargo["crude-oil"] = t.cargo["crude-oil"] or 0
+        --          flow = (cargo["crude-oil"] - t.cargo["crude-oil"])/((event.tick - last)/60)
+        --          local data = util.formattime(event.tick).." oil flow/s: "..flow
+        --          debugDump(data, true)
+        --        end
         if cargoCompare(cargo, t.cargo, glob.settings.depart.minFlow, event.tick - last) then
           flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position)
           nextStation(t.train)
@@ -702,7 +720,7 @@ function ontick(event)
         else
           flyingText("cargoCompare -> stay at station", YELLOW, t.train.carriages[1].position)
           t.lastCheck = event.tick
-          t.arrived = false          
+          t.arrived = false
           t.cargo = cargo
         end
       elseif not t.settings.autoDepart then
@@ -714,26 +732,26 @@ function ontick(event)
     for pi, player in ipairs(game.players) do
       if player.opened ~= nil and player.opened.valid then
         if player.opened.type == "locomotive" and player.opened.train ~= nil
-          then --and player.gui.left.stGui.trainSettings == nil then
-            local key = getKeyByTrain(glob.trains, player.opened.train)
-            if not key then
-              local ti = getNewTrainInfo(player.opened.train)
-              table.insert(glob.trains, ti)
-              key = getKeyByTrain(glob.trains, player.opened.train)
-            end
-            if player.gui.left.stGui.trainSettings == nil then
-              showTrainInfoWindow(pi, key)
-              showSettingsButton(pi)
-            end
-        elseif player.opened.type == "train-stop" and player.gui.left.stGui.stSettings.toggleSTSettings == nil and player.gui.left.stGui.stSettings.stGlobalSettings == nil then
+        then --and player.gui.left.stGui.trainSettings == nil then
+          local key = getKeyByTrain(glob.trains, player.opened.train)
+          if not key then
+            local ti = getNewTrainInfo(player.opened.train)
+            table.insert(glob.trains, ti)
+            key = getKeyByTrain(glob.trains, player.opened.train)
+          end
+          if player.gui.left.stGui.trainSettings == nil then
+            showTrainInfoWindow(pi, key)
             showSettingsButton(pi)
-        end 
+          end
+        elseif player.opened.type == "train-stop" and player.gui.left.stGui.stSettings.toggleSTSettings == nil and player.gui.left.stGui.stSettings.stGlobalSettings == nil then
+          showSettingsButton(pi)
+        end
       elseif player.opened == nil then
-            destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
-            destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
-            destroyGui(player.gui.left.stGui.trainSettings)
-            destroyGui(player.gui.left.stGui.lineSettings)
-            destroyGui(player.gui.left.stGui.dynamicRules)
+        destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
+        destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
+        destroyGui(player.gui.left.stGui.trainSettings)
+        destroyGui(player.gui.left.stGui.lineSettings)
+        destroyGui(player.gui.left.stGui.dynamicRules)
       end
     end
   end
@@ -823,14 +841,14 @@ end
 function debugDump(var, force)
   if false or force then
     for i,player in ipairs(game.players) do
-    local msg
-    if type(var) == "string" then
-      msg = var
-    else
-      msg = serpent.line(var, {name="var", comment=false})
-      msg = string.gsub(msg, "do local var =", "",1)
-      msg = string.gsub(msg, "; return var; end", "",1)
-    end
+      local msg
+      if type(var) == "string" then
+        msg = var
+      else
+        msg = serpent.line(var, {name="var", comment=false})
+        msg = string.gsub(msg, "do local var =", "",1)
+        msg = string.gsub(msg, "; return var; end", "",1)
+      end
       player.print(msg)
     end
   end
@@ -867,7 +885,7 @@ remote.addinterface("st",
         globalPrint("Global not found.")
       end
     end,
-    
+
     resetTrains = function()
       glob.trains = {}
       glob.waitingTrains = {}
