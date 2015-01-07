@@ -41,7 +41,7 @@ data.raw["gui-style"].default["st_textfield_small"] =
     minimal_width = 30,
     font = "st-small"
   }
-  
+
 data.raw["gui-style"].default["st_textfield_big"] =
   {
     type = "textfield_style",
@@ -49,10 +49,19 @@ data.raw["gui-style"].default["st_textfield_big"] =
     right_padding = 2,
     minimal_width = 120,
     font = "st-small"
-  }  
+  }
 data.raw["gui-style"].default["st_button"] =
   {
     type = "button_style",
     parent = "default",
+    font = "st-small-bold"
+  }
+
+data.raw["gui-style"].default["st_frame"] =
+  {
+    type = "frame_style",
+    parent="frame_style",
+    top_padding  = 2,
+    bottom_padding = 2,
     font = "st-small-bold"
   }
