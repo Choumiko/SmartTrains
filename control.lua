@@ -9,7 +9,7 @@ local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
     depart={minWait = 240, interval = 120, minFlow = 1}}
 
-local defaultTrainSettings = {autoRefuel = false, autoDepart = false}
+defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 local tmpPos = {}
 MOD = {version="0.1.4"}
 
@@ -47,7 +47,7 @@ function showTrainInfoWindow(index, trainKey)
     trainGui.add({type="label", caption=""})
     trainGui.add({type="label", caption="Auto-", style="st_label"})
 
-    trainGui.add({type="label", caption=""})
+    trainGui.add({type="label", caption="key: "..trainKey})
     trainGui.add({type="label", caption="Refuel", style="st_label"})
     trainGui.add({type="label", caption="Depart", style="st_label"})
 
@@ -223,6 +223,7 @@ function onguiclick(event)
       --glob.trains[option2].settings.autoRefuel = game.players[index].gui.left.stGui.trainSettings.tbl["btn_refuel__"..option2].state
     elseif option1 == "depart" then
       option2 = tonumber(option2)
+      debugLog(glob.trains[option2].name, true)
       glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
       --glob.trains[option2].settings.autoDepart = game.players[index].gui.left.stGui.trainSettings.tbl["btn_depart__"..option2].state
       --assert(glob.trains[option2].settings.autoDepart == game.players[index].gui.left.stGui.trainSettings.tbl["btn_depart__"..option2].state)
@@ -388,15 +389,16 @@ function getKeyByTrain(tableA, train)
   return false
 end
 
-function getNewTrainInfo(train)
+function getNewTrainInfo(train, msg)
+  if msg then debugLog(msg,true) end
   if train ~= nil then
     local carriages = train.carriages
     if carriages ~= nil and carriages[1] ~= nil and carriages[1].valid then
-      local newTrainInfo = {dynamic = false, line = false}
+      local newTrainInfo = {dynamic = false, line = false, settings = {}}
       newTrainInfo.train = train
       if train.locomotives ~= nil and (#train.locomotives.frontmovers > 0 or #train.locomotives.backmovers > 0) then
         newTrainInfo.name = train.locomotives.frontmovers[1].backername or train.locomotives.backmovers[1].backername
-        newTrainInfo.name = string.gsub(newTrainInfo.name, "%.", "")
+        --newTrainInfo.name = string.gsub(newTrainInfo.name, "%.", "")
       else
         newTrainInfo.name = "cargoOnly"
       end
@@ -718,18 +720,23 @@ function ontick(event)
   if event.tick%10==9  then
     for pi, player in ipairs(game.players) do
       if player.opened ~= nil and player.opened.valid then
-        if player.opened.type == "locomotive" and player.opened.train ~= nil then
-          local key = getKeyByTrain(glob.trains, player.opened.train)
-          if not key then
-            table.insert(glob.trains, getNewTrainInfo(player.opened.train))
-            key = getKeyByTrain(glob.trains, player.opened.train)
-          end
-          if player.gui.left.stGui.trainSettings == nil then
-            showTrainInfoWindow(pi, key)
-            showSettingsButton(pi)
-          end
+        if player.opened.type == "locomotive" and player.opened.train ~= nil
+          then --and player.gui.left.stGui.trainSettings == nil then
+            local key = getKeyByTrain(glob.trains, player.opened.train)
+            debugLog("key: "..serpent.dump(key),true)
+            if not key then
+              local ti = getNewTrainInfo(player.opened.train, "ontick")
+              debugLog("ti:"..serpent.dump(ti),true)
+              table.insert(glob.trains, ti)
+              debugLog("glob.trains:"..serpent.dump(glob.trains),true)
+              key = getKeyByTrain(glob.trains, player.opened.train)
+            end
+            if player.gui.left.stGui.trainSettings == nil then
+              --showTrainInfoWindow(pi, key)
+              --showSettingsButton(pi)
+            end
         elseif player.opened.type == "train-stop" and player.gui.left.stGui.stSettings.toggleSTSettings == nil and player.gui.left.stGui.stSettings.stGlobalSettings == nil then
-            showSettingsButton(pi)
+            --showSettingsButton(pi)
         end 
       elseif player.opened == nil then --and glob.opened[pi] ~= nil then
             destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
