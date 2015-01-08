@@ -1,5 +1,13 @@
 require "defines"
 require "util"
+
+function onload()
+  --glob.version = nil --uncomment this line for a hard reset (all SmartTrain settings will be lost)
+  initGlob()
+  local rem, remWaiting = removeInvalidTrains()
+  if rem > 0 or remWaiting > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains and "..remWaiting.." waiting trains") end
+end
+
 MOD = {version="0.1.4"}
 
 local RED = {r = 0.9}
@@ -51,7 +59,7 @@ function showTrainInfoWindow(index, trainKey, parent)
 
 
     trainGui.add({type="label", caption=""})
-    --trainGui.add({type="label", caption="key: "..trainKey})      
+    --trainGui.add({type="label", caption="key: "..trainKey})
     trainGui.add({type="label", caption="Refuel", style="st_label"})
     trainGui.add({type="label", caption="Depart", style="st_label"})
 
@@ -113,9 +121,9 @@ function showScheduleWindow(index, trainKey, parent)
     local btns = gui.add({type="flow", name="btns2", direction="horizontal"})
     btns.add({type="button", name="saveAsLine__"..trainKey..lineKey, caption="Save as line", style="st_button"})
     btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
---    btns.lineName.text = line
-    
-    
+    --    btns.lineName.text = line
+
+
   else
     if gui.scheduleSettings ~= nil then
       gui.scheduleSettings.destroy()
@@ -129,27 +137,27 @@ function showTrainLinesWindow(index, trainKey, parent)
     gui.trainLines.destroy()
   end
   if glob.trainLines then
-      gui = gui.add({type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
-      local t = glob.trains[trainKey]
-      local tbl = gui.add({type="table", name="tbl1", colspan=5})
-      tbl.add({type="label", caption="Line", style="st_label"})
-      tbl.add({type="label", caption="1st station", style="st_label"})
-      tbl.add({type="label", caption="#stations", style="st_label"})
-      tbl.add({type="label", caption="Active"})
-      tbl.add({type="label", caption="Delete"})
-      local dirty = 0
-      for i, l in pairs(glob.trainLines) do
-        tbl.add({type="label", caption=l.name, style="st_label"})
-        tbl.add({type="label", caption=l.records[1].station, style="st_label"})
-        tbl.add({type="label", caption=#l.records, style="st_label"})
-        tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==t.line)})
-        tbl.add({type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
-        dirty= dirty+1
-      end
-      local btns = gui.add({type="flow", name="btns", direction="horizontal"})
-      btns.add({type="button", name="deleteLines", caption="Delete", style="st_button"})
-      if dirty == 0 then gui.destroy() end
+    gui = gui.add({type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
+    local t = glob.trains[trainKey]
+    local tbl = gui.add({type="table", name="tbl1", colspan=5})
+    tbl.add({type="label", caption="Line", style="st_label"})
+    tbl.add({type="label", caption="1st station", style="st_label"})
+    tbl.add({type="label", caption="#stations", style="st_label"})
+    tbl.add({type="label", caption="Active"})
+    tbl.add({type="label", caption="Delete"})
+    local dirty = 0
+    for i, l in pairs(glob.trainLines) do
+      tbl.add({type="label", caption=l.name, style="st_label"})
+      tbl.add({type="label", caption=l.records[1].station, style="st_label"})
+      tbl.add({type="label", caption=#l.records, style="st_label"})
+      tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==t.line)})
+      tbl.add({type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
+      dirty= dirty+1
     end
+    local btns = gui.add({type="flow", name="btns", direction="horizontal"})
+    btns.add({type="button", name="deleteLines", caption="Delete", style="st_button"})
+    if dirty == 0 then gui.destroy() end
+  end
 end
 
 function showDynamicRules(index, line, stationKey, trainKey)
@@ -211,7 +219,7 @@ function globalSettingsWindow(index, parent)
     tbl.add({type= "label", caption="Interval for autodepart", style="st_label"})
     tbl.add({type= "textfield", name="departInterval", style="st_textfield_small"})
     tbl.add({type= "label", caption=""})
-    
+
     tbl.add({type= "label", caption="Min. flow rate", style="st_label"})
     tbl.add({type= "textfield", name="minFlow", style="st_textfield_small"})
     tbl.add({type="label", name="lblTrackedTrains", caption = "Tracked trains: "..#glob.trains, style="st_label"})
@@ -264,10 +272,10 @@ function onguiclick(event)
           glob.trains[option3].line = false
         end
         glob.trainLines[option2] = nil
-        trainKey = option3     
+        trainKey = option3
       end
     end
-    refreshUI(index, trainKey)                
+    refreshUI(index, trainKey)
   else
     local option1, option2, option3, option4 = event.element.name:match("(%a+)__(%d*)_*(%d*)_*(%a*)")
     option1 = option1 or ""
@@ -375,13 +383,6 @@ function onplayercreated(event)
 end
 
 function oninit() initGlob() end
-
-function onload()
-  initGlob()
-  --printToFile(util.formattime(game.tick).." onload", "onload")
-  local rem, remWaiting = removeInvalidTrains()
-  if rem > 0 or remWaiting > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains and "..remWaiting.." waiting trains") end
-end
 
 function initGlob()
   if glob.version == nil or glob.version < "0.1.0" then
@@ -930,8 +931,8 @@ function debugDump(var, force)
         msg = var
       else
         msg = serpent.dump(var, {name="var", comment=false, sparse=false, sortkeys=true})
---        msg = string.gsub(msg, "do local var =", "",1)
---        msg = string.gsub(msg, "; return var; end", "",1)
+        --        msg = string.gsub(msg, "do local var =", "",1)
+        --        msg = string.gsub(msg, "; return var; end", "",1)
       end
       player.print(msg)
     end
@@ -984,7 +985,7 @@ remote.addinterface("st",
         if game.ischunkgenerated{X,Y} then
           local area = {{X*32, Y*32}, {X*32 + 32, Y*32 + 32}}
           for _, entity in ipairs(game.findentitiesfiltered{area = area, type = "train-stop"}) do
-            local key = entity.position.x.."A"..entity.position.y 
+            local key = entity.position.x.."A"..entity.position.y
             key = string.gsub(key, "-", "_")
             stations[key] = {entity.backername, entity.position}
           end
