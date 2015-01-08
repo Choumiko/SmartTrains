@@ -334,8 +334,10 @@ function onguiclick(event)
       local t = glob.trains[trainKey]
       if t.line ~= li then
         t.line = li
+        t.lineVersion = false
       else
         t.line = false
+        t.lineVersion = false
       end
       refreshUI(index, trainKey)
     elseif option1 == "loadSchedule" then
@@ -648,6 +650,7 @@ function ontrainchangedstate(event)
     elseif t.line and not glob.trainLines[t.line] then
       flyingText("Dettached from line", RED, train.carriages[1].position)
       t.line = false
+      t.lineVersion = false
     end
   end
   if train.state == defines.trainstate["waitstation"] then
