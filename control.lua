@@ -1,5 +1,7 @@
 require "defines"
 require "util"
+MOD = {version="0.1.4"}
+
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
 local YELLOW = {r = 0.8, g = 0.8}
@@ -12,7 +14,6 @@ local defaultSettings =
 local defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 local tmpPos = {}
 local fluids ={["crude-oil"] = true, water=true, ["heavy-oil"]=true, ["light-oil"]=true, ["petroleum-gas"]=true,lubricant=true,["sulfuric-acid"]=true}
-MOD = {version="0.1.4"}
 
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
@@ -395,8 +396,6 @@ function initGlob()
     glob.guiDone = nil
     glob.version = "0.1.0"
   end
-  glob.filter = glob.filter or "iron-plate"
-  glob.filterbool = glob.filterbool or "<"
   glob.waitingTrains = glob.waitingTrains or {}
   glob.trains = glob.trains or {}
   glob.refuelTrains = glob.refuelTrains or {}
@@ -409,6 +408,8 @@ function initGlob()
       t.dynamic = t.dynamic or false
       t.line = t.line or false
       t.lineVersion = t.lineVersion or false
+      local cpDepart, cpRefuel = t.settings.autoDepart, t.settings.autoRefuel
+      t.settings = {autoDepart = cpDepart, autoRefuel = cpRefuel}
     end
     for i,l in pairs(glob.trainLines) do
       if l.line then l.line=nil end
