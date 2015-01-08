@@ -11,6 +11,7 @@ local defaultSettings =
 
 local defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 local tmpPos = {}
+local fluids ={["crude-oil"] = true, water=true, ["heavy-oil"]=true, ["light-oil"]=true, ["petroleum-gas"]=true,lubricant=true,["sulfuric-acid"]=true}
 MOD = {version="0.1.4"}
 
 function buildGUI(player)
@@ -209,9 +210,10 @@ function globalSettingsWindow(index, parent)
     tbl.add({type= "label", caption="Interval for autodepart", style="st_label"})
     tbl.add({type= "textfield", name="departInterval", style="st_textfield_small"})
     tbl.add({type= "label", caption=""})
-
+    
+    tbl.add({type= "label", caption="Min. flow rate", style="st_label"})
+    tbl.add({type= "textfield", name="minFlow", style="st_textfield_small"})
     tbl.add({type="label", name="lblTrackedTrains", caption = "Tracked trains: "..#glob.trains, style="st_label"})
-    tbl.add({type= "label", caption=""})
     tbl.add({type= "label", caption=""})
     tbl.add({type= "button", name="refuelSave", caption="Ok", style="st_button"})
 
@@ -221,6 +223,7 @@ function globalSettingsWindow(index, parent)
     tbl.refuelTime.text = glob.settings.refuel.time / 60
     tbl.departInterval.text = glob.settings.depart.interval / 60
     tbl.minWait.text = glob.settings.depart.minWait / 60
+    tbl.minFlow.text = glob.settings.depart.minFlow
   end
 end
 
@@ -241,8 +244,9 @@ function onguiclick(event)
     local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.row1.refuelRangeMax.text), settings.refuelStation.text
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
     local interval, minWait = tonumber(settings.departInterval.text)*60, tonumber(settings.minWait.text)*60
+    local minFlow = tonumber(settings.minFlow.text)
     glob.settings.depart = {interval = interval, minWait = minWait}
-    glob.settings.depart.minFlow = defaultSettings.depart.minFlow
+    glob.settings.depart.minFlow = minFlow
     player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
     showSettingsButton(index)
   elseif element.name == "deleteLines" then
@@ -640,7 +644,7 @@ function ontrainchangedstate(event)
         t.lineVersion = trainLine.changed
         flyingText("updating schedule", YELLOW, train.carriages[1].position)
       end
-    else
+    elseif t.line and not glob.trainLines[t.line] then
       flyingText("Dettached from line", RED, train.carriages[1].position)
       t.line = false
     end
@@ -734,20 +738,27 @@ end
 --end
 
 function cargoCompare(c1, c2, minFlow, interval)
-  local oil1, oil2 = false, false
-  local flow = 0
-  if c1["crude-oil"] ~= nil or c2["crude-oil"] ~= nil then
-    oil1 = c1["crude-oil"] or 0
-    oil2 = c2["crude-oil"] or 0
-    flow = (oil1 - oil2)/(interval/60)
-    c1["crude-oil"] = nil
-    c2["crude-oil"] = nil
+  local liquids1 = {}
+  local liquids2 = {}
+  local goodflow = false
+  for l,_ in pairs(fluids) do
+    liquids1[l], liquids2[l] = false, false
+    if c1[l] ~= nil or c2[l] ~= nil then
+      liquids1[l] = c1[l] or 0
+      liquids2[l] = c2[l] or 0
+      local flow = (liquids1[l] - liquids2[l])/(interval/60)
+      if math.abs(flow) >= minFlow then goodflow = true end
+      c1[l] = nil
+      c2[l] = nil
+      --debugDump(util.formattime(game.tick).." flow: "..flow.." i:"..interval.." "..l, true)
+    end
   end
   local eq = table.compare(c1, c2)
-  if oil1 ~= false and oil1 > 0 then c1["crude-oil"] = oil1 end
-  if oil2 ~= false and oil2 > 0 then c2["crude-oil"] = oil2 end
-  --debugDump(util.formattime(game.tick).." flow: "..flow.." i:"..interval, true)
-  return (eq and math.abs(flow) < minFlow)
+  for l,_ in pairs(fluids) do
+    if liquids1[l] ~= false and liquids1[l] > 0 then c1[l] = liquids1[l] end
+    if liquids2[l] ~= false and liquids2[l] > 0 then c2[l] = liquids2[l] end
+  end
+  return (eq and not goodflow)
 end
 
 function ontick(event)
