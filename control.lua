@@ -39,7 +39,7 @@ function showTrainInfoWindow(index, trainKey, parent)
   if gui.trainSettings ~= nil then
     gui.trainSettings.destroy()
   end
-  if glob.trains[trainKey].train.valid then
+  if glob.trains[trainKey] and glob.trains[trainKey].train.valid then
     gui = gui.add({type="frame", name="trainSettings", caption="Train settings", direction="vertical", style="st_frame"})
     local t = glob.trains[trainKey]
     local trainGui = gui.add({type="table", name="tbl", colspan=3})
@@ -48,7 +48,7 @@ function showTrainInfoWindow(index, trainKey, parent)
     trainGui.add({type="label", caption="Auto-", style="st_label"})
 
 
-      trainGui.add({type="label", caption=""})
+    trainGui.add({type="label", caption=""})
     --trainGui.add({type="label", caption="key: "..trainKey})      
     trainGui.add({type="label", caption="Refuel", style="st_label"})
     trainGui.add({type="label", caption="Depart", style="st_label"})
@@ -56,18 +56,19 @@ function showTrainInfoWindow(index, trainKey, parent)
     trainGui.add({type="label", caption=t.name, name="lbl"..trainKey, style="st_label"})
     trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})--, caption=math.floor(lowestFuel(t.train)/fuelvalue("coal")).." coal"})
     trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
-    if t.line then
-      local fl = gui.add({type="flow", direction="horizontal"})
-      fl.add({type="label", caption="Active line: "..glob.trainLines[t.line].name})
-    end
+    local fl = gui.add({type="flow", direction="horizontal"})
+    local line = "-"
+    if t.line and glob.trainLines[t.line] then line = glob.trainLines[t.line].name end
+    fl.add({type="label", caption="Active line: "..line})
     --showScheduleWindow(index, trainKey, t.line)
   end
 end
 
-function showScheduleWindow(index, trainKey, lineKey, parent)
+function showScheduleWindow(index, trainKey, parent)
   local gui = parent or game.players[index].gui.left.stGui
   if glob.trains[trainKey].train.valid then
     local t = glob.trains[trainKey]
+    local lineKey = t.line
     if gui.scheduleSettings ~= nil then
       gui.scheduleSettings.destroy()
     end
@@ -86,7 +87,7 @@ function showScheduleWindow(index, trainKey, lineKey, parent)
     else
       lineKey = ""
     end
-    gui = gui.add({type="frame", name="scheduleSettings", caption="Schedule", direction="vertical", style="st_frame"})
+    gui = gui.add({type="frame", name="scheduleSettings", caption="Train schedule", direction="vertical", style="st_frame"})
     if #records > 0 then
       local tbl = gui.add({type="table", name="tbl1", colspan=4})
       tbl.add({type="label", caption="Station", style="st_label"})
@@ -105,8 +106,9 @@ function showScheduleWindow(index, trainKey, lineKey, parent)
       end
     end
     local btns = gui.add({type="flow", name="btns", direction="horizontal"})
-    btns.add({type="button", name="editSchedule__"..trainKey..lineKey, caption="Edit", style="st_button"})
-    btns.add({type="button", name="saveSchedule__"..trainKey..lineKey, caption="Save", style="st_button"})
+    btns.add({type="button", name="readSchedule__"..trainKey..lineKey, caption="Read from UI", style="st_button"})
+    --btns.add({type="button", name="saveSchedule__"..trainKey..lineKey, caption="Save", style="st_button"})
+    local btns = gui.add({type="flow", name="btns2", direction="horizontal"})
     btns.add({type="button", name="saveAsLine__"..trainKey..lineKey, caption="Save as line", style="st_button"})
     btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
 --    btns.lineName.text = line
@@ -120,31 +122,32 @@ function showScheduleWindow(index, trainKey, lineKey, parent)
 end
 
 function showTrainLinesWindow(index, trainKey, parent)
---  local gui = parent or game.players[index].gui.left.stGui
---  if gui.trainLines ~= nil then
---    gui.trainLines.destroy()
---  end
---    gui = gui.add({type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
---    if #glob.trainLines > 0 then
---      local t = glob.trains[trainKey]
---      local tbl = gui.add({type="table", name="tbl1", colspan=4})
---      tbl.add({type="label", caption="Line", style="st_label"})
---      tbl.add({type="label", caption="Stations", style="st_label"})
---      tbl.add({type="label", caption="Active"})
---      tbl.add({type="label", caption="Edit"})
---      for i, l in ipairs(glob.trainLines) do
---        tbl.add({type="label", caption=l.name, style="st_label"})
---        tbl.add({type="label", caption=#l.records, style="st_label"})
---        tbl.add({type="checkbox", state=(i==t.line)})
---        tbl.add({type="button", caption="e", style="st_button"})
---      end
---    end
---    local btns = gui.add({type="flow", name="btns", direction="horizontal"})
---    btns.add({type="button", name="readSchedule__"..trainKey, caption="Read", style="st_button"})
---    btns.add({type="button", name="loadSchedule__"..trainKey, caption="Load", style="st_button"})
---    btns.add({type="button", name="saveSchedule__"..trainKey, caption="Save", style="st_button"})
---    btns.add({type="textfield", name="lineName", text="", style="st_textfield_big"})
-    --btns.lineName.text = line    
+  local gui = parent or game.players[index].gui.left.stGui
+  if gui.trainLines ~= nil then
+    gui.trainLines.destroy()
+  end
+  if glob.trainLines then
+      gui = gui.add({type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
+      local t = glob.trains[trainKey]
+      local tbl = gui.add({type="table", name="tbl1", colspan=5})
+      tbl.add({type="label", caption="Line", style="st_label"})
+      tbl.add({type="label", caption="1st station", style="st_label"})
+      tbl.add({type="label", caption="#stations", style="st_label"})
+      tbl.add({type="label", caption="Active"})
+      tbl.add({type="label", caption="Delete"})
+      local dirty = 0
+      for i, l in pairs(glob.trainLines) do
+        tbl.add({type="label", caption=l.name, style="st_label"})
+        tbl.add({type="label", caption=l.records[1].station, style="st_label"})
+        tbl.add({type="label", caption=#l.records, style="st_label"})
+        tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==t.line)})
+        tbl.add({type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
+        dirty= dirty+1
+      end
+      local btns = gui.add({type="flow", name="btns", direction="horizontal"})
+      btns.add({type="button", name="deleteLines", caption="Delete", style="st_button"})
+      if dirty == 0 then gui.destroy() end
+    end
 end
 
 function showDynamicRules(index, line, stationKey, trainKey)
@@ -242,6 +245,24 @@ function onguiclick(event)
     glob.settings.depart.minFlow = defaultSettings.depart.minFlow
     player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
     showSettingsButton(index)
+  elseif element.name == "deleteLines" then
+    --local trainKey = tonumber(option3)
+    local group = game.players[index].gui.left.stGui.trainLines.tbl1
+    --debugDump(group.childrennames,true)
+    local trainKey
+    for i, child in pairs(group.childrennames) do
+      local option1, option2, option3 = child:match("(markedDelete)__(%d*)_*(%d*)")
+      if option1 and group[child].state == true then
+        option2 = tonumber(option2)
+        option3 = tonumber(option3)
+        if glob.trains[option3].line == li then
+          glob.trains[option3].line = false
+        end
+        glob.trainLines[option2] = nil
+        trainKey = option3     
+      end
+    end
+    refreshUI(index, trainKey)                
   else
     local option1, option2, option3, option4 = event.element.name:match("(%a+)__(%d*)_*(%d*)_*(%a*)")
     option1 = option1 or ""
@@ -281,10 +302,9 @@ function onguiclick(event)
       showDynamicRules(index, option4, option3, option2)
     elseif option1 == "readSchedule" then
       option2 = tonumber(option2)
-      uiReadSchedule(index,option2)
-    elseif option1 == "saveSchedule" then
-      debugDump("saveSchedule",true)
-      local name = player.gui.left.stGui.trainLines.btns.lineName.text
+      refreshUI(index,option2)
+    elseif option1 == "saveAsLine" then
+      local name = player.gui.left.stGui.scheduleSettings.btns2.saveAslineName.text
       option2 = tonumber(option2)
       if name ~= "" then
         local lineKey = getLineByName(glob.trainLines,name)
@@ -301,8 +321,18 @@ function onguiclick(event)
         schedule.records = glob.trainLines[lineKey].records
         t.train.schedule = schedule
         t.line = lineKey
-        showScheduleWindow(index, option2, lineKey)
+        refreshUI(index,option2)
       end
+    elseif option1 == "activeLine" then
+      local trainKey = tonumber(option3)
+      local li = tonumber(option2)
+      local t = glob.trains[trainKey]
+      if t.line ~= li then
+        t.line = li
+      else
+        t.line = false
+      end
+      refreshUI(index, trainKey)
     elseif option1 == "loadSchedule" then
       local name = player.gui.left.stGui.trainLines.btns.lineName.text
       option2 = tonumber(option2)
@@ -323,10 +353,10 @@ function onguiclick(event)
   end
 end
 
-function uiReadSchedule(index, trainKey)
-  --local name = game.players[index].gui.left.stGui.scheduleSettings.btns.lineName.text
-  glob.trains[trainKey].line = false
+function refreshUI(index, trainKey)
+  showTrainInfoWindow(index,trainKey)
   showScheduleWindow(index, trainKey)
+  showTrainLinesWindow(index,trainKey)
 end
 
 function onplayercreated(event)
@@ -376,7 +406,7 @@ function initGlob()
       t.line = t.line or false
       t.lineVersion = t.lineVersion or false
     end
-    for i,l in ipairs(glob.trainLines) do
+    for i,l in pairs(glob.trainLines) do
       if l.line then l.line=nil end
       l.changed = 0
     end
@@ -393,7 +423,7 @@ game.oninit(function() oninit() end)
 game.onload(function() onload() end)
 
 function getLineByName(tableA, line)
-  for i,l in ipairs(tableA) do
+  for i,l in pairs(tableA) do
     if l.name == line then
       return i
     end
@@ -575,10 +605,6 @@ function getKeyByValue(tableA, value)
   end
 end
 
-function autoDepart(train)
-
-end
-
 function ontrainchangedstate(event)
   local train = event.train
   local trainKey = getKeyByTrain(glob.trains, train)
@@ -592,26 +618,31 @@ function ontrainchangedstate(event)
   local fuel = lowestFuel(train)
   local schedule = train.schedule
   --flyingText(getKeyByValue(defines.trainstate, train.state), YELLOW, train.carriages[1].position)
-  debugDump(getKeyByValue(defines.trainstate, train.state),true)
+  --debugDump(getKeyByValue(defines.trainstate, train.state),true)
   if train.state == defines.trainstate["waitstation"] then
-    if t.line and glob.trainLines[t.line].changed ~= t.lineVersion then
-      debugDump("start update: "..t.train.schedule.records[t.train.schedule.current].station,true)
-      local waitingAt = t.train.schedule.records[t.train.schedule.current]
-      t.train.manualmode = true
-      local trainLine = glob.trainLines[t.line]
-      local inLine = inSchedule(waitingAt.station,{records=trainLine.records})
-      if inLine then
-        schedule.current = inLine
-      else
-        schedule.current = 1
+    if t.line and glob.trainLines[t.line] then
+      if t.line and glob.trainLines[t.line].changed ~= t.lineVersion then
+        --debugDump("start update: "..t.train.schedule.records[t.train.schedule.current].station,true)
+        local waitingAt = t.train.schedule.records[t.train.schedule.current]
+        t.train.manualmode = true
+        local trainLine = glob.trainLines[t.line]
+        local inLine = inSchedule(waitingAt.station,{records=trainLine.records})
+        if inLine then
+          schedule.current = inLine
+        else
+          schedule.current = 1
+        end
+        schedule.records = trainLine.records
+        --debugDump(schedule, true)
+        t.train.schedule = schedule
+        t.train.manualmode = false
+        --debugDump("end update: "..t.train.schedule.records[t.train.schedule.current].station,true)
+        t.lineVersion = trainLine.changed
+        flyingText("updating schedule", YELLOW, train.carriages[1].position)
       end
-      schedule.records = trainLine.records
-      debugDump(schedule, true)
-      t.train.schedule = schedule
-      t.train.manualmode = false
-      debugDump("end update: "..t.train.schedule.records[t.train.schedule.current].station,true)
-      t.lineVersion = trainLine.changed
-      --      flyingText("updating schedule", YELLOW, train.carriages[1].position)
+    else
+      flyingText("Dettached from line", RED, train.carriages[1].position)
+      t.line = false
     end
   end
   if train.state == defines.trainstate["waitstation"] then
@@ -883,9 +914,9 @@ function debugDump(var, force)
       if type(var) == "string" then
         msg = var
       else
-        msg = serpent.line(var, {name="var", comment=false})
-        msg = string.gsub(msg, "do local var =", "",1)
-        msg = string.gsub(msg, "; return var; end", "",1)
+        msg = serpent.dump(var, {name="var", comment=false, sparse=false, sortkeys=true})
+--        msg = string.gsub(msg, "do local var =", "",1)
+--        msg = string.gsub(msg, "; return var; end", "",1)
       end
       player.print(msg)
     end
@@ -915,18 +946,19 @@ remote.addinterface("st",
       end
     end,
 
-    printG = function(name)
+    printFile = function(var, name)
       local name = name or "log"
-      if _G then
-        printToFile(serpent.block(_G), name )
+      if glob[var] then
+        printToFile(serpent.block(glob[var]), name )
       else
-        globalPrint("Global not found.")
+        debugDump("glob["..var.."] not found.")
       end
     end,
 
     resetTrains = function()
       glob.trains = {}
       glob.waitingTrains = {}
+      glob.refuelTrains = {}
     end,
 
     findStations = function()
