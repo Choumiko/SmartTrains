@@ -7,7 +7,8 @@ function onload()
   local rem, remWaiting = removeInvalidTrains()
   if rem > 0 or remWaiting > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains and "..remWaiting.." waiting trains") end
 end
-local defaultTrainSettings = {autoRefuel = false, autoDepart = false}
+
+local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
     depart={minWait = 240, interval = 120, minFlow = 1}}
@@ -54,7 +55,6 @@ function showTrainInfoWindow(index, trainKey, parent)
     trainGui.add({type="label", caption=""})
     trainGui.add({type="label", caption="Auto-", style="st_label"})
 
-
     trainGui.add({type="label", caption=""})
     --trainGui.add({type="label", caption="key: "..trainKey})
     trainGui.add({type="label", caption="Refuel", style="st_label"})
@@ -67,7 +67,6 @@ function showTrainInfoWindow(index, trainKey, parent)
     local line = "-"
     if t.line and glob.trainLines[t.line] then line = glob.trainLines[t.line].name end
     fl.add({type="label", caption="Active line: "..line})
-    --showScheduleWindow(index, trainKey, t.line)
   end
 end
 
@@ -118,9 +117,6 @@ function showScheduleWindow(index, trainKey, parent)
     local btns = gui.add({type="flow", name="btns2", direction="horizontal"})
     btns.add({type="button", name="saveAsLine__"..trainKey..lineKey, caption="Save as line", style="st_button"})
     btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
-    --    btns.lineName.text = line
-
-
   else
     if gui.scheduleSettings ~= nil then
       gui.scheduleSettings.destroy()
@@ -273,9 +269,6 @@ function onguiclick(event)
     refreshUI(index, trainKey)
   else
     local option1, option2, option3, option4 = event.element.name:match("(%w+)__([%w%s]*)_*([%w%s]*)_*(%w*)")
-    option1 = option1 or ""
-    option2 = option2 or ""
-    option3 = option3 or ""
     --debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
 
     if option1 == "refuel" then
@@ -417,6 +410,7 @@ function initGlob()
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
   if glob.version < "0.1.5" then
+    glob.init = nil
     glob.showFlyingText = showFlyingtext
     glob.settings.depart.minFlow = glob.settings.depart.minFlow or defaultSettings.depart.minFlow
     for i,t in ipairs(glob.trains) do
@@ -544,12 +538,25 @@ function addStation(station, schedule, wait, after)
   return schedule
 end
 
+--[[
+
+
+Only when in automatic mode and stoped!
+
+
+ --]]
 function nextStation(train)
   local schedule = train.schedule
-  if #schedule.records > 0 then
-    schedule.records[schedule.current].time_to_wait = 0
-    train.schedule = schedule
-  end
+  local debug = false
+  local v = game.player.vehicle
+  if v and v.type == "locomotive" and v.train.valid and trainEquals(v.train,train) then debug=true end 
+  debugDump("cur: "..schedule.current.." "..schedule.records[schedule.current].station,debug)
+  local tmp = (schedule.current % #schedule.records) + 1
+  debugDump("next: "..tmp.." "..schedule.records[tmp].station,debug)
+  train.manualmode = true
+  schedule.current = tmp
+  train.schedule = schedule
+  train.manualmode = false
 end
 
 function fuelvalue(item)
@@ -695,11 +702,6 @@ function ontrainchangedstate(event)
     if found then
       if train.state == defines.trainstate["onthepath"] then
         local t = glob.refuelTrains[found]
-        local schedule = train.schedule
-        -- Try: train.schedule = t.origSchedule
-        local station = inSchedule(glob.settings.refuel.station, schedule)
-        schedule.records[station].time_to_wait = glob.settings.refuel.time
-        train.schedule = schedule
         table.remove(glob.refuelTrains, found)
       elseif train.state == defines.trainstate["manualcontrol"] then
         table.remove(glob.refuelTrains, found)
@@ -710,17 +712,7 @@ function ontrainchangedstate(event)
     local found = getKeyByTrain(glob.waitingTrains, train)
     if found then
       if train.state == defines.trainstate["onthepath"] then
-        --        local settings = glob.waitingTrains[found].settings
         local t = glob.waitingTrains[found]
-        local station, time = t.station, t.wait
-        local schedule = train.schedule
-        --        local prev = schedule.current - 1
-        --        if prev == 0 then prev = #schedule.records end
-        --        if schedule.records[prev].station == glob.settings.refuel.station then prev = prev-1 end
-        --        schedule.records[prev].time_to_wait = glob.waitingTrains[found].wait
-        -- Try: train.schedule = t.origSchedule
-        schedule.records[station].time_to_wait = time
-        train.schedule = schedule
         table.remove(glob.waitingTrains, found)
       elseif train.state == defines.trainstate["manualcontrol"] then
         table.remove(glob.waitingTrains, found)
@@ -999,6 +991,12 @@ function findAllEntitiesByType(type)
   return entities
 end
 
+function saveGlob(name)
+  local n = name or ""
+  game.makefile("st/debugGlob"..n..".lua", serpent.block(glob, {name="glob"}))
+  game.makefile("st/loco"..n..".lua", serpent.block(findAllEntitiesByType("locomotive")))
+end
+
 remote.addinterface("st",
   {
     printGlob = function(name)
@@ -1017,9 +1015,8 @@ remote.addinterface("st",
         debugDump("glob["..var.."] not found.")
       end
     end,
-    saveGlob = function()
-      game.makefile("st/debugGlob.lua", serpent.block(glob, {name="glob"}))
-      game.makefile("st/loco.lua", serpent.block(findAllEntitiesByType("locomotive")))
+    saveGlob = function(name)
+      saveGlob(name)
     end,
 
     hardreset = function(confirm)
