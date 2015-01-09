@@ -146,7 +146,7 @@ function showTrainLinesWindow(index, trainKey, parent)
     tbl.add({type="label", caption="Active"})
     tbl.add({type="label", caption="Delete"})
     local dirty = 0
-    for i, l in pairs(glob.trainLines) do
+    for i, l in pairsByKeys(glob.trainLines) do
       tbl.add({type="label", caption=l.name, style="st_label"})
       tbl.add({type="label", caption=l.records[1].station, style="st_label"})
       tbl.add({type="label", caption=#l.records, style="st_label"})
@@ -315,6 +315,10 @@ function onguiclick(event)
       showDynamicRules(index, option4, option3, option2)
     elseif option1 == "readSchedule" then
       option2 = tonumber(option2)
+      if glob.trains[option2] ~= nil and glob.trains[option2].train.valid then
+        glob.trains[option2].line = false
+        glob.trains[option2].lineVersion = false
+      end
       refreshUI(index,option2)
     elseif option1 == "saveAsLine" then
       local name = player.gui.left.stGui.scheduleSettings.btns2.saveAslineName.text
@@ -334,6 +338,7 @@ function onguiclick(event)
         schedule.records = glob.trainLines[lineKey].records
         t.train.schedule = schedule
         t.line = lineKey
+        t.lineVersion = changed
         refreshUI(index,option2)
       end
     elseif option1 == "activeLine" then
@@ -405,7 +410,7 @@ function initGlob()
   glob.trainLines = glob.trainLines or {}
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
-  if glob.version < "0.1.4" then
+  if glob.version < "0.1.5" then
     glob.settings.depart.minFlow = glob.settings.depart.minFlow or defaultSettings.depart.minFlow
     for i,t in ipairs(glob.trains) do
       t.dynamic = t.dynamic or false
@@ -414,9 +419,11 @@ function initGlob()
       local cpDepart, cpRefuel = t.settings.autoDepart, t.settings.autoRefuel
       t.settings = {autoDepart = cpDepart, autoRefuel = cpRefuel}
     end
+    glob.trainLines2 = {}
     for i,l in pairs(glob.trainLines) do
       if l.line then l.line=nil end
       l.changed = 0
+      glob.trainLines2[l.name] = l
     end
   end
   for i,p in ipairs(game.players) do
@@ -633,14 +640,17 @@ function ontrainchangedstate(event)
         --debugDump("start update: "..t.train.schedule.records[t.train.schedule.current].station,true)
         local waitingAt = t.train.schedule.records[t.train.schedule.current]
         t.train.manualmode = true
+        schedule = {records={}}
         local trainLine = glob.trainLines[t.line]
-        local inLine = inSchedule(waitingAt.station,{records=trainLine.records})
+        for i, record in ipairs(trainLine.records) do
+          schedule.records[i] = record
+        end
+        local inLine = inSchedule(waitingAt.station,schedule)
         if inLine then
           schedule.current = inLine
         else
           schedule.current = 1
         end
-        schedule.records = trainLine.records
         --debugDump(schedule, true)
         t.train.schedule = schedule
         t.train.manualmode = false
@@ -831,12 +841,17 @@ function ontick(event)
           showSettingsButton(pi)
         end
       elseif player.opened == nil then
-        destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
-        destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
-        destroyGui(player.gui.left.stGui.trainSettings)
-        destroyGui(player.gui.left.stGui.scheduleSettings)
-        destroyGui(player.gui.left.stGui.dynamicRules)
-        destroyGui(player.gui.left.stGui.trainLines)
+        local gui=player.gui.left.stGui
+        if gui.stSettings ~= nil then
+          destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
+          destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
+        end
+        if gui ~= nil then
+          destroyGui(player.gui.left.stGui.trainSettings)
+          destroyGui(player.gui.left.stGui.scheduleSettings)
+          destroyGui(player.gui.left.stGui.dynamicRules)
+          destroyGui(player.gui.left.stGui.trainLines)
+        end
       end
     end
   end
@@ -952,6 +967,24 @@ function printToFile(line, path)
   game.makefile( path,  line)
 end
 
+function pairsByKeys (t, f)
+  local a = {}
+  for n in pairs(t) do table.insert(a, n) end
+  table.sort(a, f)
+  local i = 0      -- iterator variable
+  local iter = function ()   -- iterator function
+    i = i + 1
+    if a[i] == nil then return nil
+    else return a[i], t[a[i]]
+    end
+  end
+  return iter
+end
+
+function sortByName(a,b)
+  return a.name > b.name
+end
+
 remote.addinterface("st",
   {
     printGlob = function(name)
@@ -996,3 +1029,8 @@ remote.addinterface("st",
     end
   }
 )
+--[[
+/c arr = {} arr["wwwj.er.com"] = {1,2,3} arr["123"] = "a" arr["123asd"] = 4 game.player.print(serpent.dump(arr,{name="f"}))
+
+
+--]]
