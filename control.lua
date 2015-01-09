@@ -23,7 +23,6 @@ local YELLOW = {r = 0.8, g = 0.8}
 
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
-
   local stGui = player.gui.left.add({type="flow", name="stGui", direction="vertical"})
   stGui.add({type="flow", name="stSettings", direction="vertical"})
 end
@@ -389,8 +388,9 @@ end
 function oninit() initGlob() end
 
 function initGlob()
-  saveGlob("PreInit")
   if glob.version == nil or glob.version < "0.1.0" then
+    local v = glob.version or "Nil"
+    saveGlob("PreInitv"..v)
     glob.trains = nil
     glob.waitingTrains = nil
     glob.refuelTrains = nil
@@ -403,6 +403,7 @@ function initGlob()
     end
     glob.guiDone = nil
     glob.version = "0.1.0"
+    saveGlob("Initv"..glob.version)
   end
   glob.waitingTrains = glob.waitingTrains or {}
   glob.trains = glob.trains or {}
@@ -411,7 +412,7 @@ function initGlob()
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
 
-  if glob.version < "0.1.5" then
+  if glob.version <= "0.1.5" then
     glob.init = nil
     glob.showFlyingText = showFlyingtext
     glob.settings.depart.minFlow = glob.settings.depart.minFlow or defaultSettings.depart.minFlow
@@ -438,14 +439,16 @@ function initGlob()
     end
     glob.waitingTrains = tmpW
     glob.refuelTrains = tmpR
+    for i,t in pairs(glob.trains) do
+      if not t.waiting then t.waiting = false end
+      if not t.refueling then t.refueling = false end
+    end
     for i,l in pairs(glob.trainLines) do
       if l.line then l.line=nil end
       l.changed = 0
     end
-  end
-  for i,t in pairs(glob.trains) do
-    if not t.waiting then t.waiting = false end
-    if not t.refueling then t.refueling = false end
+    glob.version = "0.1.4"
+    saveGlob("Initv"..glob.version)
   end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
@@ -453,8 +456,8 @@ function initGlob()
       glob.guiDone[p.name] = true
     end
   end
+  if glob.version < MOD.version then saveGlob("PostInit") end
   glob.version = MOD.version
-  saveGlob("PostInit")
 end
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
@@ -488,7 +491,7 @@ function getNewTrainInfo(train)
   if train ~= nil then
     local carriages = train.carriages
     if carriages ~= nil and carriages[1] ~= nil and carriages[1].valid then
-      local newTrainInfo = {dynamic = false, line = false, settings = {}}
+      local newTrainInfo = {dynamic = false, line = false, settings = {}, waiting = false, refueling = false}
       newTrainInfo.train = train
       if train.locomotives ~= nil and (#train.locomotives.frontmovers > 0 or #train.locomotives.backmovers > 0) then
         newTrainInfo.name = train.locomotives.frontmovers[1].backername or train.locomotives.backmovers[1].backername
@@ -643,10 +646,6 @@ function getKeyByValue(tableA, value)
   end
 end
 
-function getKeyByValue2(tableA, value)
-
-end
-
 function ontrainchangedstate(event)
   local train = event.train
   local trainKey = getKeyByTrain(glob.trains, train)
@@ -698,7 +697,7 @@ function ontrainchangedstate(event)
       if schedule.records[schedule.current].station == glob.settings.refuel.station then
         --table.insert(glob.refuelTrains, {train = train, arrived = game.tick})
         t.refueling = {arrived = game.tick}
-        table.insert(glob.refuelingTrains, t)
+        table.insert(glob.refuelTrains, t)
         flyingText("refueling", YELLOW, train.carriages[1].position, glob.showFlyingText)
       end
     end
@@ -779,6 +778,7 @@ function ontick(event)
         if event.tick >= wait then
           if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
             flyingText("Refueling done", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
+            glob.refuelTrains[i] = nil
             nextStation(t.train)
           end
         end
