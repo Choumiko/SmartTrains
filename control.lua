@@ -417,6 +417,7 @@ function initGlob()
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
   if glob.version < "0.1.5" then
+    glob.showFlyingText = showFlyingtext
     glob.settings.depart.minFlow = glob.settings.depart.minFlow or defaultSettings.depart.minFlow
     for i,t in ipairs(glob.trains) do
       t.dynamic = t.dynamic or false
@@ -656,10 +657,10 @@ function ontrainchangedstate(event)
         t.train.schedule = schedule
         t.train.manualmode = false
         t.lineVersion = trainLine.changed
-        flyingText("updating schedule", YELLOW, train.carriages[1].position, showFlyingText)
+        flyingText("updating schedule", YELLOW, train.carriages[1].position, glob.showFlyingText)
       end
     elseif t.line and not glob.trainLines[t.line] then
-      flyingText("Dettached from line", RED, train.carriages[1].position, showFlyingText)
+      flyingText("Dettached from line", RED, train.carriages[1].position, glob.showFlyingText)
       t.line = false
       t.lineVersion = false
     end
@@ -673,7 +674,7 @@ function ontrainchangedstate(event)
       end
       if schedule.records[schedule.current].station == glob.settings.refuel.station then
         table.insert(glob.refuelTrains, {train = train, arrived = game.tick})
-        flyingText("refueling", YELLOW, train.carriages[1].position, showFlyingText)
+        flyingText("refueling", YELLOW, train.carriages[1].position, glob.showFlyingText)
       end
     end
     if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
@@ -780,7 +781,7 @@ function ontick(event)
       local wait = t.arrived + glob.settings.depart.interval
       if event.tick >= wait then
         if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
-          flyingText("Refueling done", YELLOW, t.train.carriages[1].position, showFlyingText)
+          flyingText("Refueling done", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
           nextStation(t.train)
         end
       end
@@ -793,12 +794,12 @@ function ontick(event)
         local cargo = cargoCount(t.train)
         local last = t.arrived or t.lastCheck
         if cargoCompare(cargo, t.cargo, glob.settings.depart.minFlow, event.tick - last) then
-          flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position, showFlyingText)
+          flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
           nextStation(t.train)
           t.lastCheck = false
           t.arrived = false
         else
-          flyingText("cargoCompare -> stay at station", YELLOW, t.train.carriages[1].position, showFlyingText)
+          flyingText("cargoCompare -> stay at station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
           t.lastCheck = event.tick
           t.arrived = false
           t.cargo = cargo
@@ -988,11 +989,10 @@ function findAllEntitiesByType(type)
     if game.ischunkgenerated{X,Y} then
       local area = {{X*32, Y*32}, {X*32 + 32, Y*32 + 32}}
       for i, entity in ipairs(game.findentitiesfiltered{area = area, type = type}) do
-        --local key = entity.position.x.."A"..entity.position.y
-        --key = string.gsub(key, "-", "_")
+        local key = entity.position.x.."A"..entity.position.y
         local name = entity.backername or entity.name
         local train = entity.train or false
-        table.insert(entities, {name= name, pos = entity.position, train=train})
+        entities[key] = {name= name, pos = entity.position, train=train}
       end
     end
   end
@@ -1030,8 +1030,8 @@ remote.addinterface("st",
     end,
 
     toggleFlyingText = function(...)
-      showFlyingText = not showFlyingText
-      debugDump("Flying text: "..tostring(showFlyingText),true)
+      glob.showFlyingText = not glob.showFlyingText
+      debugDump("Flying text: "..tostring(glob.showFlyingText),true)
     end,
     nilGlob = function(key)
       if glob[key] then glob[key] = nil end
