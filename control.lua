@@ -934,8 +934,6 @@ function debugDump(var, force)
         msg = var
       else
         msg = serpent.dump(var, {name="var", comment=false, sparse=false, sortkeys=true})
-        --        msg = string.gsub(msg, "do local var =", "",1)
-        --        msg = string.gsub(msg, "; return var; end", "",1)
       end
       player.print(msg)
     end
