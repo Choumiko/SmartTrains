@@ -4,8 +4,8 @@ require "util"
 function onload()
   --glob.version = nil --uncomment this line for a hard reset (all SmartTrain settings will be lost)
   initGlob()
-  local rem, remWaiting = removeInvalidTrains()
-  if rem > 0 or remWaiting > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains and "..remWaiting.." waiting trains") end
+  local rem = removeInvalidTrains()
+  if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
 end
 
 local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
@@ -389,6 +389,7 @@ end
 function oninit() initGlob() end
 
 function initGlob()
+  saveGlob("PreInit")
   if glob.version == nil or glob.version < "0.1.0" then
     glob.trains = nil
     glob.waitingTrains = nil
@@ -409,21 +410,42 @@ function initGlob()
   glob.trainLines = glob.trainLines or {}
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
+
   if glob.version < "0.1.5" then
     glob.init = nil
     glob.showFlyingText = showFlyingtext
     glob.settings.depart.minFlow = glob.settings.depart.minFlow or defaultSettings.depart.minFlow
-    for i,t in ipairs(glob.trains) do
+    local tmpW = {}
+    local tmpR = {}
+    for i,t in pairs(glob.trains) do
       t.dynamic = t.dynamic or false
       t.line = t.line or false
       t.lineVersion = t.lineVersion or false
       local cpDepart, cpRefuel = t.settings.autoDepart, t.settings.autoRefuel
       t.settings = {autoDepart = cpDepart, autoRefuel = cpRefuel}
+      for wi, wt in pairs(glob.waitingTrains) do
+        if trainEquals(t.train,wt.train) then
+          table.insert(tmpW, t)
+          t.waiting = {cargo = wt.cargo, arrived = wt.arrived, lastCheck = wt.lastCheck}
+        end
+      end
+      for ri,tr in pairs(glob.refuelTrains) do
+        if trainEquals(t.train, tr.train) then
+          t.refueling = {arrived = tr.arrived}
+          table.insert(tmpR, t)
+        end
+      end
     end
+    glob.waitingTrains = tmpW
+    glob.refuelTrains = tmpR
     for i,l in pairs(glob.trainLines) do
       if l.line then l.line=nil end
       l.changed = 0
     end
+  end
+  for i,t in pairs(glob.trains) do
+    if not t.waiting then t.waiting = false end
+    if not t.refueling then t.refueling = false end
   end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
@@ -432,6 +454,7 @@ function initGlob()
     end
   end
   glob.version = MOD.version
+  saveGlob("PostInit")
 end
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
@@ -482,25 +505,24 @@ end
 
 function removeInvalidTrains()
   local removed = 0
-  local remWaiting = 0
   for i,t in ipairs(glob.trains) do
     if not t.train.valid then
       table.remove(glob.trains, i)
       removed = removed + 1
     end
   end
-  for i,t in ipairs(glob.waitingTrains) do
-    if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
-      table.remove(glob.waitingTrains, i)
-      remWaiting = remWaiting + 1
-    end
-  end
-  for i,t in ipairs(glob.refuelTrains) do
-    if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
-      table.remove(glob.refuelTrains, i)
-    end
-  end
-  return removed, remWaiting
+  --  for i,t in ipairs(glob.waitingTrains) do
+  --    if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
+  --      table.remove(glob.waitingTrains, i)
+  --      remWaiting = remWaiting + 1
+  --    end
+  --  end
+  --  for i,t in ipairs(glob.refuelTrains) do
+  --    if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
+  --      table.remove(glob.refuelTrains, i)
+  --    end
+  --  end
+  return removed
 end
 
 function inSchedule(station, schedule)
@@ -538,21 +560,10 @@ function addStation(station, schedule, wait, after)
   return schedule
 end
 
---[[
-
-
-Only when in automatic mode and stoped!
-
-
- --]]
+--Only when in automatic mode and stoped!
 function nextStation(train)
   local schedule = train.schedule
-  local debug = false
-  local v = game.player.vehicle
-  if v and v.type == "locomotive" and v.train.valid and trainEquals(v.train,train) then debug=true end 
-  debugDump("cur: "..schedule.current.." "..schedule.records[schedule.current].station,debug)
   local tmp = (schedule.current % #schedule.records) + 1
-  debugDump("next: "..tmp.." "..schedule.records[tmp].station,debug)
   train.manualmode = true
   schedule.current = tmp
   train.schedule = schedule
@@ -632,15 +643,20 @@ function getKeyByValue(tableA, value)
   end
 end
 
+function getKeyByValue2(tableA, value)
+
+end
+
 function ontrainchangedstate(event)
   local train = event.train
   local trainKey = getKeyByTrain(glob.trains, train)
   if not trainKey then
     table.insert(glob.trains, getNewTrainInfo(train))
     removeInvalidTrains()
-    trainKey = #glob.trains
+    trainKey = getKeyByTrain(glob.trains, train)
   end
   local t = glob.trains[trainKey]
+  t.state=getKeyByValue(defines.trainstate, train.state)
   local settings = glob.trains[trainKey].settings
   local fuel = lowestFuel(train)
   local schedule = train.schedule
@@ -680,12 +696,16 @@ function ontrainchangedstate(event)
         end
       end
       if schedule.records[schedule.current].station == glob.settings.refuel.station then
-        table.insert(glob.refuelTrains, {train = train, arrived = game.tick})
+        --table.insert(glob.refuelTrains, {train = train, arrived = game.tick})
+        t.refueling = {arrived = game.tick}
+        table.insert(glob.refuelingTrains, t)
         flyingText("refueling", YELLOW, train.carriages[1].position, glob.showFlyingText)
       end
     end
     if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
-      table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, wait = train.schedule.records[train.schedule.current].time_to_wait, station = train.schedule.current, settings=settings})
+      --table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, settings=settings})
+      t.waiting = {cargo = cargoCount(train), arrived = game.tick, lastCheck = false}
+      table.insert(glob.waitingTrains, t)
       --flyingText("waiting", YELLOW, train.carriages[1].position, showFlyingText)
     end
   elseif train.state == defines.trainstate["arrivestation"] and schedule.records[schedule.current].station ~= glob.settings.refuel.station and settings.autoDepart then
@@ -697,27 +717,11 @@ function ontrainchangedstate(event)
       end
     end
   end
-  if settings.autoRefuel and #glob.refuelTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
-    local found = getKeyByTrain(glob.refuelTrains, train)
-    if found then
-      if train.state == defines.trainstate["onthepath"] then
-        local t = glob.refuelTrains[found]
-        table.remove(glob.refuelTrains, found)
-      elseif train.state == defines.trainstate["manualcontrol"] then
-        table.remove(glob.refuelTrains, found)
-      end
-    end
+  if settings.autoRefuel and t.refueling and (train.state == defines.trainstate["onthepath"]) then
+    t.refueling = false
   end
-  if settings.autoDepart and #glob.waitingTrains > 0 and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["manualcontrol"]) then
-    local found = getKeyByTrain(glob.waitingTrains, train)
-    if found then
-      if train.state == defines.trainstate["onthepath"] then
-        local t = glob.waitingTrains[found]
-        table.remove(glob.waitingTrains, found)
-      elseif train.state == defines.trainstate["manualcontrol"] then
-        table.remove(glob.waitingTrains, found)
-      end
-    end
+  if settings.autoDepart and t.waiting and (train.state == defines.trainstate["onthepath"]) then
+    t.waiting = false
   end
 end
 
@@ -769,35 +773,42 @@ end
 
 function ontick(event)
   if #glob.refuelTrains > 0 then
-    for i,t in ipairs(glob.refuelTrains) do
-      local wait = t.arrived + glob.settings.depart.interval
-      if event.tick >= wait then
-        if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
-          flyingText("Refueling done", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
-          nextStation(t.train)
+    for i,t in pairs(glob.refuelTrains) do
+      if type(t.refueling) == "table" and t.settings.autoRefuel then    
+        local wait = t.refueling.arrived + glob.settings.depart.interval
+        if event.tick >= wait then
+          if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
+            flyingText("Refueling done", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
+            nextStation(t.train)
+          end
         end
+      else
+        glob.refuelTrains[i] = nil
       end
     end
   end
   if #glob.waitingTrains > 0 then
-    for i,t in ipairs(glob.waitingTrains) do
-      local wait = (type(t.arrived) == "number") and t.arrived + glob.settings.depart.minWait or t.lastCheck + glob.settings.depart.interval
-      if t.settings.autoDepart and event.tick >= wait then
-        local cargo = cargoCount(t.train)
-        local last = t.arrived or t.lastCheck
-        if cargoCompare(cargo, t.cargo, glob.settings.depart.minFlow, event.tick - last) then
-          flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
-          nextStation(t.train)
-          t.lastCheck = false
-          t.arrived = false
-        else
-          flyingText("cargoCompare -> stay at station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
-          t.lastCheck = event.tick
-          t.arrived = false
-          t.cargo = cargo
+    for i,t in pairs(glob.waitingTrains) do
+      if type(t.waiting) == "table" and t.settings.autoDepart then
+        local wait = (type(t.waiting.arrived) == "number") and t.waiting.arrived + glob.settings.depart.minWait or t.waiting.lastCheck + glob.settings.depart.interval
+        if event.tick >= wait then
+          local cargo = cargoCount(t.train)
+          local last = t.waiting.arrived or t.waiting.lastCheck
+          if cargoCompare(cargo, t.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
+            flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
+            nextStation(t.train)
+            glob.waitingTrains[i] = nil
+          else
+            flyingText("cargoCompare -> stay at station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
+            t.waiting.lastCheck = event.tick
+            t.waiting.arrived = false
+            t.waiting.cargo = cargo
+          end
+        elseif not t.settings.autoDepart then
+          glob.waitingTrains[i] = nil
         end
-      elseif not t.settings.autoDepart then
-        table.remove(glob.waitingTrains, i)
+      else
+        glob.waitingTrains[i] = nil
       end
     end
   end
@@ -950,7 +961,7 @@ end
 
 function printToFile(line, path)
   path = path or "log"
-  path = table.concat({ "st", "/", path, ".txt" })
+  path = table.concat({ "st", "/", path, ".lua" })
   game.makefile( path,  line)
 end
 
@@ -992,7 +1003,7 @@ end
 function saveGlob(name)
   local n = name or ""
   game.makefile("st/debugGlob"..n..".lua", serpent.block(glob, {name="glob"}))
-  game.makefile("st/loco"..n..".lua", serpent.block(findAllEntitiesByType("locomotive")))
+  --game.makefile("st/loco"..n..".lua", serpent.block(findAllEntitiesByType("locomotive")))
 end
 
 remote.addinterface("st",
