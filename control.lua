@@ -725,10 +725,10 @@ function ontrainchangedstate(event)
       end
     end
   end
-  if settings.autoRefuel and t.refueling and (train.state == defines.trainstate["onthepath"]) then
+  if settings.autoRefuel and t.refueling and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["pathlost"] or train.state == defines.trainstate["nopath"]) then
     t.refueling = false
   end
-  if settings.autoDepart and t.waiting and (train.state == defines.trainstate["onthepath"]) then
+  if settings.autoDepart and t.waiting and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["pathlost"] or train.state == defines.trainstate["nopath"]) then
     t.waiting = false
   end
 end
@@ -1037,7 +1037,7 @@ remote.addinterface("st",
       saveGlob(name)
     end,
 
-    hardreset = function(confirm)
+    hardReset = function(confirm)
       if confirm then
         glob.version = nil
         initGlob()
