@@ -15,7 +15,7 @@ local defaultSettings =
 local fluids ={["crude-oil"] = true, water=true, ["heavy-oil"]=true, ["light-oil"]=true, ["petroleum-gas"]=true,lubricant=true,["sulfuric-acid"]=true}
 showFlyingText = false
 
-MOD = {version="0.1.4"}
+MOD = {version="0.1.5"}
 local tmpPos = {}
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
@@ -411,7 +411,7 @@ function initGlob()
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
 
-  if glob.version <= "0.1.5" then
+  if glob.version < "0.1.5" then
     glob.init = nil
     glob.showFlyingText = showFlyingtext
     glob.settings.depart.minFlow = glob.settings.depart.minFlow or defaultSettings.depart.minFlow

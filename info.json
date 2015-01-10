@@ -1,9 +1,9 @@
 {
   "name": "SmartTrains",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "title": "Smarter Trains",
   "author": "Choumiko",
   "homepage": " ",
-  "description": "Let's see",
+  "description": "Train lines, automated refueling and departure",
   "dependencies": []
 }
