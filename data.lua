@@ -65,3 +65,13 @@ data.raw["gui-style"].default["st_frame"] =
     bottom_padding = 2,
     font = "st-small-bold"
   }
+
+data.raw["gui-style"].default["st_flow"] =
+  {
+    type = "flow_style",
+    horizontal_spacing = 0,
+    vertical_spacing = 2,
+    max_on_row = 0,
+    resize_row_to_width = true,
+
+  }

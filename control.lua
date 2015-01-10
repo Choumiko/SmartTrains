@@ -93,8 +93,8 @@ function showScheduleWindow(index, trainKey, parent)
       lineKey = ""
     end
     gui = gui.add({type="frame", name="scheduleSettings", caption="Train schedule", direction="vertical", style="st_frame"})
+    local tbl = gui.add({type="table", name="tbl1", colspan=4})
     if #records > 0 then
-      local tbl = gui.add({type="table", name="tbl1", colspan=4})
       tbl.add({type="label", caption="Station", style="st_label"})
       tbl.add({type="label", caption="Time", style="st_label"})
       --      tbl.add({type="label", caption="Dynamic", style="st_label"})
@@ -110,10 +110,9 @@ function showScheduleWindow(index, trainKey, parent)
         tbl.add({type="label", caption=""})
       end
     end
-    local btns = gui.add({type="flow", name="btns", direction="horizontal"})
+    local btns = gui.add({type="flow", name="btns", direction="vertical", style="st_flow"})
     btns.add({type="button", name="readSchedule__"..trainKey..lineKey, caption="Read from UI", style="st_button"})
-    --btns.add({type="button", name="saveSchedule__"..trainKey..lineKey, caption="Save", style="st_button"})
-    local btns = gui.add({type="flow", name="btns2", direction="horizontal"})
+    local btns = gui.add({type="flow", name="btns2", direction="horizontal", style="st_flow"})
     btns.add({type="button", name="saveAsLine__"..trainKey..lineKey, caption="Save as line", style="st_button"})
     btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
   else
@@ -426,14 +425,22 @@ function initGlob()
       t.settings = {autoDepart = cpDepart, autoRefuel = cpRefuel}
       for wi, wt in pairs(glob.waitingTrains) do
         if trainEquals(t.train,wt.train) then
-          table.insert(tmpW, t)
           t.waiting = {cargo = wt.cargo, arrived = wt.arrived, lastCheck = wt.lastCheck}
+          if t.waiting.cargo or t.waiting.arrived or t.waiting.lastCheck then
+            table.insert(tmpW, t)
+          else
+            t.waiting = false
+          end
         end
       end
       for ri,tr in pairs(glob.refuelTrains) do
         if trainEquals(t.train, tr.train) then
           t.refueling = {arrived = tr.arrived}
-          table.insert(tmpR, t)
+          if t.refueling.arrived then
+            table.insert(tmpR, t)
+          else
+            t.refueling = false
+          end
         end
       end
     end
@@ -565,12 +572,14 @@ end
 
 --Only when in automatic mode and stoped!
 function nextStation(train)
-  local schedule = train.schedule
-  local tmp = (schedule.current % #schedule.records) + 1
-  train.manualmode = true
-  schedule.current = tmp
-  train.schedule = schedule
-  train.manualmode = false
+  if train.manualmode == false then
+    local schedule = train.schedule
+    local tmp = (schedule.current % #schedule.records) + 1
+    train.manualmode = true
+    schedule.current = tmp
+    train.schedule = schedule
+    train.manualmode = false
+  end
 end
 
 function fuelvalue(item)
@@ -1035,12 +1044,20 @@ remote.addinterface("st",
       end
     end,
 
-    toggleFlyingText = function(...)
+    toggleFlyingText = function()
       glob.showFlyingText = not glob.showFlyingText
       debugDump("Flying text: "..tostring(glob.showFlyingText),true)
     end,
     nilGlob = function(key)
       if glob[key] then glob[key] = nil end
+    end,
+    
+    cleanGui = function()
+      for i,player in ipairs(game.players) do
+        if player.gui.top.blueprintTools then
+          player.gui.top.blueprintTools.destroy()
+        end
+      end
     end
   --    findStations = function()
   --      local stations = {}
