@@ -15,7 +15,7 @@ local defaultSettings =
 local fluids ={["crude-oil"] = true, water=true, ["heavy-oil"]=true, ["light-oil"]=true, ["petroleum-gas"]=true,lubricant=true,["sulfuric-acid"]=true}
 showFlyingText = false
 
-MOD = {version="0.1.5"}
+MOD = {version="0.1.6"}
 local tmpPos = {}
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
@@ -51,11 +51,6 @@ function showTrainInfoWindow(index, trainKey, parent)
     local t = glob.trains[trainKey]
     local trainGui = gui.add({type="table", name="tbl", colspan=3})
     trainGui.add({type="label", caption="Name", style="st_label"})
-    trainGui.add({type="label", caption=""})
-    trainGui.add({type="label", caption="Auto-", style="st_label"})
-
-    trainGui.add({type="label", caption=""})
-    --trainGui.add({type="label", caption="key: "..trainKey})
     trainGui.add({type="label", caption="Refuel", style="st_label"})
     trainGui.add({type="label", caption="Depart", style="st_label"})
 
@@ -98,14 +93,14 @@ function showScheduleWindow(index, trainKey, parent)
       tbl.add({type="label", caption="Station", style="st_label"})
       tbl.add({type="label", caption="Time", style="st_label"})
       --      tbl.add({type="label", caption="Dynamic", style="st_label"})
-      --      tbl.add({type="label", caption="Edit", style="st_label"})
+            tbl.add({type="label", caption="Edit", style="st_label"})
       tbl.add({type="label", caption=""})
-      tbl.add({type="label", caption=""})
+--      tbl.add({type="label", caption=""})
       for i, s in ipairs(records) do
         tbl.add({type="label", caption=s.station, style="st_label"})
         tbl.add({type="label", caption=s.time_to_wait/60, style="st_label"})
         --        tbl.add({type="checkbox", name="togglecon__"..i, state=false})
-        --        tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i, state=false})
+                tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i})
         tbl.add({type="label", caption=""})
         tbl.add({type="label", caption=""})
       end
@@ -141,7 +136,7 @@ function showTrainLinesWindow(index, trainKey, parent)
       tbl.add({type="label", caption=l.name, style="st_label"})
       tbl.add({type="label", caption=l.records[1].station, style="st_label"})
       tbl.add({type="label", caption=#l.records, style="st_label"})
-      tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==t.line)})
+      tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==t.line), style="st_checkbox"})
       tbl.add({type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
       dirty= dirty+1
     end
@@ -714,10 +709,7 @@ function ontrainchangedstate(event)
       --table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, settings=settings})
       t.waiting = {cargo = cargoCount(train), arrived = game.tick, lastCheck = false}
       table.insert(glob.waitingTrains, t)
-      --flyingText("waiting", YELLOW, train.carriages[1].position, showFlyingText)
     end
-  elseif train.state == defines.trainstate["arrivestation"] and schedule.records[schedule.current].station ~= glob.settings.refuel.station and settings.autoDepart then
-  --insert waiting
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
     if settings.autoRefuel then
       if fuel < (glob.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(glob.settings.refuel.station, schedule) then
@@ -732,29 +724,6 @@ function ontrainchangedstate(event)
     t.waiting = false
   end
 end
-
---function tableCompare( tbl1, tbl2 )
---    for k, v in pairs( tbl1 ) do
---        if  type(v) == "table" and type(tbl2[k]) == "table" then
---            if not table.compare( v, tbl2[k] )  then return false end
---        else
---            if ( v ~= tbl2[k] ) then return false end
---            --if not equalOrNilAnd0(v, tbl2[k]) then return false end
---        end
---    end
---    for k, v in pairs( tbl2 ) do
---        if type(v) == "table" and type(tbl1[k]) == "table" then
---            if not table.compare( v, tbl1[k] ) then return false end
---        else
---            if v ~= tbl1[k] then return false end
---            --if not equalOrNilAnd0(v, tbl2[k]) then return false end
---        end
---    end
---    return true
---end
---function equalOrNilAnd0(v1, v2)
---  return v1 == v2 or (v1 == nil and v2 == 0) or (v1 == 0 and v2 == nil)
---end
 
 function cargoCompare(c1, c2, minFlow, interval)
   local liquids1 = {}
@@ -782,7 +751,7 @@ end
 function ontick(event)
   if #glob.refuelTrains > 0 then
     for i,t in pairs(glob.refuelTrains) do
-      if type(t.refueling) == "table" and t.settings.autoRefuel then    
+      if type(t.refueling) == "table" and t.settings.autoRefuel then
         local wait = t.refueling.arrived + glob.settings.depart.interval
         if event.tick >= wait then
           if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
@@ -849,6 +818,7 @@ function ontick(event)
     end
   end
 end
+
 function getTrainKeyFromUI(index)
   local player = game.players[index]
   local key
@@ -1051,7 +1021,7 @@ remote.addinterface("st",
     nilGlob = function(key)
       if glob[key] then glob[key] = nil end
     end,
-    
+
     cleanGui = function()
       for i,player in ipairs(game.players) do
         if player.gui.top.blueprintTools then

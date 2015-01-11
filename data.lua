@@ -15,6 +15,34 @@ data:extend(
   }
 )
 
+--for typename, sometype in pairs(data.raw) do
+--  local _, object = next(sometype)
+--  if object.stack_size then
+--    for name, item in pairs(sometype) do
+--      if item.icon then
+--        local style =
+--        {
+--          type = "checkbox_style",
+--          parent = "tm-icon-style",
+--          default_background =
+--          {
+--            filename = item.icon,
+--            width = 32,
+--            height = 32
+--          },
+--          hovered_background =
+--          {
+--            filename = item.icon,
+--            width = 32,
+--            height = 32
+--          }
+--        }
+--        data.raw["gui-style"].default["tm-icon-"..name] = style
+--      end
+--    end
+--  end
+--end
+
 data.raw["gui-style"].default["st_label"] =
   {
     type = "label_style",
@@ -75,3 +103,46 @@ data.raw["gui-style"].default["st_flow"] =
     resize_row_to_width = true,
 
   }
+  
+data.raw["gui-style"].default["st_checkbox"] =
+    {
+      type = "checkbox_style",
+      parent = "checkbox_style",
+      font = "st-small",
+      default_background =
+      {
+        filename = "__core__/graphics/gui.png",
+        priority = "extra-high-no-scale",
+        width = 10,
+        height = 10,
+        x = 43,
+        y = 34
+      },
+      hovered_background =
+      {
+        filename = "__core__/graphics/gui.png",
+        priority = "extra-high-no-scale",
+        width = 10,
+        height = 10,
+        x = 54,
+        y = 34
+      },
+      clicked_background =
+      {
+        filename = "__core__/graphics/gui.png",
+        priority = "extra-high-no-scale",
+        width = 10,
+        height = 10,
+        x = 65,
+        y = 34
+      },
+      selected =
+      {
+        filename = "__core__/graphics/gui.png",
+        priority = "extra-high-no-scale",
+        width = 10,
+        height = 10,
+        x = 75,
+        y = 34
+      }
+    }
