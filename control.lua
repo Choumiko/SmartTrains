@@ -100,8 +100,7 @@ function showScheduleWindow(index, trainKey, parent)
         tbl.add({type="label", caption=s.station, style="st_label"})
         tbl.add({type="label", caption=s.time_to_wait/60, style="st_label"})
         --        tbl.add({type="checkbox", name="togglecon__"..i, state=false})
-                tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i})
-        tbl.add({type="label", caption=""})
+                tbl.add({type="checkbox", name="toggleedit__"..trainKey.."__"..i, state = false, style="st_checkbox"})
         tbl.add({type="label", caption=""})
       end
     end
@@ -157,9 +156,10 @@ function showDynamicRules(index, line, stationKey, trainKey)
   if gui.dynamicRules ~= nil then
     gui.dynamicRules.destroy()
   end
-  gui = gui.add({type="flow", name="dynamicRules", direction="horizontal"})
-  gui.add({ type="checkbox", name="filter__" ..trainKey, style="tm-icon-"..glob.filter, state = true })
-  gui.add({type="button", name="togglefilter__"..trainKey, caption = glob.filterbool, style="st_button"})
+  gui = gui.add({type="frame", name="dynamicRules", direction="horizontal"})
+  gui.add({ type="button", name="filter__" ..trainKey, style="st-icon-iron-ore"})
+  gui.add({ type="button", name="test__" ..trainKey, style="st-icon-style"})
+  gui.add({type="button", name="togglefilter__"..trainKey, caption = "bool", style="st_button"})
   gui.add({type="textfield", name="filteramount", style="st_textfield_small"})
   gui.add({type="label", name="line", caption="Line: "..line, style="st_label"})
   --gui.add({type="label", name="station", caption="Station: "..station, style="st_label"})
@@ -172,7 +172,7 @@ function updateLineEdit(index, trainKey, stationKey, line)
     local records = glob.trains[trainKey].train.schedule.records
     for i,s in ipairs(records) do
       if i ~= stationKey then
-        gui["toggleedit__"..trainKey.."__"..i.."__"..line].state = (i==stationKey)
+        gui["toggleedit__"..trainKey.."__"..i].state = (i==stationKey)
       end
     end
   end
@@ -262,8 +262,13 @@ function onguiclick(event)
     refreshUI(index, trainKey)
   else
     local option1, option2, option3, option4 = event.element.name:match("(%w+)__([%w%s]*)_*([%w%s]*)_*(%w*)")
-    --debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
-
+    do
+    local option1 = option1 or ""
+    local option2 = option2 or ""
+    local option3 = option3 or ""
+    local option4 = option4 or ""
+    debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
+    end
     if option1 == "refuel" then
       option2 = tonumber(option2)
       glob.trains[option2].settings.autoRefuel = not glob.trains[option2].settings.autoRefuel
@@ -275,7 +280,7 @@ function onguiclick(event)
       local item = "iron-plate"
       if player.cursorstack then item = player.cursorstack.name end
       glob.filter = item or glob.filter
-      game.players[index].gui.left.stGui.trainSettings.tbl["filter__"..option2].style = "tm-icon-"..glob.filter
+      --game.players[index].gui.left.stGui.trainSettings.tbl["filter__"..option2].style = "tm-icon-"..
       --showTrainInfoWindow(index,option2)
     elseif option1 == "togglefilter" then
       if element.caption == ">" then
