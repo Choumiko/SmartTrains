@@ -285,7 +285,7 @@ function globalSettingsWindow(index, parent)
 end
 
 function onguiclick(event)
-  local index = event.playerindex
+  local index = event.playerindex or event.name
   local player = game.players[index]
   local element = event.element
   --debugDump(event.element.name,true)
