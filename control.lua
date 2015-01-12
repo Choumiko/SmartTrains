@@ -378,9 +378,9 @@ function onguiclick(event)
       name = string.gsub(name, "^%s", "")
       name = string.gsub(name, "%s$", "")
       option2 = tonumber(option2)
-      if name ~= "" then
+      local t = glob.trains[option2]
+      if name ~= "" and #t.train.schedule.records > 0 then
         local changed = game.tick
-        local t = glob.trains[option2]
         if not glob.trainLines[name] then glob.trainLines[name] = {name=name} end
         glob.trainLines[name].records = t.train.schedule.records
         glob.trainLines[name].changed = changed
