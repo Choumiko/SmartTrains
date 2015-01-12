@@ -258,7 +258,26 @@ data.raw["gui-style"].default["st_frame"] =
     parent="frame_style",
     top_padding  = 2,
     bottom_padding = 2,
-    font = "st-small-bold"
+    font = "st-small-bold",
+    flow_style =
+      {
+        max_on_row = 1,
+        resize_row_to_width = true
+      }
+  }
+data.raw["gui-style"].default["st_inner_frame"] =
+  {
+    type = "frame_style",
+    parent="frame_style",
+    top_padding  = 2,
+    bottom_padding = 2,
+    font = "st-small-bold",
+    graphical_set = { type = "none" },
+    flow_style =
+      {
+        max_on_row = 1,
+        resize_row_to_width = true
+      }
   }
 
 data.raw["gui-style"].default["st_flow"] =
@@ -267,10 +286,14 @@ data.raw["gui-style"].default["st_flow"] =
     horizontal_spacing = 0,
     vertical_spacing = 2,
     max_on_row = 0,
-    resize_row_to_width = true,
-
+    resize_row_to_width = true
   }
-
+data.raw["gui-style"].default["st_table"] =
+  {
+    type = "table_style",
+    parent = "table_style",
+    resize_row_to_width = true
+  }
 data.raw["gui-style"].default["st_checkbox"] =
   {
     type = "checkbox_style",
