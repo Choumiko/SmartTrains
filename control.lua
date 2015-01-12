@@ -522,6 +522,7 @@ function initGlob()
       table.insert(tmp, tr)
     end
     glob.trains = tmp
+    glob.refuelTrains, glob.waitingTrains = nil, nil
   end
 
   for i,p in ipairs(game.players) do
@@ -541,7 +542,7 @@ function initGlob()
     assert(glob.trains[2] == glob.trains[2])
   end
 
-  if glob.version < MOD.version then saveGlob("PostInit") end
+  if glob.version <= MOD.version then saveGlob("PostInit") end
   glob.version = MOD.version
 end
 game.oninit(function() oninit() end)
@@ -576,11 +577,115 @@ function Train:nextStation()
   end
 end
 
-function trainEquals(trainA, trainB)
-  if trainA.carriages[1].equals(trainB.carriages[1]) then
-    return true
+function Train:startRefueling()
+  self.refueling = {arrived = game.tick}
+end
+function Train:isRefueling()
+  return type(self.refueling) == "table" and self.settings.autoRefuel
+end
+
+function Train:refuelingDone(done)
+  if done then
+    self.refueling = false
+    self:nextStation()
   end
-  return false
+end
+
+function Train:startWaiting()
+  self.waiting = {cargo = self:cargoCount(), arrived = game.tick, lastCheck = false}
+end
+
+function Train:isWaiting()
+  return type(self.waiting) == "table" and self.settings.autoDepart
+end
+
+function Train:waitingDone(done)
+  if done then
+    self.waiting = false
+    self:nextStation()
+  end
+end
+
+function Train:lowestFuel()
+  local minfuel = nil
+  local c
+  local locos = self.train.locomotives
+  if locos ~= nil then
+    for i,carriage in ipairs(locos.frontmovers) do
+      c = self:calcFuel(carriage.getinventory(1).getcontents())
+      if minfuel == nil or c < minfuel then
+        minfuel = c
+      end
+    end
+    for i,carriage in ipairs(locos.backmovers) do
+      c = self:calcFuel(carriage.getinventory(1).getcontents())
+      if minfuel == nil or c < minfuel then
+        minfuel = c
+      end
+    end
+    return minfuel
+  else
+    return 0
+  end
+end
+
+function Train:calcFuel(contents)
+  local value = 0
+  --/c game.player.print(game.player.character.vehicle.train.locomotives.frontmovers[1].energy)
+  for i, c in pairs(contents) do
+    value = value + c*fuelvalue(i)
+  end
+  return value
+end
+
+function Train:cargoCount()
+  local sum = {}
+  local train = self.train
+  for i, wagon in ipairs(train.carriages) do
+    if wagon.type == "cargo-wagon" then
+      if wagon.name ~= "rail-tanker" then
+        --sum = sum + wagon.getcontents()
+        sum = addInventoryContents(sum, wagon.getinventory(1).getcontents())
+      else
+        if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+          local d = remote.call("railtanker", "getLiquidByWagon", wagon)
+          if d.type ~= nil then
+            sum[d.type] = sum[d.type] or 0
+            sum[d.type] = sum[d.type] + d.amount
+          end
+        end
+      end
+    end
+  end
+  return sum
+end
+
+function Train:cargoEquals(c1, c2, minFlow, interval)
+  local liquids1 = {}
+  local liquids2 = {}
+  local goodflow = false
+  for l,_ in pairs(fluids) do
+    liquids1[l], liquids2[l] = false, false
+    if c1[l] ~= nil or c2[l] ~= nil then
+      liquids1[l] = c1[l] or 0
+      liquids2[l] = c2[l] or 0
+      local flow = (liquids1[l] - liquids2[l])/(interval/60)
+      if math.abs(flow) >= minFlow then goodflow = true end
+      c1[l] = nil
+      c2[l] = nil
+    end
+  end
+  local eq = table.compare(c1, c2)
+  for l,_ in pairs(fluids) do
+    if liquids1[l] ~= false and liquids1[l] > 0 then c1[l] = liquids1[l] end
+    if liquids2[l] ~= false and liquids2[l] > 0 then c2[l] = liquids2[l] end
+  end
+  return (eq and not goodflow)
+end
+
+
+function trainEquals(trainA, trainB)
+  return trainA.carriages[1].equals(trainB.carriages[1])
 end
 
 function getKeyByTrain(tableA, train)
@@ -600,13 +705,12 @@ function getNewTrainInfo(train)
       newTrainInfo.train = train
       if train.locomotives ~= nil and (#train.locomotives.frontmovers > 0 or #train.locomotives.backmovers > 0) then
         newTrainInfo.name = train.locomotives.frontmovers[1].backername or train.locomotives.backmovers[1].backername
-        --newTrainInfo.name = string.gsub(newTrainInfo.name, "%.", "")
       else
         newTrainInfo.name = "cargoOnly"
       end
       newTrainInfo.settings = {autoDepart = defaultTrainSettings.autoDepart, autoRefuel = defaultTrainSettings.autoRefuel}
       newTrainInfo.lineVersion = 0
-      return newTrainInfo
+      return Train:new(newTrainInfo)
     end
   end
 end
@@ -619,17 +723,6 @@ function removeInvalidTrains()
       removed = removed + 1
     end
   end
-  --  for i,t in ipairs(glob.waitingTrains) do
-  --    if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
-  --      table.remove(glob.waitingTrains, i)
-  --      remWaiting = remWaiting + 1
-  --    end
-  --  end
-  --  for i,t in ipairs(glob.refuelTrains) do
-  --    if not t.train.valid or (t.arrived == false and t.lastCheck == nil) then
-  --      table.remove(glob.refuelTrains, i)
-  --    end
-  --  end
   return removed
 end
 
@@ -668,64 +761,8 @@ function addStation(station, schedule, wait, after)
   return schedule
 end
 
---Only when in automatic mode and stoped!
-function nextStation(train)
-  if train.manualmode == false then
-    local schedule = train.schedule
-    local tmp = (schedule.current % #schedule.records) + 1
-    train.manualmode = true
-    schedule.current = tmp
-    train.schedule = schedule
-    train.manualmode = false
-  end
-end
-
 function fuelvalue(item)
   return game.itemprototypes[item].fuelvalue
-end
-
-function calcFuel(contents)
-  local value = 0
-  --/c game.player.print(game.player.character.vehicle.train.locomotives.frontmovers[1].energy)
-  for i, c in pairs(contents) do
-    value = value + c*fuelvalue(i)
-  end
-  return value
-end
-
-function lowestFuel(train)
-  local minfuel = nil
-  local c
-  for i,carriage in ipairs(train.carriages) do
-    if carriage.type == "locomotive" then
-      c = calcFuel(carriage.getinventory(1).getcontents())
-      if minfuel == nil or c < minfuel then
-        minfuel = c
-      end
-    end
-  end
-  return minfuel
-end
-
-function cargoCount(train)
-  local sum = {}
-  for i, wagon in ipairs(train.carriages) do
-    if wagon.type == "cargo-wagon" then
-      if wagon.name ~= "rail-tanker" then
-        --sum = sum + wagon.getcontents()
-        sum = addInventoryContents(sum, wagon.getinventory(1).getcontents())
-      else
-        if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
-          local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-          if d.type ~= nil then
-            sum[d.type] = sum[d.type] or 0
-            sum[d.type] = sum[d.type] + d.amount
-          end
-        end
-      end
-    end
-  end
-  return sum
 end
 
 function addInventoryContents(invA, invB)
@@ -762,9 +799,8 @@ function ontrainchangedstate(event)
   local t = glob.trains[trainKey]
   t.state=getKeyByValue(defines.trainstate, train.state)
   local settings = glob.trains[trainKey].settings
-  local fuel = lowestFuel(train)
+  local fuel = t:lowestFuel()
   local schedule = train.schedule
-  --flyingText(getKeyByValue(defines.trainstate, train.state), YELLOW, train.carriages[1].position, showFlyingText)
   if train.state == defines.trainstate["waitstation"] then
     if t.line and glob.trainLines[t.line] then
       if t.line and glob.trainLines[t.line].changed ~= t.lineVersion then
@@ -797,99 +833,53 @@ function ontrainchangedstate(event)
       if fuel >= (glob.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
         if inSchedule(glob.settings.refuel.station, schedule) and #schedule.records >= 3 then
           train.schedule = removeStation(glob.settings.refuel.station, schedule)
+          flyingText("Refuel station removed", YELLOW, train.carriages[1].position, glob.showFlyingText)
         end
       end
       if schedule.records[schedule.current].station == glob.settings.refuel.station then
-        --table.insert(glob.refuelTrains, {train = train, arrived = game.tick})
-        t.refueling = {arrived = game.tick}
-        table.insert(glob.refuelTrains, t)
+        t:startRefueling()
         flyingText("refueling", YELLOW, train.carriages[1].position, glob.showFlyingText)
       end
     end
     if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
-      --table.insert(glob.waitingTrains, {train = train, cargo = cargoCount(train), arrived = game.tick, settings=settings})
-      t.waiting = {cargo = cargoCount(train), arrived = game.tick, lastCheck = false}
-      table.insert(glob.waitingTrains, t)
+      t:startWaiting()
+      flyingText("waiting", YELLOW, train.carriages[1].position, glob.showFlyingText)
     end
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
     if settings.autoRefuel then
       if fuel < (glob.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(glob.settings.refuel.station, schedule) then
         train.schedule = addStation(glob.settings.refuel.station, schedule, glob.settings.refuel.time)
+        flyingText("Refuel station added", YELLOW, train.carriages[1].position, glob.showFlyingText)
       end
     end
   end
-  if settings.autoRefuel and t.refueling and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["pathlost"] or train.state == defines.trainstate["nopath"]) then
-    t.refueling = false
-  end
-  if settings.autoDepart and t.waiting and (train.state == defines.trainstate["onthepath"] or train.state == defines.trainstate["pathlost"] or train.state == defines.trainstate["nopath"]) then
-    t.waiting = false
-  end
-end
-
-function cargoCompare(c1, c2, minFlow, interval)
-  local liquids1 = {}
-  local liquids2 = {}
-  local goodflow = false
-  for l,_ in pairs(fluids) do
-    liquids1[l], liquids2[l] = false, false
-    if c1[l] ~= nil or c2[l] ~= nil then
-      liquids1[l] = c1[l] or 0
-      liquids2[l] = c2[l] or 0
-      local flow = (liquids1[l] - liquids2[l])/(interval/60)
-      if math.abs(flow) >= minFlow then goodflow = true end
-      c1[l] = nil
-      c2[l] = nil
-    end
-  end
-  local eq = table.compare(c1, c2)
-  for l,_ in pairs(fluids) do
-    if liquids1[l] ~= false and liquids1[l] > 0 then c1[l] = liquids1[l] end
-    if liquids2[l] ~= false and liquids2[l] > 0 then c2[l] = liquids2[l] end
-  end
-  return (eq and not goodflow)
 end
 
 function ontick(event)
-  if #glob.refuelTrains > 0 then
-    for i,t in pairs(glob.refuelTrains) do
-      if type(t.refueling) == "table" and t.settings.autoRefuel then
-        local wait = t.refueling.arrived + glob.settings.depart.interval
-        if event.tick >= wait then
-          if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
-            flyingText("Refueling done", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
-            glob.refuelTrains[i] = nil
-            --nextStation(t.train)
-            t:nextStation()
-          end
+  for i,train in pairs(glob.trains) do
+    if train:isRefueling() then
+      local wait = train.refueling.arrived + glob.settings.depart.interval
+      if event.tick >= wait then
+        if train:lowestFuel() >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
+          flyingText("Refueling done", YELLOW, train.train.carriages[1].position, glob.showFlyingText)
+          train:refuelingDone(true)
         end
-      else
-        glob.refuelTrains[i] = nil
       end
     end
-  end
-  if #glob.waitingTrains > 0 then
-    for i,t in pairs(glob.waitingTrains) do
-      if type(t.waiting) == "table" and t.settings.autoDepart then
-        local wait = (type(t.waiting.arrived) == "number") and t.waiting.arrived + glob.settings.depart.minWait or t.waiting.lastCheck + glob.settings.depart.interval
-        if event.tick >= wait then
-          local cargo = cargoCount(t.train)
-          local last = t.waiting.arrived or t.waiting.lastCheck
-          if cargoCompare(cargo, t.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
-            flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
-            --nextStation(t.train)
-            t:nextStation()
-            glob.waitingTrains[i] = nil
-          else
-            flyingText("cargoCompare -> stay at station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
-            t.waiting.lastCheck = event.tick
-            t.waiting.arrived = false
-            t.waiting.cargo = cargo
-          end
-        elseif not t.settings.autoDepart then
-          glob.waitingTrains[i] = nil
+    if train:isWaiting() then
+      local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + glob.settings.depart.minWait or train.waiting.lastCheck + glob.settings.depart.interval
+      if event.tick >= wait then
+        local cargo = train:cargoCount()
+        local last = train.waiting.arrived or train.waiting.lastCheck
+        if train:cargoEquals(cargo, train.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
+          flyingText("cargoCompare -> leave station", YELLOW, train.train.carriages[1].position, glob.showFlyingText)
+          train:waitingDone(true)
+        else
+          flyingText("cargoCompare -> stay at station", YELLOW, train.train.carriages[1].position, glob.showFlyingText)
+          train.waiting.lastCheck = event.tick
+          train.waiting.arrived = false
+          train.waiting.cargo = cargo
         end
-      else
-        glob.waitingTrains[i] = nil
       end
     end
   end
@@ -911,10 +901,8 @@ function ontick(event)
           destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
           destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
         end
-        if gui ~= nil then
+        if gui ~= nil and (gui.trainSettings ~= nil or gui.trainLines ~= nil) then
           destroyGui(player.gui.left.stGui.trainSettings)
-          --destroyGui(player.gui.left.stGui.scheduleSettings)
-          --destroyGui(player.gui.left.stGui.dynamicRules)
           destroyGui(player.gui.left.stGui.trainLines)
         end
       end
@@ -965,8 +953,6 @@ function onpreplayermineditem(event)
     removeInvalidTrains()
     local old = getKeyByTrain(glob.trains, ent.train)
     if old then table.remove(glob.trains, old) end
-    old = getKeyByTrain(glob.waitingTrains, ent.train)
-    if old then table.remove(glob.waitingTrains, old) end
 
     if #ent.train.carriages > 1 then
       if ent.train.carriages[ownPos-1] ~= nil then
@@ -1134,7 +1120,7 @@ remote.addinterface("st",
         end
       end
     end,
-    
+
     printMeta = function()
       local metas = {}
       for i,to in pairs(glob.trains) do
