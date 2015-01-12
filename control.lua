@@ -440,6 +440,10 @@ end
 function oninit() initGlob() end
 
 function initGlob()
+  if glob.version == nil or glob.version < MOD.version then
+    local v = glob.version or "Nil"
+    saveGlob("PreInitv"..v)
+  end
   if glob.version == nil or glob.version < "0.1.0" then
     local v = glob.version or "Nil"
     saveGlob("PreInitv"..v)
