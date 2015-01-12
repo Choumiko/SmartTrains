@@ -20,7 +20,7 @@ local tmpPos = {}
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
 local YELLOW = {r = 0.8, g = 0.8}
-
+  
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
   local stGui = player.gui.left.add({type="frame", name="stGui", direction="vertical", style="outer_frame_style"})
@@ -194,52 +194,51 @@ function showTrainLinesWindow(index, trainKey, parent)
   end
 end
 
-function showDynamicRules(index, line, stationKey, trainKey)
-  debugDump({i=index,line=line,station=stationKey, tr=trainKey}, true)
-  local lineName = false
-  local station = ""
-  if line and glob.trainLines[line] then
-    lineName = glob.trainLines[line].name
-  end
-  if lineName and stationKey then
-    station = glob.trainLines[line].records[stationKey].station
-  else
-    station = glob.trains[trainKey].train.schedule.records[stationKey].station
-  end
-  local gui = game.players[index].gui.left.stGui
-  if gui.dynamicRules ~= nil then
-    gui.dynamicRules.destroy()
-  end
-  lineName = lineName or "-"
-  gui = gui.add({type="frame", name="dynamicRules", direction="horizontal"})
-  gui.add({type="label", name="line", caption="Line: "..lineName, style="st_label"})
-  gui.add({type="label", name="station", caption="Station: "..station, style="st_label"})
-  gui.add({ type="button", name="filter__" ..trainKey, style="st-icon-iron-ore"})
-  gui.add({ type="button", name="test__" ..trainKey, style="st-icon-style"})
-  gui.add({type="button", name="togglefilter__"..trainKey, caption = "bool", style="st_button"})
-  gui.add({type="textfield", name="filteramount", style="st_textfield_small"})
+--function showDynamicRules(index, line, stationKey, trainKey)
+--  debugDump({i=index,line=line,station=stationKey, tr=trainKey}, true)
+--  local lineName = false
+--  local station = ""
+--  if line and glob.trainLines[line] then
+--    lineName = glob.trainLines[line].name
+--  end
+--  if lineName and stationKey then
+--    station = glob.trainLines[line].records[stationKey].station
+--  else
+--    station = glob.trains[trainKey].train.schedule.records[stationKey].station
+--  end
+--  local gui = game.players[index].gui.left.stGui
+--  if gui.dynamicRules ~= nil then
+--    gui.dynamicRules.destroy()
+--  end
+--  lineName = lineName or "-"
+--  gui = gui.add({type="frame", name="dynamicRules", direction="horizontal"})
+--  gui.add({type="label", name="line", caption="Line: "..lineName, style="st_label"})
+--  gui.add({type="label", name="station", caption="Station: "..station, style="st_label"})
+--  gui.add({ type="button", name="filter__" ..trainKey, style="st-icon-iron-ore"})
+--  gui.add({ type="button", name="test__" ..trainKey, style="st-icon-style"})
+--  gui.add({type="button", name="togglefilter__"..trainKey, caption = "bool", style="st_button"})
+--  gui.add({type="textfield", name="filteramount", style="st_textfield_small"})
+--end
 
-end
-
-function updateLineEdit(index, trainKey, stationKey, line)
-  local gui = game.players[index].gui.left.stGui
-  if gui.scheduleSettings ~= nil then
-    gui = gui.scheduleSettings.tbl1
-    local records = {}
-    if glob.trainLines[line] then
-      records = glob.trainLines[line].records
-      line = "__"..line
-    else
-      line = ""
-      records = glob.trains[trainKey].train.schedule.records
-    end
-    for i,s in ipairs(records) do
-      if i ~= stationKey then
-        gui["toggleedit__"..trainKey.."__"..i..line].state = (i==stationKey)
-      end
-    end
-  end
-end
+--function updateLineEdit(index, trainKey, stationKey, line)
+--  local gui = game.players[index].gui.left.stGui
+--  if gui.scheduleSettings ~= nil then
+--    gui = gui.scheduleSettings.tbl1
+--    local records = {}
+--    if glob.trainLines[line] then
+--      records = glob.trainLines[line].records
+--      line = "__"..line
+--    else
+--      line = ""
+--      records = glob.trains[trainKey].train.schedule.records
+--    end
+--    for i,s in ipairs(records) do
+--      if i ~= stationKey then
+--        gui["toggleedit__"..trainKey.."__"..i..line].state = (i==stationKey)
+--      end
+--    end
+--  end
+--end
 
 function globalSettingsWindow(index, parent)
   local gui = parent or game.players[index].gui.left.stGui.stSettings
@@ -288,7 +287,6 @@ function onguiclick(event)
   local index = event.playerindex or event.name
   local player = game.players[index]
   local element = event.element
-  --debugDump(event.element.name,true)
   if element.name == "toggleSTSettings" then
     if player.gui.left.stGui.stSettings.stGlobalSettings == nil then
       globalSettingsWindow(index)
@@ -313,7 +311,6 @@ function onguiclick(event)
       --local pattern = "(%w+)__([%w%s]*)_*([%w%s]*)_*(%w*)"
       local pattern = "(markedDelete)__([%w%s]*)_*(%d*)"
       local del, line, trainkey = child:match(pattern)
-      --      debugDump("e: "..child,true)
       if del and group[child].state == true then
         trainKey = tonumber(trainkey)
         if glob.trains[trainKey].line == line then
@@ -332,39 +329,39 @@ function onguiclick(event)
     elseif option1 == "depart" then
       option2 = tonumber(option2)
       glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
-    elseif option1 == "filter" then
-      option2 = tonumber(option2)
-      local item = "iron-plate"
-      if player.cursorstack then item = player.cursorstack.name end
-      glob.filter = item or glob.filter
-      --game.players[index].gui.left.stGui.trainSettings.tbl["filter__"..option2].style = "tm-icon-"..
-      --showTrainInfoWindow(index,option2)
-    elseif option1 == "togglefilter" then
-      if element.caption == ">" then
-        element.caption = "<"
-        glob.filterbool = "lesser"
-      else
-        element.caption = ">"
-        glob.filterbool = "greater"
-      end
-      --debugDump(glob.filterbool, true)
-      option2 = tonumber(option2)
-      --showTrainInfoWindow(index,option2)
-    elseif option1 == "toggleedit" then
-      option2 = tonumber(option2)
-      option3 = tonumber(option3)
-      do
-        local option1 = option1 or ""
-        local option2 = option2 or ""
-        local option3 = option3 or ""
-        local option4 = option4
-        debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3.." o4: "..option4,true)
-        debugDump({option4},true)
-      end
-      -- @TODO save changes
-      refreshUI(index, option2, option3, option4)
-      updateLineEdit(index,option2,option3, option4)
-      showDynamicRules(index, option4, option3, option2)
+--    elseif option1 == "filter" then
+--      option2 = tonumber(option2)
+--      local item = "iron-plate"
+--      if player.cursorstack then item = player.cursorstack.name end
+--      glob.filter = item or glob.filter
+--      --game.players[index].gui.left.stGui.trainSettings.tbl["filter__"..option2].style = "tm-icon-"..
+--      --showTrainInfoWindow(index,option2)
+--    elseif option1 == "togglefilter" then
+--      if element.caption == ">" then
+--        element.caption = "<"
+--        glob.filterbool = "lesser"
+--      else
+--        element.caption = ">"
+--        glob.filterbool = "greater"
+--      end
+--      --debugDump(glob.filterbool, true)
+--      option2 = tonumber(option2)
+--      --showTrainInfoWindow(index,option2)
+--    elseif option1 == "toggleedit" then
+--      option2 = tonumber(option2)
+--      option3 = tonumber(option3)
+--      do
+--        local option1 = option1 or ""
+--        local option2 = option2 or ""
+--        local option3 = option3 or ""
+--        local option4 = option4
+--        debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3.." o4: "..option4,true)
+--        debugDump({option4},true)
+--      end
+--      -- @TODO save changes
+--      refreshUI(index, option2, option3, option4)
+--      updateLineEdit(index,option2,option3, option4)
+--      showDynamicRules(index, option4, option3, option2)
     elseif option1 == "readSchedule" then
       option2 = tonumber(option2)
       if glob.trains[option2] ~= nil and glob.trains[option2].train.valid then
@@ -410,11 +407,11 @@ function refreshUI(index, trainKey, stationEdit, line)
   trainKey = getTrainKeyFromUI(index)
   showTrainInfoWindow(index,trainKey, stationEdit)
   --showScheduleWindow(index, trainKey, stationEdit)
-  if stationEdit then
-    showDynamicRules(index, line, stationEdit, trainKey)
-  else
-    destroyGui(game.players[index].gui.left.stGui.dynamicRules)
-  end
+--  if stationEdit then
+--    showDynamicRules(index, line, stationEdit, trainKey)
+--  else
+--    destroyGui(game.players[index].gui.left.stGui.dynamicRules)
+--  end
   showTrainLinesWindow(index,trainKey)
 end
 
@@ -524,15 +521,6 @@ function initGlob()
 end
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
-
---function getLineByName(tableA, line)
---  for i,l in pairs(tableA) do
---    if l.name == line then
---      return i
---    end
---  end
---  return false
---end
 
 function trainEquals(trainA, trainB)
   if trainA.carriages[1].equals(trainB.carriages[1]) then
@@ -675,7 +663,6 @@ function cargoCount(train)
       else
         if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
           local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-          --debugDump(d,true)
           if d.type ~= nil then
             sum[d.type] = sum[d.type] or 0
             sum[d.type] = sum[d.type] + d.amount
@@ -684,7 +671,6 @@ function cargoCount(train)
       end
     end
   end
-  --debugDump(sum,true)
   return sum
 end
 
@@ -871,8 +857,8 @@ function ontick(event)
         end
         if gui ~= nil then
           destroyGui(player.gui.left.stGui.trainSettings)
-          destroyGui(player.gui.left.stGui.scheduleSettings)
-          destroyGui(player.gui.left.stGui.dynamicRules)
+          --destroyGui(player.gui.left.stGui.scheduleSettings)
+          --destroyGui(player.gui.left.stGui.dynamicRules)
           destroyGui(player.gui.left.stGui.trainLines)
         end
       end
