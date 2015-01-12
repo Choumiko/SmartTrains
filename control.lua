@@ -20,7 +20,7 @@ local tmpPos = {}
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
 local YELLOW = {r = 0.8, g = 0.8}
-  
+
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
   local stGui = player.gui.left.add({type="frame", name="stGui", direction="vertical", style="outer_frame_style"})
@@ -407,11 +407,11 @@ function refreshUI(index, trainKey, stationEdit, line)
   trainKey = getTrainKeyFromUI(index)
   showTrainInfoWindow(index,trainKey, stationEdit)
   --showScheduleWindow(index, trainKey, stationEdit)
---  if stationEdit then
---    showDynamicRules(index, line, stationEdit, trainKey)
---  else
---    destroyGui(game.players[index].gui.left.stGui.dynamicRules)
---  end
+  --  if stationEdit then
+  --    showDynamicRules(index, line, stationEdit, trainKey)
+  --  else
+  --    destroyGui(game.players[index].gui.left.stGui.dynamicRules)
+  --  end
   showTrainLinesWindow(index,trainKey)
 end
 
@@ -511,20 +511,70 @@ function initGlob()
       if l.line then l.line=nil end
       l.changed = 0
     end
-    glob.version = "0.1.4"
+    glob.version = "0.1.5"
     saveGlob("Initv"..glob.version)
   end
+
+  if glob.version < "0.1.7" then
+    local tmp = {}
+    for i,t in ipairs(glob.trains) do
+      local tr = Train:new(t)
+      table.insert(tmp, tr)
+    end
+    glob.trains = tmp
+  end
+
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
       buildGUI(p)
       glob.guiDone[p.name] = true
     end
   end
+  for _, object in pairs(glob.trains) do
+    setmetatable(object, Train)
+    assert(getmetatable(object)== Train)
+  end
+  if #glob.trains >=2 then
+    assert(glob.trains[1] == glob.trains[1])
+    assert(glob.trains[1] ~= glob.trains[2])
+    assert(glob.trains[2] ~= glob.trains[1])
+    assert(glob.trains[2] == glob.trains[2])
+  end
+
   if glob.version < MOD.version then saveGlob("PostInit") end
   glob.version = MOD.version
 end
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
+
+
+Train = {}
+function Train:new(train)
+  local o = train or {}
+  setmetatable(o, self)
+  self.__index = self
+  return o
+end
+
+Train.__eq = function(trainA, trainB)
+  return trainA.train.carriages[1].equals(trainB.train.carriages[1])
+end
+
+function Train:printName()
+  debugDump(self.name, true)
+end
+
+function Train:nextStation()
+  local train = self.train
+  if train.manualmode == false then
+    local schedule = train.schedule
+    local tmp = (schedule.current % #schedule.records) + 1
+    train.manualmode = true
+    schedule.current = tmp
+    train.schedule = schedule
+    train.manualmode = false
+  end
+end
 
 function trainEquals(trainA, trainB)
   if trainA.carriages[1].equals(trainB.carriages[1]) then
@@ -808,7 +858,8 @@ function ontick(event)
           if lowestFuel(t.train) >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
             flyingText("Refueling done", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
             glob.refuelTrains[i] = nil
-            nextStation(t.train)
+            --nextStation(t.train)
+            t:nextStation()
           end
         end
       else
@@ -825,7 +876,8 @@ function ontick(event)
           local last = t.waiting.arrived or t.waiting.lastCheck
           if cargoCompare(cargo, t.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
             flyingText("cargoCompare -> leave station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
-            nextStation(t.train)
+            --nextStation(t.train)
+            t:nextStation()
             glob.waitingTrains[i] = nil
           else
             flyingText("cargoCompare -> stay at station", YELLOW, t.train.carriages[1].position, glob.showFlyingText)
@@ -1054,6 +1106,7 @@ remote.addinterface("st",
         debugDump("glob["..var.."] not found.")
       end
     end,
+
     saveGlob = function(name)
       saveGlob(name)
     end,
@@ -1069,6 +1122,7 @@ remote.addinterface("st",
       glob.showFlyingText = not glob.showFlyingText
       debugDump("Flying text: "..tostring(glob.showFlyingText),true)
     end,
+
     nilGlob = function(key)
       if glob[key] then glob[key] = nil end
     end,
@@ -1079,7 +1133,16 @@ remote.addinterface("st",
           player.gui.top.blueprintTools.destroy()
         end
       end
-    end
+    end,
+    
+    printMeta = function()
+      local metas = {}
+      for i,to in pairs(glob.trains) do
+        table.insert(metas, getmetatable(to))
+      end
+      printToFile(serpent.block(metas, {name="metas"}), "metatables" )
+    end,
+
   --    findStations = function()
   --      local stations = {}
   --      for coord in game.getchunks() do
