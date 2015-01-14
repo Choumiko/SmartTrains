@@ -142,8 +142,8 @@ function showDynamicRules(index, line)
     glob.guiData[index].rules = glob.guiData[index].rules or {}
     for i,s in ipairs(records) do
       local filter = "style"
-      local condition = "<"
-      local count = ""
+      local condition = ">"
+      local count = "1"
       if rules[i] then
         filter, condition, count = rules[i].filter, rules[i].condition, rules[i].count
         glob.guiData[index].rules[i] = filter
@@ -287,17 +287,23 @@ function onguiclick(event)
       player.gui.left.stGui.dynamicRules.frm.tbl[event.element.name].state = false
       if not glob.guiData[index].rules then glob.guiData[index].rules = {} end
       glob.guiData[index].rules[stationIndex] = item
---    elseif option1 == "togglefilter" then
---      if element.caption == ">" then
---        element.caption = "<"
---        glob.filterbool = "lesser"
---      else
---        element.caption = ">"
---        glob.filterbool = "greater"
---      end
---      --debugDump(glob.filterbool, true)
---      option2 = tonumber(option2)
---      --showTrainInfoWindow(index,option2)
+    elseif option1 == "togglefilter" then
+      local stationIndex = tonumber(option2)
+      local newCaption = ">"
+      if element.caption == ">" then
+        newCaption = "<"
+      elseif element.caption == "<" then
+        newCaption = "="
+      elseif element.caption == "=" then
+        newCaption = ">="
+      elseif element.caption == ">=" then
+        newCaption = "<="
+      elseif element.caption == "<=" then
+        newCaption = ">"
+      end
+      element.caption = newCaption
+--      if not glob.guiData[index].rules then glob.guiData[index].rules = {[stationIndex]={}} end
+--      glob.guiData[index].rules[stationIndex].condition = newCaption
     elseif option1 == "editRules" then
       showDynamicRules(index,option2)
     elseif option1 == "saveRules" then

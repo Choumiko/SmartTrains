@@ -168,12 +168,15 @@ function Train:nextValidStation()
   local old = schedule.current
   local tmp = schedule.current
   local rules = glob.trainLines[self.line].rules
-  local skipped, c = false, 0 
+  local skipped, c = "", 0 
   if self.line and glob.trainLines[self.line].changed == self.lineVersion and rules[tmp] then
     local cargo = self:cargoCount()
     local item = cargo[rules[tmp].filter] or 0
-    local cond = string.format("return %f %s %f", item, rules[tmp].condition, rules[tmp].count)
+    local compare = rules[tmp].condition
+    if compare == "=" then compare = "==" end
+    local cond = string.format("return %f %s %f", item, compare, rules[tmp].count)
     local f = assert(loadstring(cond))()
+    --debugDump({cond, f},true)
     if not f then
       skipped = schedule.records[tmp].station
       c = c+1
@@ -185,8 +188,11 @@ function Train:nextValidStation()
         else
           local cargo = self:cargoCount()
           local item = cargo[rules[k].filter] or 0
-          local cond = string.format("return %f %s %f", item, rules[k].condition, rules[k].count)
+          local compare = rules[k].condition
+          if compare == "=" then compare = "==" end
+          local cond = string.format("return %f %s %f", item, compare, rules[k].count)
           local f = assert(loadstring(cond))()
+          --debugDump({cond, f},true)
           if f then
             tmp = k
             break
@@ -196,10 +202,10 @@ function Train:nextValidStation()
         end
       end
     end
-    if tmp == old or #schedule.records == c+1 then
+    if #schedule.records <= c+1 then
       self:flyingText("Invalid rules", RED, {offset=1, show=true})
-    else
-      self:flyingText("Skipped stations: "..skipped, YELLOW)
+    elseif skipped ~= "" then
+      self:flyingText("Skipped stations: "..skipped, YELLOW, {offset=1})
     end
     assert(tmp <= #schedule.records)
     --debugDump("going to "..schedule.records[tmp].station, true)
