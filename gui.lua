@@ -287,7 +287,6 @@ function onguiclick(event)
       player.gui.left.stGui.dynamicRules.frm.tbl[event.element.name].state = false
       if not glob.guiData[index].rules then glob.guiData[index].rules = {} end
       glob.guiData[index].rules[stationIndex] = item
---      --showTrainInfoWindow(index,option2)
 --    elseif option1 == "togglefilter" then
 --      if element.caption == ">" then
 --        element.caption = "<"
@@ -320,9 +319,6 @@ function onguiclick(event)
       end
       glob.trainLines[line].rules = tmp
       glob.guiData[index].rules = nil
-      for i,r in pairs(glob.trainLines[line].rules) do
-        debugDump(glob.trainLines[line].records[i].station.." :".. r.filter.." "..r.count,true)
-      end
       destroyGui(player.gui.left.stGui.dynamicRules)
       refreshUI(index)
     elseif option1 == "readSchedule" then

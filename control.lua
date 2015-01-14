@@ -163,42 +163,66 @@ function Train:updateState()
   end
 end
 
-function Train:nextValidStation(station)
+function Train:nextValidStation()
   local schedule = self.train.schedule
-  --local tmp = (schedule.current % #schedule.records) + 1
-  local tmp = station or schedule.current
+  local old = schedule.current
+  local tmp = schedule.current
   local rules = glob.trainLines[self.line].rules
-  if self.line and rules[tmp] then
+  local skipped, c = false, 0 
+  if self.line and glob.trainLines[self.line].changed == self.lineVersion and rules[tmp] then
     local cargo = self:cargoCount()
     local item = cargo[rules[tmp].filter] or 0
     local cond = string.format("return %f %s %f", item, rules[tmp].condition, rules[tmp].count)
     local f = assert(loadstring(cond))()
     if not f then
--- schedule iterator needed?    
-      for i=tmp+1,#schedule.records do
-        if not rules[i] then
-          tmp = i
+      skipped = schedule.records[tmp].station
+      c = c+1
+      for i=1,#schedule.records do
+        local k = math.abs(i + tmp - 1) % (#schedule.records)+1
+        if not rules[k] then
+          tmp = k
           break
         else
           local cargo = self:cargoCount()
-          local item = cargo[rules[tmp].filter] or 0
-          local cond = string.format("return %f %s %f", item, rules[tmp].condition, rules[tmp].count)
+          local item = cargo[rules[k].filter] or 0
+          local cond = string.format("return %f %s %f", item, rules[k].condition, rules[k].count)
           local f = assert(loadstring(cond))()
           if f then
-            tmp = i
+            tmp = k
             break
           end
+          skipped = skipped..", "..schedule.records[k].station
+          c=c+1
         end
       end
     end
-    local train = self.train
-    if train.manualmode == false then
-      train.manualmode = true
-      schedule.current = tmp
-      train.schedule = schedule
-      train.manualmode = false
+    if tmp == old or #schedule.records == c+1 then
+      self:flyingText("Invalid rules", RED, {offset=1, show=true})
+    else
+      self:flyingText("Skipped stations: "..skipped, YELLOW)
     end
+    assert(tmp <= #schedule.records)
+    --debugDump("going to "..schedule.records[tmp].station, true)
+    local train = self.train
+    train.manualmode = true
+    schedule.current = tmp
+    train.schedule = schedule
+    train.manualmode = false
   end
+end
+
+function Train:flyingText(msg, color, tbl)
+  local s = glob.showFlyingText
+  local offset = 0
+  if type(tbl) == "table" then
+    s = tbl.show or s
+    offset = tbl.offset or offset
+  end
+  local pos = self.train.carriages[1].position
+  if offset ~= 0 then
+    pos.y = pos.y + offset
+  end
+  flyingText(msg, color, pos, s) 
 end
 
 function getTrainKeyFromUI(index)
@@ -319,6 +343,7 @@ function initGlob()
   for _, object in pairs(glob.trains) do
     setmetatable(object, Train)
     assert(getmetatable(object)== Train)
+    object.advancedState = object.advancedState or false
   end
   if #glob.trains >=2 then
     assert(glob.trains[1] == glob.trains[1])
@@ -484,41 +509,43 @@ function ontrainchangedstate(event)
         t.train.schedule = schedule
         t.train.manualmode = false
         t.lineVersion = trainLine.changed
-        flyingText("updating schedule", YELLOW, train.carriages[1].position, glob.showFlyingText)
+        t:flyingText("updating schedule", YELLOW)
       end
     elseif t.line and not glob.trainLines[t.line] then
-      flyingText("Dettached from line", RED, train.carriages[1].position, glob.showFlyingText)
+      t:flyingText("Dettached from line", RED)
       t.line = false
       t.lineVersion = false
     end
   end
   --Handle line rules here
   if t.advancedState == defines.trainstate["leftstation"] and glob.trainLines[t.line].rules then
-    flyingText("checking line rules", RED, train.carriages[1].position, glob.showFlyingText)
-    t:nextValidStation()
+    if glob.trainLines[t.line].rules[train.schedule.current] then
+      --t:flyingText("checking line rules", GREEN, {offset=-1})
+      t:nextValidStation()
+    end
   end
   if train.state == defines.trainstate["waitstation"] then
     if settings.autoRefuel then
       if fuel >= (glob.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
         if inSchedule(glob.settings.refuel.station, schedule) and #schedule.records >= 3 then
           train.schedule = removeStation(glob.settings.refuel.station, schedule)
-          flyingText("Refuel station removed", YELLOW, train.carriages[1].position, glob.showFlyingText)
+          t:flyingText("Refuel station removed", YELLOW)
         end
       end
       if schedule.records[schedule.current].station == glob.settings.refuel.station then
         t:startRefueling()
-        flyingText("refueling", YELLOW, train.carriages[1].position, glob.showFlyingText)
+        t:flyingText("refueling", YELLOW)
       end
     end
     if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
       t:startWaiting()
-      flyingText("waiting", YELLOW, train.carriages[1].position, glob.showFlyingText)
+      --t:flyingText("waiting", YELLOW)
     end
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
     if settings.autoRefuel then
       if fuel < (glob.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(glob.settings.refuel.station, schedule) then
         train.schedule = addStation(glob.settings.refuel.station, schedule, glob.settings.refuel.time)
-        flyingText("Refuel station added", YELLOW, train.carriages[1].position, glob.showFlyingText)
+        t:flyingText("Refuel station added", YELLOW)
       end
     end
   end
@@ -530,7 +557,7 @@ function ontick(event)
       local wait = train.refueling.arrived + glob.settings.depart.interval
       if event.tick >= wait then
         if train:lowestFuel() >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
-          flyingText("Refueling done", YELLOW, train.train.carriages[1].position, glob.showFlyingText)
+          train:flyingText("Refueling done", YELLOW)
           train:refuelingDone(true)
         end
       end
@@ -541,10 +568,10 @@ function ontick(event)
         local cargo = train:cargoCount()
         local last = train.waiting.arrived or train.waiting.lastCheck
         if train:cargoEquals(cargo, train.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
-          flyingText("cargoCompare -> leave station", YELLOW, train.train.carriages[1].position, glob.showFlyingText)
+          train:flyingText("cargoCompare -> leave station", YELLOW)
           train:waitingDone(true)
         else
-          flyingText("cargoCompare -> stay at station", YELLOW, train.train.carriages[1].position, glob.showFlyingText)
+          train:flyingText("cargoCompare -> stay at station", YELLOW)
           train.waiting.lastCheck = event.tick
           train.waiting.arrived = false
           train.waiting.cargo = cargo
@@ -566,14 +593,18 @@ function ontick(event)
         end
       elseif player.opened == nil then
         local gui=player.gui.left.stGui
-        if gui.stSettings ~= nil then
-          destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
-          destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
-        end
-        if gui ~= nil and (gui.trainSettings ~= nil or gui.trainLines ~= nil) then
-          destroyGui(player.gui.left.stGui.trainSettings)
-          destroyGui(player.gui.left.stGui.dynamicRules)
-          destroyGui(player.gui.left.stGui.trainLines)
+        if gui then
+          if gui.stSettings ~= nil then
+            destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
+            destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
+          end
+          if gui ~= nil and (gui.trainSettings ~= nil or gui.trainLines ~= nil) then
+            destroyGui(player.gui.left.stGui.trainSettings)
+            destroyGui(player.gui.left.stGui.dynamicRules)
+            destroyGui(player.gui.left.stGui.trainLines)
+          end
+        elseif gui == nil then
+          buildGUI(player)
         end
         glob.guiData[pi] = nil
       end
