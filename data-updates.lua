@@ -11,6 +11,36 @@ for k,prototype in pairs(data.raw["fluid"]) do
         stack_size = 1
       },
     })
+    local style =
+          {
+            type = "checkbox_style",
+            parent = "st-icon-style",
+            default_background =
+            {
+              filename = prototype.icon,
+              width = 32,
+              height = 32
+            },
+            hovered_background =
+            {
+              filename = prototype.icon,
+              width = 32,
+              height = 32
+            },
+            checked_background =
+            {
+              filename = prototype.icon,
+              width = 32,
+              height = 32
+            },
+            clicked_background =
+            {
+              filename = prototype.icon,
+              width = 32,
+              height = 32
+            }
+          }
+      data.raw["gui-style"].default["st-icon-"..prototype.name] = style
 end
 data.raw["gui-style"].default["st-icon-style"] =
   {

@@ -8,7 +8,7 @@ local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
     depart={minWait = 240, interval = 120, minFlow = 1}}
 --local fluids ={["crude-oil"] = true, water=true, ["heavy-oil"]=true, ["light-oil"]=true, ["petroleum-gas"]=true,lubricant=true,["sulfuric-acid"]=true}
-local fluids = false
+fluids = false
 showFlyingText = false
 
 MOD = {version="0.1.6"}
@@ -122,6 +122,7 @@ function Train:cargoCount()
           if d.type ~= nil then
             sum[d.type] = sum[d.type] or 0
             sum[d.type] = sum[d.type] + d.amount
+            --self:flyingText(d.type..": "..d.amount, YELLOW, {offset=wagon.position})
           end
         end
       end
@@ -169,14 +170,16 @@ function Train:nextValidStation()
   local tmp = schedule.current
   local rules = glob.trainLines[self.line].rules
   local skipped, c = "", 0 
-  if self.line and glob.trainLines[self.line].changed == self.lineVersion and rules[tmp] then
+  if self.line and rules[tmp] and not (inSchedule(glob.settings.refuel.station, schedule) and self.settings.autoRefuel) then
     local cargo = self:cargoCount()
-    local item = cargo[rules[tmp].filter] or 0
+    local filter = rules[tmp].filter
+    local filter = filter:match("st%-fluidItem%-(.+)") or rules[tmp].filter
+    local item = cargo[filter] or 0
     local compare = rules[tmp].condition
     if compare == "=" then compare = "==" end
     local cond = string.format("return %f %s %f", item, compare, rules[tmp].count)
     local f = assert(loadstring(cond))()
-    --debugDump({cond, f},true)
+    debugDump({cond, f},true)
     if not f then
       skipped = schedule.records[tmp].station
       c = c+1
@@ -187,12 +190,15 @@ function Train:nextValidStation()
           break
         else
           local cargo = self:cargoCount()
+          local filter = rules[k].filter
+          local filter = filter:match("st%-fluidItem%-(.+)") or rules[k].filter
+          local item = cargo[filter] or 0
           local item = cargo[rules[k].filter] or 0
           local compare = rules[k].condition
           if compare == "=" then compare = "==" end
           local cond = string.format("return %f %s %f", item, compare, rules[k].count)
           local f = assert(loadstring(cond))()
-          --debugDump({cond, f},true)
+          debugDump({cond, f},true)
           if f then
             tmp = k
             break
@@ -210,10 +216,10 @@ function Train:nextValidStation()
     assert(tmp <= #schedule.records)
     --debugDump("going to "..schedule.records[tmp].station, true)
     local train = self.train
-    train.manualmode = true
-    schedule.current = tmp
-    train.schedule = schedule
-    train.manualmode = false
+      train.manualmode = true
+      schedule.current = tmp
+      train.schedule = schedule
+      train.manualmode = false
   end
 end
 
@@ -225,7 +231,9 @@ function Train:flyingText(msg, color, tbl)
     offset = tbl.offset or offset
   end
   local pos = self.train.carriages[1].position
-  if offset ~= 0 then
+  if type(offset) == "table" then
+    pos = offset
+  elseif type(offset) == "number" then
     pos.y = pos.y + offset
   end
   flyingText(msg, color, pos, s) 
@@ -525,6 +533,8 @@ function ontrainchangedstate(event)
   end
   --Handle line rules here
   if t.advancedState == defines.trainstate["leftstation"] and glob.trainLines[t.line].rules then
+    t.waiting = false
+    t.refueling = false
     if glob.trainLines[t.line].rules[train.schedule.current] then
       --t:flyingText("checking line rules", GREEN, {offset=-1})
       t:nextValidStation()

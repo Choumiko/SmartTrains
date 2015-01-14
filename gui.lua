@@ -157,6 +157,7 @@ function showDynamicRules(index, line)
       end
     end
     gui.add({type="button", name="saveRules__"..line, caption="Save", style="st_button"})
+    gui.add({type="button", name="getLiquidItems", caption="Liquid items", style="st_button"})
   end
 end
 
@@ -263,6 +264,13 @@ function onguiclick(event)
       end
     end
     refreshUI(index, trainKey)
+  elseif element.name == "getLiquidItems" then
+    for fluid, _ in pairs(fluids) do
+      local item = "st-fluidItem-"..fluid
+      if player.getitemcount(item) < 1 then
+        player.insert({name=item, count=1})
+      end
+    end
   else
     local option1, option2, option3, option4 = event.element.name:match("(%w+)__([%w%s]*)_*([%w%s]*)_*(%w*)")
     do
