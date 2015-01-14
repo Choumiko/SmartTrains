@@ -11,7 +11,7 @@ local defaultSettings =
 fluids = false
 showFlyingText = false
 
-MOD = {version="0.1.6"}
+MOD = {version="0.1.9"}
 local tmpPos = {}
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
