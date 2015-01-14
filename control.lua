@@ -1,7 +1,7 @@
 require "defines"
 require "util"
 
-require "gui"
+require("gui")
 
 local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local defaultSettings =
@@ -50,6 +50,7 @@ end
 function Train:startRefueling()
   self.refueling = {arrived = game.tick}
 end
+
 function Train:isRefueling()
   return type(self.refueling) == "table" and self.settings.autoRefuel
 end
@@ -284,8 +285,8 @@ function initGlob()
     saveGlob("Initv"..glob.version)
   end
   glob.trains = glob.trains or {}
-  glob.waitingTrains = glob.waitingTrains or {}
-  glob.refuelTrains = glob.refuelTrains or {}
+--  glob.waitingTrains = glob.waitingTrains or {}
+--  glob.refuelTrains = glob.refuelTrains or {}
   glob.trainLines = glob.trainLines or {}
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
@@ -340,12 +341,19 @@ function initGlob()
   if glob.version < "0.1.7" then
     local tmp = {}
     for i,t in ipairs(glob.trains) do
+      if type(t.state) == "string" then
+        t.state = defines.trainstate[t.state]
+        t.advancedState = false
+      end
       local tr = Train:new(t)
       table.insert(tmp, tr)
     end
     glob.trains = tmp
     glob.refuelTrains, glob.waitingTrains = nil, nil
     glob.guiData = glob.guiData or {}
+    for i,line in pairs(glob.trainLines) do
+      line.rules = line.rules or {}
+    end
   end
 
   for i,p in ipairs(game.players) do
@@ -355,6 +363,7 @@ function initGlob()
     end
   end
   for _, object in pairs(glob.trains) do
+    object = Train:new(object)
     setmetatable(object, Train)
     assert(getmetatable(object)== Train)
     object.advancedState = object.advancedState or false
@@ -531,11 +540,12 @@ function ontrainchangedstate(event)
       t.lineVersion = false
     end
   end
-  --Handle line rules here
-  if t.advancedState == defines.trainstate["leftstation"] and glob.trainLines[t.line].rules then
+
+  if t.advancedState == defines.trainstate["leftstation"] then
     t.waiting = false
     t.refueling = false
-    if glob.trainLines[t.line].rules[train.schedule.current] then
+    if t.line and glob.trainLines[t.line].rules and glob.trainLines[t.line].rules[train.schedule.current] then
+      --Handle line rules here
       --t:flyingText("checking line rules", GREEN, {offset=-1})
       t:nextValidStation()
     end
@@ -786,13 +796,13 @@ end
 
 game.oninit(function() oninit() end)
 game.onload(function() onload() end)
-game.onevent(defines.events.ontick, function(event) ontick(event) end)
 game.onevent(defines.events.ontrainchangedstate, function(event) ontrainchangedstate(event) end)
 game.onevent(defines.events.onplayermineditem, function(event) onplayermineditem(event) end)
 game.onevent(defines.events.onpreplayermineditem, function(event) onpreplayermineditem(event) end)
 game.onevent(defines.events.onbuiltentity, function(event) onbuiltentity(event) end)
 game.onevent(defines.events.onguiclick, function(event) onguiclick(event) end)
 game.onevent(defines.events.onplayercreated, function(event) onplayercreated(event) end)
+game.onevent(defines.events.ontick, function(event) ontick(event) end)
 
 remote.addinterface("st",
   {
