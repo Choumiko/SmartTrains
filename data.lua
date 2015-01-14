@@ -11,6 +11,19 @@ data:extend(
       name = "st-small-bold",
       from = "default-bold",
       size = 13
+    },
+    {
+      type = "item-group",
+      name = "st-invisible",
+      order = "zz",
+      inventory_order = "zz",
+      icon = "__base__/graphics/icons/deconstruction-planner.png",
+    },
+    {
+      type = "item-subgroup",
+      name = "st-metaitems",
+      group = "st-invisible",
+      order = "1"
     }
   }
 )
@@ -65,10 +78,10 @@ data.raw["gui-style"].default["st_frame"] =
     bottom_padding = 2,
     font = "st-small-bold",
     flow_style =
-      {
-        max_on_row = 1,
-        resize_row_to_width = true
-      }
+    {
+      max_on_row = 1,
+      resize_row_to_width = true
+    }
   }
 data.raw["gui-style"].default["st_inner_frame"] =
   {
@@ -79,10 +92,10 @@ data.raw["gui-style"].default["st_inner_frame"] =
     font = "st-small-bold",
     graphical_set = { type = "none" },
     flow_style =
-      {
-        max_on_row = 1,
-        resize_row_to_width = true
-      }
+    {
+      max_on_row = 1,
+      resize_row_to_width = true
+    }
   }
 
 data.raw["gui-style"].default["st_flow"] =

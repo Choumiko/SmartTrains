@@ -7,7 +7,8 @@ local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
     depart={minWait = 240, interval = 120, minFlow = 1}}
-local fluids ={["crude-oil"] = true, water=true, ["heavy-oil"]=true, ["light-oil"]=true, ["petroleum-gas"]=true,lubricant=true,["sulfuric-acid"]=true}
+--local fluids ={["crude-oil"] = true, water=true, ["heavy-oil"]=true, ["light-oil"]=true, ["petroleum-gas"]=true,lubricant=true,["sulfuric-acid"]=true}
+local fluids = false
 showFlyingText = false
 
 MOD = {version="0.1.6"}
@@ -15,6 +16,8 @@ local tmpPos = {}
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
 local YELLOW = {r = 0.8, g = 0.8}
+
+defines.trainstate["leftstation"] = 11
 
 Train = {}
 function Train:new(train)
@@ -150,6 +153,54 @@ function Train:cargoEquals(c1, c2, minFlow, interval)
   return (eq and not goodflow)
 end
 
+function Train:updateState()
+  self.previousState = self.state
+  self.state = self.train.state
+  if self.previousState == defines.trainstate["waitstation"] and self.state == defines.trainstate["onthepath"] then
+    self.advancedState = defines.trainstate["leftstation"]
+  else
+    self.advancedState = false
+  end
+end
+
+function Train:nextValidStation(station)
+  local schedule = self.train.schedule
+  --local tmp = (schedule.current % #schedule.records) + 1
+  local tmp = station or schedule.current
+  local rules = glob.trainLines[self.line].rules
+  if self.line and rules[tmp] then
+    local cargo = self:cargoCount()
+    local item = cargo[rules[tmp].filter] or 0
+    local cond = string.format("return %f %s %f", item, rules[tmp].condition, rules[tmp].count)
+    local f = assert(loadstring(cond))()
+    if not f then
+-- schedule iterator needed?    
+      for i=tmp+1,#schedule.records do
+        if not rules[i] then
+          tmp = i
+          break
+        else
+          local cargo = self:cargoCount()
+          local item = cargo[rules[tmp].filter] or 0
+          local cond = string.format("return %f %s %f", item, rules[tmp].condition, rules[tmp].count)
+          local f = assert(loadstring(cond))()
+          if f then
+            tmp = i
+            break
+          end
+        end
+      end
+    end
+    local train = self.train
+    if train.manualmode == false then
+      train.manualmode = true
+      schedule.current = tmp
+      train.schedule = schedule
+      train.manualmode = false
+    end
+  end
+end
+
 function getTrainKeyFromUI(index)
   local player = game.players[index]
   if player.opened.type == "locomotive" and player.opened.train ~= nil then
@@ -195,6 +246,8 @@ function initGlob()
     saveGlob("Initv"..glob.version)
   end
   glob.trains = glob.trains or {}
+  glob.waitingTrains = glob.waitingTrains or {}
+  glob.refuelTrains = glob.refuelTrains or {}
   glob.trainLines = glob.trainLines or {}
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
@@ -254,6 +307,7 @@ function initGlob()
     end
     glob.trains = tmp
     glob.refuelTrains, glob.waitingTrains = nil, nil
+    glob.guiData = glob.guiData or {}
   end
 
   for i,p in ipairs(game.players) do
@@ -272,7 +326,15 @@ function initGlob()
     assert(glob.trains[2] ~= glob.trains[1])
     assert(glob.trains[2] == glob.trains[2])
   end
-
+  if not fluids then
+    fluids = {}
+    for index, item in pairs(game.itemprototypes) do
+      local fluid = index:match("st%-fluidItem%-(.+)")
+      if fluid then
+        fluids[fluid] = true
+      end
+    end
+  end
   if glob.version <= MOD.version then saveGlob("PostInit") end
   glob.version = MOD.version
 end
@@ -399,7 +461,7 @@ function ontrainchangedstate(event)
     trainKey = getKeyByTrain(glob.trains, train)
   end
   local t = glob.trains[trainKey]
-  t.state=getKeyByValue(defines.trainstate, train.state)
+  t:updateState()
   local settings = glob.trains[trainKey].settings
   local fuel = t:lowestFuel()
   local schedule = train.schedule
@@ -429,6 +491,11 @@ function ontrainchangedstate(event)
       t.line = false
       t.lineVersion = false
     end
+  end
+  --Handle line rules here
+  if t.advancedState == defines.trainstate["leftstation"] and glob.trainLines[t.line].rules then
+    flyingText("checking line rules", RED, train.carriages[1].position, glob.showFlyingText)
+    t:nextValidStation()
   end
   if train.state == defines.trainstate["waitstation"] then
     if settings.autoRefuel then
@@ -505,8 +572,10 @@ function ontick(event)
         end
         if gui ~= nil and (gui.trainSettings ~= nil or gui.trainLines ~= nil) then
           destroyGui(player.gui.left.stGui.trainSettings)
+          destroyGui(player.gui.left.stGui.dynamicRules)
           destroyGui(player.gui.left.stGui.trainLines)
         end
+        glob.guiData[pi] = nil
       end
     end
   end
