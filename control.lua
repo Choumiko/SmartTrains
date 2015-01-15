@@ -18,7 +18,17 @@ local GREEN = {g = 0.7}
 local YELLOW = {r = 0.8, g = 0.8}
 
 defines.trainstate["leftstation"] = 11
-
+function util.formattime(ticks)
+  if ticks then
+  local seconds = ticks / 60
+  local minutes = math.floor((seconds)/60)
+  local seconds = math.floor(seconds - 60*minutes)
+  local tick = ticks - (minutes*60*60+seconds*60)
+  return string.format("%d:%02d:%02d", minutes, seconds, tick)
+  else
+  return "-"
+  end
+end
 Train = {}
 function Train:new(train)
   local o = train or {}
@@ -48,7 +58,14 @@ function Train:nextStation()
 end
 
 function Train:startRefueling()
-  self.refueling = {arrived = game.tick}
+  self.refueling = {nextCheck = game.tick + glob.settings.depart.interval}
+  --debugDump({refuel= util.formattime(game.tick)},true)
+  local tick = self.refueling.nextCheck
+  if not glob.ticks[tick] then
+    glob.ticks[tick] = {self}
+  else
+    table.insert(glob.ticks[tick], self)
+  end
 end
 
 function Train:isRefueling()
@@ -63,7 +80,13 @@ function Train:refuelingDone(done)
 end
 
 function Train:startWaiting()
-  self.waiting = {cargo = self:cargoCount(), arrived = game.tick, lastCheck = false}
+  self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + glob.settings.depart.minWait}
+  local tick = self.waiting.nextCheck
+  if not glob.ticks[tick] then
+    glob.ticks[tick] = {self}
+  else
+    table.insert(glob.ticks[tick], self)
+  end  
 end
 
 function Train:isWaiting()
@@ -288,6 +311,7 @@ function initGlob()
 --  glob.waitingTrains = glob.waitingTrains or {}
 --  glob.refuelTrains = glob.refuelTrains or {}
   glob.trainLines = glob.trainLines or {}
+  glob.ticks = glob.ticks or {}
   glob.settings = glob.settings or defaultSettings
   glob.guiDone = glob.guiDone or {}
 
@@ -344,6 +368,23 @@ function initGlob()
       if type(t.state) == "string" then
         t.state = defines.trainstate[t.state]
         t.advancedState = false
+      end
+      if t.waiting then
+        t.waiting.nextCheck = game.tick + 60
+        t.waiting.lastCheck = game.tick
+        if not glob.ticks[t.waiting.nextCheck] then
+          glob.ticks[t.waiting.nextCheck] = {t}
+        else
+          table.insert(glob.ticks[t.waiting.nextCheck], t)
+        end
+      end
+      if t.refueling then 
+        t.refueling.nextCheck = game.tick
+        if not glob.ticks[t.refueling.nextCheck] then
+          glob.ticks[t.refueling.nextCheck] = {t}
+        else
+          table.insert(glob.ticks[t.refueling.nextCheck], t)
+        end 
       end
       local tr = Train:new(t)
       table.insert(tmp, tr)
@@ -578,32 +619,49 @@ function ontrainchangedstate(event)
 end
 
 function ontick(event)
-  for i,train in pairs(glob.trains) do
-    if train:isRefueling() then
-      local wait = train.refueling.arrived + glob.settings.depart.interval
-      if event.tick >= wait then
-        if train:lowestFuel() >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
-          train:flyingText("Refueling done", YELLOW)
-          train:refuelingDone(true)
+  if glob.ticks[event.tick] then
+    for i,train in pairs(glob.ticks[event.tick]) do
+    --for i,train in pairs(glob.trains) do
+      if train:isRefueling() then
+        if event.tick >= train.refueling.nextCheck then
+          if train:lowestFuel() >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
+            train:flyingText("Refueling done", YELLOW)
+            train:refuelingDone(true)
+          else
+            local nextCheck = event.tick + glob.settings.depart.interval
+            train.refueling.nextCheck = nextCheck
+            if not glob.ticks[nextCheck] then
+              glob.ticks[nextCheck] = {train}
+            else
+              table.insert(glob.ticks[nextCheck], train)
+            end
+          end
+        end
+      end
+      if train:isWaiting() then
+        --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + glob.settings.depart.minWait or train.waiting.lastCheck + glob.settings.depart.interval
+        if event.tick >= train.waiting.nextCheck then
+          local cargo = train:cargoCount()
+          local last = train.waiting.lastCheck
+          if train:cargoEquals(cargo, train.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
+            train:flyingText("cargoCompare -> leave station", YELLOW)
+            train:waitingDone(true)
+          else
+            train:flyingText("cargoCompare -> stay at station", YELLOW)
+            train.waiting.lastCheck = event.tick
+            train.waiting.cargo = cargo
+            local nextCheck = event.tick + glob.settings.depart.interval
+            train.waiting.nextCheck = nextCheck
+            if not glob.ticks[nextCheck] then
+              glob.ticks[nextCheck] = {train}
+            else
+              table.insert(glob.ticks[nextCheck], train)
+            end
+          end
         end
       end
     end
-    if train:isWaiting() then
-      local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + glob.settings.depart.minWait or train.waiting.lastCheck + glob.settings.depart.interval
-      if event.tick >= wait then
-        local cargo = train:cargoCount()
-        local last = train.waiting.arrived or train.waiting.lastCheck
-        if train:cargoEquals(cargo, train.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
-          train:flyingText("cargoCompare -> leave station", YELLOW)
-          train:waitingDone(true)
-        else
-          train:flyingText("cargoCompare -> stay at station", YELLOW)
-          train.waiting.lastCheck = event.tick
-          train.waiting.arrived = false
-          train.waiting.cargo = cargo
-        end
-      end
-    end
+    glob.ticks[event.tick] = nil
   end
   if event.tick%10==9  then
     for pi, player in ipairs(game.players) do
