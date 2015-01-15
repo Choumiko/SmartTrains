@@ -203,7 +203,7 @@ function Train:nextValidStation()
     if compare == "=" then compare = "==" end
     local cond = string.format("return %f %s %f", item, compare, rules[tmp].count)
     local f = assert(loadstring(cond))()
-    debugDump({cond, f},true)
+    --debugDump({cond, f},true)
     if not f then
       skipped = schedule.records[tmp].station
       c = c+1
@@ -222,7 +222,7 @@ function Train:nextValidStation()
           if compare == "=" then compare = "==" end
           local cond = string.format("return %f %s %f", item, compare, rules[k].count)
           local f = assert(loadstring(cond))()
-          debugDump({cond, f},true)
+          --debugDump({cond, f},true)
           if f then
             tmp = k
             break
