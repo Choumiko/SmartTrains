@@ -151,7 +151,7 @@ function showDynamicRules(index, line)
       tbl.add({type="label", caption=i.." "..s.station, style="st_label"})
       tbl.add({type="checkbox", name="filterItem__"..i, style="st-icon-"..filter, state=false})
       tbl.add({type="button", name="togglefilter__"..i, caption = condition, style="circuit_condition_sign_button_style"})
-      tbl.add({type="textfield", name="filteramount__"..i, style="st_textfield_small"})
+      tbl.add({type="textfield", name="filteramount__"..i, style="st_textfield_medium"})
       if count ~= "" then
         tbl["filteramount__"..i].text = count
       end
