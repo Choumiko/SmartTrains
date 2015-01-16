@@ -1,13 +1,23 @@
+function destroyGui(guiA)
+  if guiA ~= nil and guiA.valid then
+    guiA.destroy()
+  end
+end
+
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
   local stGui = player.gui.left.add({type="frame", name="stGui", direction="vertical", style="outer_frame_style"})
   stGui.add({type="flow", name="stSettings", direction="vertical"})
 end
 
-function destroyGui(guiA)
-  if guiA ~= nil and guiA.valid then
-    guiA.destroy()
-  end
+function refreshUI(index)
+  local trainKey = getTrainKeyFromUI(index)
+  local train = glob.trains[trainKey]
+  local trainLine = false
+  if train.line then trainLine = glob.trainLines[train.line] end
+  destroyGui(game.players[index].gui.left.stGui.dynamicRules)
+  showTrainInfoWindow(index, trainKey, glob.trains[trainKey], trainLine)
+  showTrainLinesWindow(index,trainKey)
 end
 
 function showSettingsButton(index, parent)
@@ -18,76 +28,65 @@ function showSettingsButton(index, parent)
   gui.add({type="button", name="toggleSTSettings", caption = "ST-Settings", style="st_button"})
 end
 
-function showTrainInfoWindow(index, trainKey)
+function showTrainInfoWindow(index, trainKey, train, trainLine)
   local gui = game.players[index].gui.left.stGui
   if gui.trainSettings ~= nil then
     gui.trainSettings.destroy()
   end
-  if glob.trains[trainKey] and glob.trains[trainKey].train.valid then
-    local t = glob.trains[trainKey]
-    gui = gui.add({type="frame", name="trainSettings", caption="Train: "..t.name, direction="vertical", style="st_frame"})
-    local line = "-"
-    local dated = " "
-    if t.line and glob.trainLines[t.line] then
-      line = glob.trainLines[t.line].name
-      if glob.trainLines[t.line].changed ~= t.lineVersion then dated = " (outdated)" end
-    end
-    local trainGui = gui.add({type="frame", name="tbl", direction="horizontal", style="st_inner_frame"})
-    trainGui.add({type="label", caption="Refuel", style="st_label"})
-    trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})
-    trainGui.add({type="label", caption="Depart", style="st_label"})
-    trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
-    local fl = gui.add({type="frame", direction="horizontal", style="st_inner_frame"})
-    fl.add({type="label", caption="Active line: "..line})
-    fl.add({type="label", caption=" "..dated})
-    local lineKey = t.line
-    local line = ""
-    local activeLine = ""
-    local records = t.train.schedule.records
-    local rules = {}
-    if glob.trainLines[lineKey] then
-      line = glob.trainLines[lineKey].name
-      if lineKey and t.line == lineKey then
-        activeLine = glob.trainLines[lineKey].name
-        records = glob.trainLines[lineKey].records
-        rules = glob.trainLines[lineKey].rules or {}
-      end
-    end
-    if lineKey then
-      lineKey = "__"..lineKey
-    else
-      lineKey = ""
-    end
-    local tbl = gui.add({type="frame", name="tbl1", direction="vertical", style="st_inner_frame"})
-    tbl = tbl.add({type="table", name="tbl1", colspan=3})
-    if #records > 0 then
-      tbl.add({type="label", caption="Station", style="st_label"})
-      tbl.add({type="label", caption="Time", style="st_label"})
-      if line ~= "" and #rules > 0 then
-        tbl.add({type="label", caption="Rules", style="st_label"})
-      else
-        tbl.add({type="label", caption=""})
-      end
-      for i, s in ipairs(records) do
-        tbl.add({type="label", caption=s.station, style="st_label"})
-        tbl.add({type="label", caption=s.time_to_wait/60, style="st_label"})
-        -- tbl.add({type="checkbox", name="togglecon__"..i, state=false})
-        if line ~= "" and rules[i] then
-          local fl = tbl.add({type="flow", name ="fl"..i, direction="horizontal"})
-          fl.add({type="checkbox", state=false, style="st-icon-"..rules[i].filter})
-          fl.add({type="label", caption=" "..rules[i].condition.." "..rules[i].count, style="st_label"})
-        else
-          tbl.add({type="label", caption=""})
-        end
-      end
-    end
-    local btns = gui.add({type="frame", name="btns", direction="horizontal", style="st_inner_frame"})
-    btns.add({type="button", name="readSchedule__"..trainKey..lineKey, caption="Read from UI", style="st_button"})
-    btns.add({type="label", caption=""})
-    local btns = gui.add({type="frame", name="btns2", direction="horizontal", style="st_inner_frame"})
-    btns.add({type="button", name="saveAsLine__"..trainKey..lineKey, caption="Save as line ", style="st_button"})
-    btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
+  local t = train
+  gui = gui.add({type="frame", name="trainSettings", caption="Train: "..t.name, direction="vertical", style="st_frame"})
+  local line = "-"
+  local dated = " "
+  if trainLine then
+    line = trainLine.name
+    if trainLine.changed ~= t.lineVersion then dated = " (outdated)" end
   end
+  local trainGui = gui.add({type="frame", name="tbl", direction="horizontal", style="st_inner_frame"})
+  trainGui.add({type="label", caption="Refuel", style="st_label"})
+  trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})
+  trainGui.add({type="label", caption="Depart", style="st_label"})
+  trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
+  local fl = gui.add({type="frame", direction="horizontal", style="st_inner_frame"})
+  fl.add({type="label", caption="Active line: "..line})
+  fl.add({type="label", caption=" "..dated})
+  local lineKey = ""
+  local line
+  local records = t.train.schedule.records
+  local rules = {}
+  if trainLine then
+    line = trainLine.name
+    records = trainLine.records
+    rules = trainLine.rules or {}
+    lineKey = "__"..line
+  end
+  local tbl = gui.add({type="frame", name="tbl1", direction="vertical", style="st_inner_frame"})
+  tbl = tbl.add({type="table", name="tbl1", colspan=3})
+  if #records > 0 then
+    tbl.add({type="label", caption="Station", style="st_label"})
+    tbl.add({type="label", caption="Time", style="st_label"})
+    if line and #rules > 0 then
+      tbl.add({type="label", caption="Rules", style="st_label"})
+    else
+      tbl.add({type="label", caption=""})
+    end
+    for i, s in ipairs(records) do
+      tbl.add({type="label", caption=s.station, style="st_label"})
+      tbl.add({type="label", caption=s.time_to_wait/60, style="st_label"})
+      if line and rules[i] then
+        local fl = tbl.add({type="flow", name ="fl"..i, direction="horizontal"})
+        fl.add({type="checkbox", state=false, style="st-icon-"..rules[i].filter})
+        fl.add({type="label", caption=" "..rules[i].condition.." "..rules[i].count, style="st_label"})
+      else
+        tbl.add({type="label", caption=" "})
+      end
+    end
+  end
+  local btns = gui.add({type="frame", name="btns", direction="horizontal", style="st_inner_frame"})
+  btns.add({type="button", name="readSchedule__"..trainKey..lineKey, caption="Read from UI", style="st_button"})
+  btns.add({type="label", caption=""})
+  local btns = gui.add({type="frame", name="btns2", direction="horizontal", style="st_inner_frame"})
+  btns.add({type="button", name="saveAsLine__"..trainKey..lineKey, caption="Save as line ", style="st_button"})
+  btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
 end
 
 function showTrainLinesWindow(index, trainKey, parent)
@@ -229,6 +228,7 @@ end
 function onguiclick(event)
   local index = event.playerindex or event.name
   local player = game.players[index]
+  local refresh = false
   if not glob.guiData[index] then glob.guiData[index] = {} end
   local element = event.element
   if element.name == "toggleSTSettings" then
@@ -263,7 +263,7 @@ function onguiclick(event)
         glob.trainLines[line] = nil
       end
     end
-    refreshUI(index, trainKey)
+    refresh = true
   elseif element.name == "getLiquidItems" then
     for fluid, _ in pairs(fluids) do
       local item = "st-fluidItem-"..fluid
@@ -319,9 +319,6 @@ function onguiclick(event)
       local gui = player.gui.left.stGui.dynamicRules.frm.tbl
       local tmp = {}
       for i,rule in pairs(glob.trainLines[line].records) do
---        tbl.add({type="checkbox", name="filterItem__" ..trainKey.."__"..line.."__"..i, style="st-icon-style", state=false})
---        tbl.add({type="button", name="togglefilter__"..trainKey.."__"..line.."__"..i, caption = "<", style="circuit_condition_sign_button_style"})
---        tbl.add({type="textfield", name="filteramount__"..trainKey.."__"..line.."__"..i, style="st_textfield_small"})
         local item = glob.guiData[index].rules[i]
         local condition = gui["togglefilter__"..i].caption
         local count = tonumber(gui["filteramount__"..i].text) or 0
@@ -334,14 +331,14 @@ function onguiclick(event)
       glob.trainLines[line].rules = tmp
       glob.guiData[index].rules = nil
       destroyGui(player.gui.left.stGui.dynamicRules)
-      refreshUI(index)
+      refresh = true
     elseif option1 == "readSchedule" then
       option2 = tonumber(option2)
       if glob.trains[option2] ~= nil and glob.trains[option2].train.valid then
         glob.trains[option2].line = false
         glob.trains[option2].lineVersion = false
       end
-      refreshUI(index,option2)
+      refresh = true
     elseif option1 == "saveAsLine" then
       local name = player.gui.left.stGui.trainSettings.btns2.saveAslineName.text
       name = string.gsub(name, "_", " ")
@@ -359,7 +356,7 @@ function onguiclick(event)
         t.train.schedule = schedule
         t.line = name
         t.lineVersion = changed
-        refreshUI(index,option2)
+        refresh = true
       end
     elseif option1 == "activeLine" then
       local trainKey = tonumber(option3)
@@ -371,20 +368,10 @@ function onguiclick(event)
         t.line = false
       end
       t.lineVersion = false
-      refreshUI(index, trainKey)
+      refresh = true
     end
   end
-end
-
-function refreshUI(index, trainKey)
-  trainKey = getTrainKeyFromUI(index)
-  destroyGui(game.players[index].gui.left.stGui.dynamicRules)
-  showTrainInfoWindow(index,trainKey)
-  --showScheduleWindow(index, trainKey, stationEdit)
---    if stationEdit then
---      showDynamicRules(index, line, trainKey)
---    else
---      
---    end
-  showTrainLinesWindow(index,trainKey)
+  if refresh then
+    refreshUI(index)
+  end
 end
