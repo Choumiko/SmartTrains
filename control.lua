@@ -7,11 +7,11 @@ local defaultTrainSettings = {autoRefuel = true, autoDepart = true}
 local defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
     depart={minWait = 240, interval = 120, minFlow = 1}}
---local fluids ={["crude-oil"] = true, water=true, ["heavy-oil"]=true, ["light-oil"]=true, ["petroleum-gas"]=true,lubricant=true,["sulfuric-acid"]=true}
+
 fluids = false
 showFlyingText = false
 
-MOD = {version="0.1.9"}
+MOD = {version="0.2.0"}
 local tmpPos = {}
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
@@ -29,6 +29,7 @@ function util.formattime(ticks)
   return "-"
   end
 end
+
 Train = {}
 function Train:new(train)
   local o = train or {}
@@ -396,7 +397,9 @@ function initGlob()
       line.rules = line.rules or {}
     end
   end
-
+  if glob.version < "0.2.0" then
+    glob.guiDone = {}
+  end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then
       buildGUI(p)
@@ -668,19 +671,21 @@ function ontick(event)
       if player.opened ~= nil and player.opened.valid then
         if player.opened.type == "locomotive" and player.opened.train ~= nil then
           local key = getTrainKeyFromUI(pi)
-          if player.gui.left.stGui.trainSettings == nil then
+          if player.gui.left.stGui.trainSettings == nil and
+             (player.gui.left.stGui.settings.globalSettings == nil and player.gui.left.stGui.dynamicRules == nil) then
             refreshUI(pi)
-            showSettingsButton(pi)
+            --showSettingsButton(pi)
           end
-        elseif player.opened.type == "train-stop" and player.gui.left.stGui.stSettings.toggleSTSettings == nil and player.gui.left.stGui.stSettings.stGlobalSettings == nil then
-          showSettingsButton(pi)
+        elseif player.opened.type == "train-stop" and player.gui.left.stGui.settings.toggleSTSettings == nil and player.gui.left.stGui.settings.globalSettings == nil then
+          --showSettingsButton(pi)
+          refreshUI(pi)
         end
       elseif player.opened == nil then
         local gui=player.gui.left.stGui
         if gui then
-          if gui.stSettings ~= nil then
-            destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
-            destroyGui(player.gui.left.stGui.stSettings.stGlobalSettings)
+          if gui.settings ~= nil then
+            destroyGui(player.gui.left.stGui.settings.toggleSTSettings)
+            destroyGui(player.gui.left.stGui.settings.globalSettings)
           end
           if gui ~= nil and (gui.trainSettings ~= nil or gui.trainLines ~= nil) then
             destroyGui(player.gui.left.stGui.trainSettings)

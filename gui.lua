@@ -7,21 +7,26 @@ end
 function buildGUI(player)
   destroyGui(player.gui.left.stGui)
   local stGui = player.gui.left.add({type="frame", name="stGui", direction="vertical", style="outer_frame_style"})
-  stGui.add({type="flow", name="stSettings", direction="vertical"})
+  stGui.add({type="flow", name="settings", direction="vertical"})
 end
 
 function refreshUI(index)
-  local trainKey = getTrainKeyFromUI(index)
-  local train = glob.trains[trainKey]
   local trainLine = false
-  if train.line then trainLine = glob.trainLines[train.line] end
+  local trainKey, train
+  local type = game.player.opened.type
   destroyGui(game.players[index].gui.left.stGui.dynamicRules)
-  showTrainInfoWindow(index, trainKey, glob.trains[trainKey], trainLine)
-  showTrainLinesWindow(index,trainKey)
+  showSettingsButton(index)
+  if type == "locomotive" then
+    trainKey = getTrainKeyFromUI(index)
+    train = glob.trains[trainKey]
+    if train.line then trainLine = glob.trainLines[train.line] end
+    showTrainInfoWindow(index, trainKey, glob.trains[trainKey], trainLine)
+  end
+  showTrainLinesWindow(index,trainKey, trainLine)
 end
 
 function showSettingsButton(index, parent)
-  local gui = parent or game.players[index].gui.left.stGui.stSettings
+  local gui = parent or game.players[index].gui.left.stGui.settings
   if gui.toggleSTSettings ~= nil then
     gui.toggleSTSettings.destroy()
   end
@@ -89,19 +94,23 @@ function showTrainInfoWindow(index, trainKey, train, trainLine)
   btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
 end
 
-function showTrainLinesWindow(index, trainKey, parent)
-  local gui = parent or game.players[index].gui.left.stGui
+function showTrainLinesWindow(index, trainKey, activeLine)
+  local gui = game.players[index].gui.left.stGui
   if gui.trainLines ~= nil then
     gui.trainLines.destroy()
   end
   if glob.trainLines then
+    local trainKey = trainKey or 0
     gui = gui.add({type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
-    local t = glob.trains[trainKey]
     local tbl = gui.add({type="table", name="tbl1", colspan=6})
     tbl.add({type="label", caption="Line", style="st_label"})
     tbl.add({type="label", caption="1st station", style="st_label"})
     tbl.add({type="label", caption="#stations", style="st_label"})
-    tbl.add({type="label", caption="Active", style="st_label"})
+    if trainKey > 0 then
+      tbl.add({type="label", caption="Active", style="st_label"})
+    else
+      tbl.add({type="label", caption=" "})
+    end
     tbl.add({type="label", caption="Delete", style="st_label"})
     tbl.add({type="label", caption=""})
     local dirty = 0
@@ -109,7 +118,11 @@ function showTrainLinesWindow(index, trainKey, parent)
       tbl.add({type="label", caption=l.name, style="st_label"})
       tbl.add({type="label", caption=l.records[1].station, style="st_label"})
       tbl.add({type="label", caption=#l.records, style="st_label"})
-      tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==t.line), style="st_checkbox"})
+      if trainKey > 0 then
+        tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==activeLine), style="st_checkbox"})
+      else
+        tbl.add({type="label", caption=" "})
+      end
       tbl.add({type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
       tbl.add({type="button", name="editRules__"..i, caption="Rules", style="st_button"})
       dirty= dirty+1
@@ -183,11 +196,11 @@ function updateLineEdit(index, trainKey, stationKey, line)
 end
 
 function globalSettingsWindow(index, parent)
-  local gui = parent or game.players[index].gui.left.stGui.stSettings
-  if gui.stGlobalSettings == nil then
-    gui.add({type = "frame", name="stGlobalSettings", direction="horizontal", caption="Global settings"})
-    gui.stGlobalSettings.add{type="table", name="tbl", colspan=5}
-    local tbl = gui.stGlobalSettings.tbl
+  local gui = parent or game.players[index].gui.left.stGui.settings
+  if gui.globalSettings == nil then
+    gui.add({type = "frame", name="globalSettings", direction="horizontal", caption="Global settings"})
+    gui.globalSettings.add{type="table", name="tbl", colspan=5}
+    local tbl = gui.globalSettings.tbl
 
     tbl.add({type= "label", name="lblRangeMin", caption="Go to Refuel station below", style="st_label"})
     tbl.add({type= "textfield",name="refuelRangeMin", style="st_textfield_small"})
@@ -212,8 +225,8 @@ function globalSettingsWindow(index, parent)
     tbl.add({type= "label", caption="Min. flow rate", style="st_label"})
     tbl.add({type= "textfield", name="minFlow", style="st_textfield_small"})
     tbl.add({type="label", name="lblTrackedTrains", caption = "Tracked trains: "..#glob.trains, style="st_label"})
-    tbl.add({type= "label", caption=""})
-    tbl.add({type= "button", name="refuelSave", caption="Ok", style="st_button"})
+    --tbl.add({type= "label", caption=""})
+    tbl.add({type= "button", name="globalSettingsSave", caption="Save", style="st_button"})
 
     tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
     tbl.row1.refuelRangeMax.text = glob.settings.refuel.rangeMax
@@ -232,22 +245,26 @@ function onguiclick(event)
   if not glob.guiData[index] then glob.guiData[index] = {} end
   local element = event.element
   if element.name == "toggleSTSettings" then
-    if player.gui.left.stGui.stSettings.stGlobalSettings == nil then
+    if player.gui.left.stGui.settings.globalSettings == nil then
       globalSettingsWindow(index)
-      destroyGui(player.gui.left.stGui.stSettings.toggleSTSettings)
+      destroyGui(player.gui.left.stGui.settings.toggleSTSettings)
+      destroyGui(player.gui.left.stGui.dynamicRules)
+      destroyGui(player.gui.left.stGui.trainSettings)
+      destroyGui(player.gui.left.stGui.trainLines)
     else
-      player.gui.left.stGui.stSettings.toggleSTSettings.destroy()
+      player.gui.left.stGui.settings.toggleSTSettings.destroy()
+      refresh = true
     end
-  elseif element.name == "refuelSave" then
-    local settings = player.gui.left.stGui.stSettings.stGlobalSettings.tbl
+  elseif element.name == "globalSettingsSave" then
+    local settings = player.gui.left.stGui.settings.globalSettings.tbl
     local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.row1.refuelRangeMax.text), settings.refuelStation.text
     glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
     local interval, minWait = tonumber(settings.departInterval.text)*60, tonumber(settings.minWait.text)*60
     local minFlow = tonumber(settings.minFlow.text)
     glob.settings.depart = {interval = interval, minWait = minWait}
     glob.settings.depart.minFlow = minFlow
-    player.gui.left.stGui.stSettings.stGlobalSettings.destroy()
-    showSettingsButton(index)
+    player.gui.left.stGui.settings.globalSettings.destroy()
+    refresh = true
   elseif element.name == "deleteLines" then
     local group = game.players[index].gui.left.stGui.trainLines.tbl1
     local trainKey
@@ -257,8 +274,10 @@ function onguiclick(event)
       local del, line, trainkey = child:match(pattern)
       if del and group[child].state == true then
         trainKey = tonumber(trainkey)
-        if glob.trains[trainKey].line == line then
-          glob.trains[trainKey].line = false
+        if trainKey > 0 then
+          if glob.trains[trainKey].line == line then
+            glob.trains[trainKey].line = false
+          end
         end
         glob.trainLines[line] = nil
       end
@@ -313,6 +332,8 @@ function onguiclick(event)
 --      if not glob.guiData[index].rules then glob.guiData[index].rules = {[stationIndex]={}} end
 --      glob.guiData[index].rules[stationIndex].condition = newCaption
     elseif option1 == "editRules" then
+      --destroyGui(player.gui.left.stGui.settings.toggleSTSettings)
+      destroyGui(player.gui.left.stGui.trainSettings)
       showDynamicRules(index,option2)
     elseif option1 == "saveRules" then
       local line = option2
@@ -368,7 +389,9 @@ function onguiclick(event)
         t.line = false
       end
       t.lineVersion = false
-      refresh = true
+      --refresh = true
+      showTrainInfoWindow(index, trainKey, t, glob.trainLines[t.line])
+      showTrainLinesWindow(index,trainKey, t.line)
     end
   end
   if refresh then
