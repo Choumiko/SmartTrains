@@ -11,7 +11,7 @@ local defaultSettings =
 fluids = false
 showFlyingText = false
 
-MOD = {version="0.2.0"}
+MOD = {version="0.2.1"}
 local tmpPos = {}
 local RED = {r = 0.9}
 local GREEN = {g = 0.7}
@@ -399,6 +399,7 @@ function initGlob()
   end
   if glob.version < "0.2.0" then
     glob.guiDone = {}
+    glob.settings.stationsPerPage = 5
   end
   for i,p in ipairs(game.players) do
     if not glob.guiDone[p.name] then

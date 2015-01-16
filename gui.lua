@@ -10,7 +10,7 @@ function buildGUI(player)
   stGui.add({type="flow", name="settings", direction="vertical"})
 end
 
-function refreshUI(index)
+function refreshUI(index, stationPage)
   local trainLine = false
   local trainKey, train
   local type = game.player.opened.type
@@ -20,7 +20,7 @@ function refreshUI(index)
     trainKey = getTrainKeyFromUI(index)
     train = glob.trains[trainKey]
     if train.line then trainLine = glob.trainLines[train.line] end
-    showTrainInfoWindow(index, trainKey, glob.trains[trainKey], trainLine)
+    showTrainInfoWindow(index, trainKey, glob.trains[trainKey], trainLine, stationPage)
   end
   showTrainLinesWindow(index,trainKey, trainLine)
 end
@@ -33,7 +33,7 @@ function showSettingsButton(index, parent)
   gui.add({type="button", name="toggleSTSettings", caption = "ST-Settings", style="st_button"})
 end
 
-function showTrainInfoWindow(index, trainKey, train, trainLine)
+function showTrainInfoWindow(index, trainKey, train, trainLine, page)
   local gui = game.players[index].gui.left.stGui
   if gui.trainSettings ~= nil then
     gui.trainSettings.destroy()
@@ -51,7 +51,7 @@ function showTrainInfoWindow(index, trainKey, train, trainLine)
   trainGui.add({type="checkbox", name="btn_refuel__"..trainKey, state=t.settings.autoRefuel})
   trainGui.add({type="label", caption="Depart", style="st_label"})
   trainGui.add({type="checkbox", name="btn_depart__"..trainKey, state=t.settings.autoDepart})
-  local fl = gui.add({type="frame", direction="horizontal", style="st_inner_frame"})
+  local fl = gui.add({type="frame", name="frmLine", direction="horizontal", style="st_inner_frame"})
   fl.add({type="label", caption="Active line: "..line})
   fl.add({type="label", caption=" "..dated})
   local lineKey = ""
@@ -64,8 +64,10 @@ function showTrainInfoWindow(index, trainKey, train, trainLine)
     rules = trainLine.rules or {}
     lineKey = "__"..line
   end
-  local tbl = gui.add({type="frame", name="tbl1", direction="vertical", style="st_inner_frame"})
-  tbl = tbl.add({type="table", name="tbl1", colspan=3})
+  local tbl = gui.add({type="frame", name="tbl1", direction="horizontal", style="st_inner_frame"})
+  tbl = tbl.add({type="table", name="tbl1", colspan=3, style="st_table"})
+  local spp = glob.settings.stationsPerPage
+  local page = page or 1
   if #records > 0 then
     tbl.add({type="label", caption="Station", style="st_label"})
     tbl.add({type="label", caption="Time", style="st_label"})
@@ -74,7 +76,11 @@ function showTrainInfoWindow(index, trainKey, train, trainLine)
     else
       tbl.add({type="label", caption=""})
     end
-    for i, s in ipairs(records) do
+    local start = (page-1) * spp + 1
+    local max = start + spp - 1
+    if max > #records then max = #records end
+    for i=start, max do
+      local s = records[i]
       tbl.add({type="label", caption=s.station, style="st_label"})
       tbl.add({type="label", caption=s.time_to_wait/60, style="st_label"})
       if line and rules[i] then
@@ -88,7 +94,14 @@ function showTrainInfoWindow(index, trainKey, train, trainLine)
   end
   local btns = gui.add({type="frame", name="btns", direction="horizontal", style="st_inner_frame"})
   btns.add({type="button", name="readSchedule__"..trainKey..lineKey, caption="Read from UI", style="st_button"})
-  btns.add({type="label", caption=""})
+  local pages = btns.add({type="flow", name="pages", direction="horizontal"})
+  if #records > spp then
+    pages.add({type="button", name="prevPageTrain__"..page, caption="<", style="st_button"})
+    pages.add({type="label", name="pageCount", caption=page.."/"..math.ceil(#records/spp), style="st_label"})
+    pages.add({type="button", name="nextPageTrain__"..page, caption=">", style="st_button"})
+  else
+    pages.add({type="label", caption=" "})
+  end
   local btns = gui.add({type="frame", name="btns2", direction="horizontal", style="st_inner_frame"})
   btns.add({type="button", name="saveAsLine__"..trainKey..lineKey, caption="Save as line ", style="st_button"})
   btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
@@ -392,6 +405,20 @@ function onguiclick(event)
       --refresh = true
       showTrainInfoWindow(index, trainKey, t, glob.trainLines[t.line])
       showTrainLinesWindow(index,trainKey, t.line)
+    elseif option1 == "prevPageTrain" then
+      local page = tonumber(option2)
+      if page > 1 then
+        page = page-1
+      else
+        page = 1
+      end
+      refreshUI(index, page)
+    elseif option1 == "nextPageTrain" then
+      local page = tonumber(option2)
+      page = page+1
+      local trainKey = getTrainKeyFromUI(index)
+      local t = glob.trains[trainKey]
+      refreshUI(index, page)
     end
   end
   if refresh then
