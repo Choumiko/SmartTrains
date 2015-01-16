@@ -10,7 +10,7 @@ function buildGUI(player)
   stGui.add({type="flow", name="settings", direction="vertical"})
 end
 
-function refreshUI(index, stationPage)
+function refreshUI(index, stationPage, linePage)
   local trainLine = false
   local trainKey, train
   local type = game.player.opened.type
@@ -22,7 +22,7 @@ function refreshUI(index, stationPage)
     if train.line then trainLine = glob.trainLines[train.line] end
     showTrainInfoWindow(index, trainKey, glob.trains[trainKey], trainLine, stationPage)
   end
-  showTrainLinesWindow(index,trainKey, trainLine)
+  showTrainLinesWindow(index,trainKey, trainLine, linePage)
 end
 
 function showSettingsButton(index, parent)
@@ -107,11 +107,12 @@ function showTrainInfoWindow(index, trainKey, train, trainLine, page)
   btns.add({type="textfield", name="saveAslineName", text="", style="st_textfield_big"})
 end
 
-function showTrainLinesWindow(index, trainKey, activeLine)
+function showTrainLinesWindow(index, trainKey, activeLine, page)
   local gui = game.players[index].gui.left.stGui
   if gui.trainLines ~= nil then
     gui.trainLines.destroy()
   end
+  local page = page or 1
   if glob.trainLines then
     local trainKey = trainKey or 0
     gui = gui.add({type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
@@ -127,21 +128,33 @@ function showTrainLinesWindow(index, trainKey, activeLine)
     tbl.add({type="label", caption="Delete", style="st_label"})
     tbl.add({type="label", caption=""})
     local dirty = 0
+    local spp = glob.settings.stationsPerPage
+    local start = (page-1) * spp + 1
+    local max = start + spp - 1
     for i, l in pairsByKeys(glob.trainLines) do
-      tbl.add({type="label", caption=l.name, style="st_label"})
-      tbl.add({type="label", caption=l.records[1].station, style="st_label"})
-      tbl.add({type="label", caption=#l.records, style="st_label"})
-      if trainKey > 0 then
-        tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==activeLine), style="st_checkbox"})
-      else
-        tbl.add({type="label", caption=" "})
-      end
-      tbl.add({type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
-      tbl.add({type="button", name="editRules__"..i, caption="Rules", style="st_button"})
       dirty= dirty+1
+      if dirty >= start and dirty <= max then
+        tbl.add({type="label", caption=l.name, style="st_label"})
+        tbl.add({type="label", caption=l.records[1].station, style="st_label"})
+        tbl.add({type="label", caption=#l.records, style="st_label"})
+        if trainKey > 0 then
+          tbl.add({type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==activeLine), style="st_checkbox"})
+        else
+          tbl.add({type="label", caption=" "})
+        end
+        tbl.add({type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
+        tbl.add({type="button", name="editRules__"..i, caption="Rules", style="st_button"})
+      end
     end
     local btns = gui.add({type="flow", name="btns", direction="horizontal"})
     btns.add({type="button", name="deleteLines", caption="Delete", style="st_button"})
+    if dirty > spp then
+      btns.add({type="button", name="prevPageLine__"..page, caption="<", style="st_button"})
+      btns.add({type="label", name="pageCount", caption=page.."/"..math.ceil(dirty/spp), style="st_label"})
+      btns.add({type="button", name="nextPageLine__"..page, caption=">", style="st_button"})
+    else
+      btns.add({type="label", caption=" "})
+    end
     if dirty == 0 then gui.destroy() end
   end
 end
@@ -410,7 +423,7 @@ function onguiclick(event)
       if page > 1 then
         page = page-1
       else
-        page = 1
+        return
       end
       refreshUI(index, page)
     elseif option1 == "nextPageTrain" then
@@ -419,6 +432,20 @@ function onguiclick(event)
       local trainKey = getTrainKeyFromUI(index)
       local t = glob.trains[trainKey]
       refreshUI(index, page)
+    elseif option1 == "prevPageLine" then
+      local page = tonumber(option2)
+      if page > 1 then
+        page = page-1
+      else
+        return
+      end
+      refreshUI(index, nil, page)
+    elseif option1 == "nextPageLine" then
+      local page = tonumber(option2)
+      page = page+1
+      local trainKey = getTrainKeyFromUI(index)
+      local t = glob.trains[trainKey]
+      refreshUI(index, nil, page)
     end
   end
   if refresh then
