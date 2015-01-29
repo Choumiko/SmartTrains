@@ -546,6 +546,7 @@ function getKeyByValue(tableA, value)
 end
 
 function ontrainchangedstate(event)
+  --debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
   local train = event.train
   local trainKey = getKeyByTrain(glob.trains, train)
   if not trainKey then
@@ -675,10 +676,8 @@ function ontick(event)
           if player.gui.left.stGui.trainSettings == nil and
              (player.gui.left.stGui.settings.globalSettings == nil and player.gui.left.stGui.dynamicRules == nil) then
             refreshUI(pi)
-            --showSettingsButton(pi)
           end
         elseif player.opened.type == "train-stop" and player.gui.left.stGui.settings.toggleSTSettings == nil and player.gui.left.stGui.settings.globalSettings == nil then
-          --showSettingsButton(pi)
           refreshUI(pi)
         end
       elseif player.opened == nil then
@@ -908,11 +907,13 @@ remote.addinterface("st",
     end,
 
     cleanGui = function()
+      glob.guiDone = nil
       for i,player in ipairs(game.players) do
         if player.gui.top.blueprintTools then
           player.gui.top.blueprintTools.destroy()
         end
       end
+      initGlob()
     end,
 
     printMeta = function()
