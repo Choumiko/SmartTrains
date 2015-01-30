@@ -40,8 +40,11 @@ GUI = {
     return GUI.add(parent, e, binf)
   end,
 
-  addPlaceHolder = function(parent)
-    return GUI.add(parent, {type="label", caption=""})
+  addPlaceHolder = function(parent, count)
+    local c = count or 1
+    for i=1,c do
+      GUI.add(parent, {type="label", caption=""})
+    end
   end,
 
   globalSettingsWindow = function(index, parent)
@@ -57,7 +60,7 @@ GUI = {
       local r = GUI.add(tbl, {type="flow", name="row1", direction="horizontal"})
       GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield_small"})
       GUI.addLabel(r, "coal")
-      GUI.addPlaceHolder(r)
+      GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, "max. refuel time:")
       GUI.addTextfield(tbl, {name="refuelTime", style="st_textfield_small"})
@@ -86,7 +89,7 @@ GUI = {
     end
   end,
 
-  showDynamicRules = function(index, line)
+  showDynamicRules = function(index, line, page)
     --debugDump({i=index,line=line,station=stationKey, tr=trainKey}, true)
     local gui = game.players[index].gui.left.stGui
     if gui.dynamicRules ~= nil then
@@ -99,25 +102,28 @@ GUI = {
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
       GUI.addLabel(gui, {name="line", caption="Line: "..lineName})
-      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=4, style="st_table"})
+      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=5, style="st_table"})
       GUI.addLabel(tbl, "Station")
       GUI.addLabel(tbl, "Filter")
-      GUI.addPlaceHolder(tbl)
-      GUI.addPlaceHolder(tbl)
+      GUI.addPlaceHolder(tbl, 2)
+      GUI.addLabel(tbl, "Forever")
 
       glob.guiData[index].rules = glob.guiData[index].rules or {}
       for i,s in ipairs(records) do
         local filter = "style"
         local condition = ">"
         local count = "1"
+        local forever = false
         if rules[i] then
           filter, condition, count = rules[i].filter, rules[i].condition, rules[i].count
+          forever = rules[i].forever or false
           glob.guiData[index].rules[i] = filter
         end
         GUI.addLabel(tbl, {caption=i.." "..s.station})
         GUI.add(tbl, {type="checkbox", name="filterItem__"..i, style="st-icon-"..filter, state=false})
         GUI.addButton(tbl, {name="togglefilter__"..i, caption = condition, style="circuit_condition_sign_button_style"})
         GUI.addTextfield(tbl, {name="filteramount__"..i, style="st_textfield_medium"})
+        GUI.add(tbl,{type="checkbox", name="filtertime__"..i, state=forever})
         if count ~= "" then
           tbl["filteramount__"..i].text = count
         end
@@ -180,7 +186,7 @@ GUI = {
       if max > #records then max = #records end
       for i=start, max do
         local s = records[i]
-        GUI.addLabel(tbl, s.station)
+        GUI.addLabel(tbl, i.." "..s.station)
         GUI.addLabel(tbl, s.time_to_wait/60)
         if line and rules and rules[i] then
           tbl.add({type="checkbox", state=false, style="st-icon-"..rules[i].filter})
@@ -244,8 +250,7 @@ GUI = {
           GUI.addButton(tbl, {name="editRules__"..i, caption="Rules"})
         end
       end
-      local btns = GUI.add(gui, {type="flow", name="btns", direction="horizontal"})
-      GUI.addButton(btns, {type="button", name="deleteLines", caption="Delete"})
+      local btns = GUI.add(gui, {type="table", name="btns", colspan=6})
       if dirty > spp then
         GUI.addButton(btns, {name="prevPageLine__"..page, caption="<"})
         GUI.addLabel(btns, page.."/"..math.ceil(dirty/spp))
@@ -254,6 +259,7 @@ GUI = {
         GUI.addPlaceHolder(btns)
       end
       if dirty == 0 then gui.destroy() end
+      GUI.addButton(btns, {type="button", name="deleteLines", caption="Delete marked"})
     end
   end
 }
@@ -391,8 +397,9 @@ function onguiclick(event)
         local item = glob.guiData[index].rules[i]
         local condition = gui["togglefilter__"..i].caption
         local count = tonumber(gui["filteramount__"..i].text) or 0
+        local forever = gui["filtertime__"..i].state
         if item and item ~= "style" then
-          tmp[i] = {filter=item, condition=condition, count=count}
+          tmp[i] = {filter=item, condition=condition, count=count, forever=forever}
         else
           tmp[i] = nil
         end
