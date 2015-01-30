@@ -317,41 +317,43 @@ end
 function ontick(event)
   if glob.ticks[event.tick] then
     for i,train in pairs(glob.ticks[event.tick]) do
+      if train.train.valid then
     --for i,train in pairs(glob.trains) do
-      if train:isRefueling() then
-        if event.tick >= train.refueling.nextCheck then
-          if train:lowestFuel() >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
-            train:flyingText("Refueling done", YELLOW)
-            train:refuelingDone(true)
-          else
-            local nextCheck = event.tick + glob.settings.depart.interval
-            train.refueling.nextCheck = nextCheck
-            if not glob.ticks[nextCheck] then
-              glob.ticks[nextCheck] = {train}
+        if train:isRefueling() then
+          if event.tick >= train.refueling.nextCheck then
+            if train:lowestFuel() >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
+              train:flyingText("Refueling done", YELLOW)
+              train:refuelingDone(true)
             else
-              table.insert(glob.ticks[nextCheck], train)
+              local nextCheck = event.tick + glob.settings.depart.interval
+              train.refueling.nextCheck = nextCheck
+              if not glob.ticks[nextCheck] then
+                glob.ticks[nextCheck] = {train}
+              else
+                table.insert(glob.ticks[nextCheck], train)
+              end
             end
           end
         end
-      end
-      if train:isWaiting() then
-        --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + glob.settings.depart.minWait or train.waiting.lastCheck + glob.settings.depart.interval
-        if event.tick >= train.waiting.nextCheck then
-          local cargo = train:cargoCount()
-          local last = train.waiting.lastCheck
-          if train:cargoEquals(cargo, train.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
-            train:flyingText("cargoCompare -> leave station", YELLOW)
-            train:waitingDone(true)
-          else
-            train:flyingText("cargoCompare -> stay at station", YELLOW)
-            train.waiting.lastCheck = event.tick
-            train.waiting.cargo = cargo
-            local nextCheck = event.tick + glob.settings.depart.interval
-            train.waiting.nextCheck = nextCheck
-            if not glob.ticks[nextCheck] then
-              glob.ticks[nextCheck] = {train}
+        if train:isWaiting() then
+          --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + glob.settings.depart.minWait or train.waiting.lastCheck + glob.settings.depart.interval
+          if event.tick >= train.waiting.nextCheck then
+            local cargo = train:cargoCount()
+            local last = train.waiting.lastCheck
+            if train:cargoEquals(cargo, train.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
+              train:flyingText("cargoCompare -> leave station", YELLOW)
+              train:waitingDone(true)
             else
-              table.insert(glob.ticks[nextCheck], train)
+              train:flyingText("cargoCompare -> stay at station", YELLOW)
+              train.waiting.lastCheck = event.tick
+              train.waiting.cargo = cargo
+              local nextCheck = event.tick + glob.settings.depart.interval
+              train.waiting.nextCheck = nextCheck
+              if not glob.ticks[nextCheck] then
+                glob.ticks[nextCheck] = {train}
+              else
+                table.insert(glob.ticks[nextCheck], train)
+              end
             end
           end
         end
