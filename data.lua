@@ -88,7 +88,7 @@ data.raw["gui-style"].default["st_frame"] =
     flow_style =
     {
       max_on_row = 1,
-      resize_row_to_width = true
+      resize_row_to_width = false
     }
   }
 data.raw["gui-style"].default["st_inner_frame"] =
@@ -102,7 +102,6 @@ data.raw["gui-style"].default["st_inner_frame"] =
     flow_style =
     {
       max_on_row = 1,
-      resize_row_to_width = true
     }
   }
 
@@ -112,13 +111,11 @@ data.raw["gui-style"].default["st_flow"] =
     horizontal_spacing = 0,
     vertical_spacing = 2,
     max_on_row = 0,
-    resize_row_to_width = true
   }
 data.raw["gui-style"].default["st_table"] =
   {
     type = "table_style",
     parent = "table_style",
-    resize_row_to_width = true
   }
 data.raw["gui-style"].default["st_checkbox"] =
   {
