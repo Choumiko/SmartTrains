@@ -76,7 +76,12 @@ GUI = {
 
       GUI.addLabel(tbl, "Min. flow rate")
       GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small"})
+      GUI.addLabel(tbl,"With invalid rules:")
+      GUI.add(tbl,{type="checkbox", name="forever", state=glob.settings.lines.forever, caption="wait forever"})
+      GUI.addPlaceHolder(tbl)
+      
       GUI.addLabel(tbl, "Tracked trains: "..#glob.trains)
+      GUI.addPlaceHolder(tbl, 2)
       GUI.addButton(tbl, {name="globalSettingsSave", caption="Save"})
 
       tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
@@ -102,28 +107,24 @@ GUI = {
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
       GUI.addLabel(gui, {name="line", caption="Line: "..lineName})
-      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=5, style="st_table"})
+      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=4, style="st_table"})
       GUI.addLabel(tbl, "Station")
       GUI.addLabel(tbl, "Filter")
       GUI.addPlaceHolder(tbl, 2)
-      GUI.addLabel(tbl, "Forever")
 
       glob.guiData[index].rules = glob.guiData[index].rules or {}
       for i,s in ipairs(records) do
         local filter = "style"
         local condition = ">"
         local count = "1"
-        local forever = false
         if rules[i] then
           filter, condition, count = rules[i].filter, rules[i].condition, rules[i].count
-          forever = rules[i].forever or false
           glob.guiData[index].rules[i] = filter
         end
         GUI.addLabel(tbl, {caption=i.." "..s.station})
         GUI.add(tbl, {type="checkbox", name="filterItem__"..i, style="st-icon-"..filter, state=false})
         GUI.addButton(tbl, {name="togglefilter__"..i, caption = condition, style="circuit_condition_sign_button_style"})
         GUI.addTextfield(tbl, {name="filteramount__"..i, style="st_textfield_medium"})
-        GUI.add(tbl,{type="checkbox", name="filtertime__"..i, state=forever})
         if count ~= "" then
           tbl["filteramount__"..i].text = count
         end
@@ -217,7 +218,11 @@ GUI = {
       gui.trainLines.destroy()
     end
     local page = page or 1
-    if glob.trainLines then
+    local c=0
+    for _,l in pairs(glob.trainLines) do
+      c = c+1
+    end
+    if glob.trainLines and c > 0 then
       local trainKey = trainKey or 0
       gui = GUI.add(gui, {type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
       local tbl = GUI.add(gui, {type="table", name="tbl1", colspan=6})
@@ -229,7 +234,7 @@ GUI = {
       else
         GUI.addPlaceHolder(tbl)
       end
-      GUI.addLabel(tbl, "Delete")
+      GUI.addLabel(tbl, "Marked")
       GUI.addPlaceHolder(tbl)
       local dirty = 0
       local spp = glob.settings.stationsPerPage
@@ -259,7 +264,9 @@ GUI = {
         GUI.addPlaceHolder(btns)
       end
       if dirty == 0 then gui.destroy() end
-      GUI.addButton(btns, {type="button", name="deleteLines", caption="Delete marked"})
+      GUI.addButton(btns, {name="deleteLines", caption="Delete marked"})
+      GUI.addButton(btns,{name="renameLine", caption="Rename"})
+      GUI.addTextfield(btns,{name="newName", text="", style="st_textfield_big"})
     end
   end
 }
@@ -278,7 +285,8 @@ end
 
 function refreshUI(index, stationPage, linePage)
   local trainLine = false
-  local trainKey, train
+  local trainKey = 0
+  local train
   local type = game.player.opened.type
   destroyGui(game.players[index].gui.left.stGui.dynamicRules)
   GUI.showSettingsButton(index)
@@ -317,7 +325,37 @@ function onguiclick(event)
     local minFlow = tonumber(settings.minFlow.text)
     glob.settings.depart = {interval = interval, minWait = minWait}
     glob.settings.depart.minFlow = minFlow
+    glob.settings.lines.forever = settings.forever.state
     player.gui.left.stGui.settings.globalSettings.destroy()
+    refresh = true
+  elseif element.name == "renameLine" then
+    local group = game.players[index].gui.left.stGui.trainLines.tbl1
+    local trainKey, rename
+    local count=0
+    local newName = game.players[index].gui.left.stGui.trainLines.btns.newName.text
+    for i, child in pairs(group.childrennames) do
+      local pattern = "(markedDelete)__([%w%s]*)_*(%d*)"
+      local del, line, trainkey = child:match(pattern)
+      if del and group[child].state == true then
+        count = count+1
+        rename = line
+      end
+    end
+    if count == 1 then
+      newName = string.gsub(newName, "_", " ")
+      newName = string.gsub(newName, "^%s", "")
+      newName = string.gsub(newName, "%s$", "")
+      if newName ~= "" and not glob.trainLines[newName] then
+        glob.trainLines[newName] = table.deepcopy(glob.trainLines[rename])
+        glob.trainLines[newName].name = newName
+        glob.trainLines[rename] = nil
+        for i,t in ipairs(glob.trains) do
+          if t.line == rename then
+            t.line = newName
+          end
+        end
+      end
+    end
     refresh = true
   elseif element.name == "deleteLines" then
     local group = game.players[index].gui.left.stGui.trainLines.tbl1
@@ -329,11 +367,13 @@ function onguiclick(event)
       if del and group[child].state == true then
         trainKey = tonumber(trainkey)
         if trainKey > 0 then
-          if glob.trains[trainKey].line == line then
+          if glob.trains[trainKey] and glob.trains[trainKey].line == line then
             glob.trains[trainKey].line = false
           end
         end
-        glob.trainLines[line] = nil
+        if glob.trainLines[line] then
+            glob.trainLines[line] = nil
+        end
       end
     end
     refresh = true
@@ -397,7 +437,6 @@ function onguiclick(event)
         local item = glob.guiData[index].rules[i]
         local condition = gui["togglefilter__"..i].caption
         local count = tonumber(gui["filteramount__"..i].text) or 0
-        local forever = gui["filtertime__"..i].state
         if item and item ~= "style" then
           tmp[i] = {filter=item, condition=condition, count=count, forever=forever}
         else
