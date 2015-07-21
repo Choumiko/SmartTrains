@@ -16,13 +16,13 @@ end
 
 function Train:nextStation()
   local train = self.train
-  if train.manualmode == false then
+  if train.manual_mode == false then
     local schedule = train.schedule
     local tmp = (schedule.current % #schedule.records) + 1
-    train.manualmode = true
+    train.manual_mode = true
     schedule.current = tmp
     train.schedule = schedule
-    train.manualmode = false
+    train.manual_mode = false
   end
 end
 
@@ -74,13 +74,13 @@ function Train:lowestFuel()
   local c
   local locos = self.train.locomotives
   if locos ~= nil then
-    for i,carriage in ipairs(locos.front_movers) do
+    for i,carriage in pairs(locos.front_movers) do
       c = self:calcFuel(carriage.get_inventory(1).get_contents())
       if minfuel == nil or c < minfuel then
         minfuel = c
       end
     end
-    for i,carriage in ipairs(locos.back_movers) do
+    for i,carriage in pairs(locos.back_movers) do
       c = self:calcFuel(carriage.get_inventory(1).get_contents())
       if minfuel == nil or c < minfuel then
         minfuel = c
@@ -104,7 +104,7 @@ end
 function Train:cargoCount()
   local sum = {}
   local train = self.train
-  for i, wagon in ipairs(train.carriages) do
+  for i, wagon in pairs(train.carriages) do
     if wagon.type == "cargo-wagon" then
       if wagon.name ~= "rail-tanker" then
         --sum = sum + wagon.getcontents()
@@ -150,8 +150,8 @@ end
 function Train:updateState()
   self.previousState = self.state
   self.state = self.train.state
-  if self.previousState == defines.trainstate["waitstation"] and self.state == defines.trainstate["onthepath"] then
-    self.advancedState = defines.trainstate["leftstation"]
+  if self.previousState == defines.trainstate["wait_station"] and self.state == defines.trainstate["on_the_path"] then
+    self.advancedState = defines.trainstate["left_station"]
   else
     self.advancedState = false
   end
@@ -206,10 +206,10 @@ function Train:nextValidStation()
       if global.settings.lines.forever then
         self:flyingText("Invalid rules", RED, {offset=1, show=true})
         local prevStation = (schedule.current-2) % #schedule.records + 1
-        train.manualmode = true
+        train.manual_mode = true
         schedule.current = prevStation
         train.schedule = schedule
-        train.manualmode = false
+        train.manual_mode = false
         return
       else
 
@@ -219,10 +219,10 @@ function Train:nextValidStation()
     end
     assert(tmp <= #schedule.records)
     --debugDump("going to "..schedule.records[tmp].station, true)
-    train.manualmode = true
+    train.manual_mode = true
     schedule.current = tmp
     train.schedule = schedule
-    train.manualmode = false
+    train.manual_mode = false
   end
 end
 

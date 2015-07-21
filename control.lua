@@ -20,7 +20,7 @@ local RED = {r = 0.9}
 local GREEN = {g = 0.7}
 local YELLOW = {r = 0.8, g = 0.8}
 
-defines.trainstate["leftstation"] = 11
+defines.trainstate["left_station"] = 11
 function util.formattime(ticks)
   if ticks then
   local seconds = ticks / 60
@@ -117,13 +117,9 @@ function resetMetatable(o, mt)
   return o
 end
 
-function trainEquals(trainA, trainB)
-  return trainA.carriages[1] == trainB.carriages[1]
-end
-
 function getKeyByTrain(tableA, train)
-  for i, t in ipairs(tableA) do
-    if trainEquals(t.train, train) then
+  for i, t in pairs(tableA) do
+    if t.train == train then
       return i
     end
   end
@@ -150,7 +146,7 @@ end
 
 function removeInvalidTrains(show)
   local removed = 0
-  for i,t in ipairs(global.trains) do
+  for i,t in pairs(global.trains) do
     if not t.train or not t.train.valid then
       table.remove(global.trains, i)
       removed = removed + 1
@@ -163,7 +159,7 @@ function removeInvalidTrains(show)
 end
 
 function inSchedule(station, schedule)
-  for i, rec in ipairs(schedule.records) do
+  for i, rec in pairs(schedule.records) do
     if rec.station == station then
       return i
     end
@@ -174,7 +170,7 @@ end
 function removeStation(station, schedule)
   local found = false
   local tmp = schedule
-  for i, rec in ipairs(schedule.records) do
+  for i, rec in pairs(schedule.records) do
     if rec.station == station then
       found = i
     end
@@ -250,14 +246,14 @@ function ontrainchangedstate(event)
   local settings = global.trains[trainKey].settings
   local fuel = t:lowestFuel()
   local schedule = train.schedule
-  if train.state == defines.trainstate["waitstation"] then
+  if train.state == defines.trainstate["wait_station"] then
     if t.line and global.trainLines[t.line] then
       if t.line and global.trainLines[t.line].changed ~= t.lineVersion then
         local waitingAt = t.train.schedule.records[t.train.schedule.current]
-        t.train.manualmode = true
+        t.train.manual_mode = true
         schedule = {records={}}
         local trainLine = global.trainLines[t.line]
-        for i, record in ipairs(trainLine.records) do
+        for i, record in pairs(trainLine.records) do
           schedule.records[i] = record
         end
         local inLine = inSchedule(waitingAt.station,schedule)
@@ -267,7 +263,7 @@ function ontrainchangedstate(event)
           schedule.current = 1
         end
         t.train.schedule = schedule
-        t.train.manualmode = false
+        t.train.manual_mode = false
         t.lineVersion = trainLine.changed
         t:flyingText("updating schedule", YELLOW)
       end
@@ -278,7 +274,7 @@ function ontrainchangedstate(event)
     end
   end
 
-  if t.advancedState == defines.trainstate["leftstation"] then
+  if t.advancedState == defines.trainstate["left_station"] then
     t.waiting = false
     t.refueling = false
     if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[train.schedule.current] then
@@ -287,7 +283,7 @@ function ontrainchangedstate(event)
       t:nextValidStation()
     end
   end
-  if train.state == defines.trainstate["waitstation"] then
+  if train.state == defines.trainstate["wait_station"] then
     if settings.autoRefuel then
       if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= global.settings.refuel.station then
         if inSchedule(global.settings.refuel.station, schedule) and #schedule.records >= 3 then
@@ -301,10 +297,11 @@ function ontrainchangedstate(event)
       end
     end
     if settings.autoDepart and schedule.records[schedule.current].station ~= global.settings.refuel.station then
+      
       t:startWaiting()
-      --t:flyingText("waiting", YELLOW)
+      t:flyingText("waiting", YELLOW)
     end
-  elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
+  elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] or train.state == defines.trainstate["on_the_path"] then
     if settings.autoRefuel then
       if fuel < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(global.settings.refuel.station, schedule) then
         train.schedule = addStation(global.settings.refuel.station, schedule, global.settings.refuel.time)
@@ -362,7 +359,7 @@ function ontick(event)
     global.ticks[event.tick] = nil
   end
   if event.tick%10==9  then
-    for pi, player in ipairs(game.players) do
+    for pi, player in pairs(game.players) do
       if player.opened ~= nil and player.opened.valid then
         if player.opened.type == "locomotive" and player.opened.train ~= nil then
           local key = getTrainKeyFromUI(pi)
@@ -411,7 +408,7 @@ function getTrainKeyFromUI(index)
 end
 
 function onbuiltentity(event)
-  local ent = event.createdentity
+  local ent = event.created_entity
   local ctype = ent.type
   if ctype == "locomotive" or ctype == "cargo-wagon" then
     local newTrainInfo = getNewTrainInfo(ent.train)
@@ -428,7 +425,7 @@ function onpreplayermineditem(event)
   if ctype == "locomotive" or ctype == "cargo-wagon" then
     local oldTrain = ent.train
     local ownPos
-    for i,carriage in ipairs(ent.train.carriages) do
+    for i,carriage in pairs(ent.train.carriages) do
       if ent == carriage then
         ownPos = i
         break
@@ -450,10 +447,10 @@ function onpreplayermineditem(event)
 end
 
 function onplayermineditem(event)
-  local name = event.itemstack.name
+  local name = event.item_stack.name
   local results = {}
   if name == "diesel-locomotive" or name == "cargo-wagon" and #tmpPos > 0 then
-    for i,pos in ipairs(tmpPos) do
+    for i,pos in pairs(tmpPos) do
       local area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
       local loco = game.players[event.player_index].surface.find_entities_filtered{area=area, type="locomotive"}
       local wagon = game.players[event.player_index].surface.find_entities_filtered{area=area, type="cargo-wagon"}
@@ -463,8 +460,8 @@ function onplayermineditem(event)
         table.insert(results, wagon)
       end
     end
-    for _, result in ipairs(results) do
-      for i, t in ipairs(result) do
+    for _, result in pairs(results) do
+      for i, t in pairs(result) do
         table.insert(global.trains, getNewTrainInfo(t.train))
       end
     end
@@ -483,7 +480,7 @@ end
 
 function debugDump(var, force)
   if false or force then
-    for i,player in ipairs(game.players) do
+    for i,player in pairs(game.players) do
       local msg
       if type(var) == "string" then
         msg = var
@@ -533,7 +530,7 @@ function findAllEntitiesByType(surface, type)
     local X,Y = coord.x, coord.y
     if surface.is_chunk_generated{X,Y} then
       local area = {{X*32, Y*32}, {X*32 + 32, Y*32 + 32}}
-      for i, entity in ipairs(surface.find_entities_filtered{area = area, type = type}) do
+      for i, entity in pairs(surface.find_entities_filtered{area = area, type = type}) do
         local key = entity.position.x.."A"..entity.position.y
         local name = entity.backer_name or entity.name
         local train = entity.train or false
@@ -601,7 +598,7 @@ remote.add_interface("st",
 
     cleanGui = function()
       global.guiDone = nil
-      for i,player in ipairs(game.players) do
+      for i,player in pairs(game.players) do
         if player.gui.top.blueprintTools then
           player.gui.top.blueprintTools.destroy()
         end
@@ -623,7 +620,7 @@ remote.add_interface("st",
   --        local X,Y = coord.x, coord.y
   --        if game.ischunkgenerated{X,Y} then
   --          local area = {{X*32, Y*32}, {X*32 + 32, Y*32 + 32}}
-  --          for _, entity in ipairs(game.findentitiesfiltered{area = area, type = "train-stop"}) do
+  --          for _, entity in pairs(game.findentitiesfiltered{area = area, type = "train-stop"}) do
   --            local key = entity.position.x.."A"..entity.position.y
   --            key = string.gsub(key, "-", "_")
   --            stations[key] = {entity.backer_name, entity.position}

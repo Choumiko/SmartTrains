@@ -113,7 +113,7 @@ GUI = {
       GUI.addPlaceHolder(tbl, 2)
 
       global.guiData[index].rules = global.guiData[index].rules or {}
-      for i,s in ipairs(records) do
+      for i,s in pairs(records) do
         local filter = "style"
         local condition = ">"
         local count = "1"
@@ -349,7 +349,7 @@ function onguiclick(event)
         global.trainLines[newName] = table.deepcopy(global.trainLines[rename])
         global.trainLines[newName].name = newName
         global.trainLines[rename] = nil
-        for i,t in ipairs(global.trains) do
+        for i,t in pairs(global.trains) do
           if t.line == rename then
             t.line = newName
           end
@@ -403,7 +403,7 @@ function onguiclick(event)
     elseif option1 == "filterItem" then
       local item = "style"
       local stationIndex = tonumber(option2)
-      if player.cursorstack then item = player.cursorstack.name end
+      if player.cursor_stack.valid_for_read then item = player.cursor_stack.name end
       player.gui.left.stGui.dynamicRules.frm.tbl[event.element.name].style = "st-icon-"..item
       player.gui.left.stGui.dynamicRules.frm.tbl[event.element.name].state = false
       if not global.guiData[index].rules then global.guiData[index].rules = {} end
