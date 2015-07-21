@@ -36,11 +36,11 @@ end
 function getTrainKeyFromUI(index)
   local player = game.players[index]
   if player.opened.type == "locomotive" and player.opened.train ~= nil then
-    local key = getKeyByTrain(glob.trains, player.opened.train)
+    local key = getKeyByTrain(global.trains, player.opened.train)
     if not key then
       local ti = getNewTrainInfo(player.opened.train)
-      table.insert(glob.trains, ti)
-      key = getKeyByTrain(glob.trains, player.opened.train)
+      table.insert(global.trains, ti)
+      key = getKeyByTrain(global.trains, player.opened.train)
     end
     return key
   end
@@ -48,7 +48,7 @@ function getTrainKeyFromUI(index)
 end
 
 function onplayercreated(event)
-  local player = game.getplayer(event.playerindex)
+  local player = game.players[event.playerindex]
   local gui = player.gui
   if gui.left.stGui == nil then
     buildGUI(player)
@@ -57,33 +57,33 @@ end
 
 function initGlob()
 
-  glob.trains = glob.trains or {}
-  glob.trainLines = glob.trainLines or {}
-  glob.ticks = glob.ticks or {}
+  global.trains = global.trains or {}
+  global.trainLines = global.trainLines or {}
+  global.ticks = global.ticks or {}
 
-  glob.settings = glob.settings or defaultSettings
-  glob.settings.lines = glob.settings.lines or {}
-  if glob.settings.lines.forever == nil then
-    glob.settings.lines.forever = false
+  global.settings = global.settings or defaultSettings
+  global.settings.lines = global.settings.lines or {}
+  if global.settings.lines.forever == nil then
+    global.settings.lines.forever = false
   end
-  glob.settings.stationsPerPage = glob.settings.stationsPerPage or 5
+  global.settings.stationsPerPage = global.settings.stationsPerPage or 5
   
-  glob.guiDone = glob.guiDone or {}
+  global.guiDone = global.guiDone or {}
 
-  if glob.version == nil or glob.version < "0.2.0" then
-    glob.guiDone = {}
-    glob.version = "0.0.1"
+  if global.version == nil or global.version < "0.2.0" then
+    global.guiDone = {}
+    global.version = "0.0.1"
   end
-  glob.guiData = glob.guiData or {}
+  global.guiData = global.guiData or {}
   
-  for i,p in ipairs(game.players) do
-    if not glob.guiDone[p.name] then
+  for i,p in pairs(game.players) do
+    if not global.guiDone[p.name] then
       buildGUI(p)
-      glob.guiDone[p.name] = true
+      global.guiDone[p.name] = true
     end
   end
   
-  for _, object in pairs(glob.trains) do
+  for _, object in pairs(global.trains) do
     --object = Train:new(object)
     resetMetatable(object, Train)
     object.advancedState = object.advancedState or false
@@ -91,7 +91,7 @@ function initGlob()
   
   if not fluids then
     fluids = {}
-    for index, item in pairs(game.itemprototypes) do
+    for index, item in pairs(game.item_prototypes) do
       local fluid = index:match("st%-fluidItem%-(.+)")
       if fluid then
         fluids[fluid] = true
@@ -99,14 +99,14 @@ function initGlob()
     end
   end
   
-  if glob.version <= MOD.version then saveGlob("PostInit") end
-  glob.version = MOD.version
+  if global.version <= MOD.version then saveGlob("PostInit") end
+  global.version = MOD.version
 end
 
 function oninit() initGlob() end
 
 function onload()
-  --glob.version = nil --uncomment this line for a hard reset (all SmartTrain settings will be lost)
+  --global.version = nil --uncomment this line for a hard reset (all SmartTrain settings will be lost)
   initGlob()
   local rem = removeInvalidTrains()
   if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
@@ -118,7 +118,7 @@ function resetMetatable(o, mt)
 end
 
 function trainEquals(trainA, trainB)
-  return trainA.carriages[1].equals(trainB.carriages[1])
+  return trainA.carriages[1] == trainB.carriages[1]
 end
 
 function getKeyByTrain(tableA, train)
@@ -136,8 +136,8 @@ function getNewTrainInfo(train)
     if carriages ~= nil and carriages[1] ~= nil and carriages[1].valid then
       local newTrainInfo = {dynamic = false, line = false, settings = {}, waiting = false, refueling = false}
       newTrainInfo.train = train
-      if train.locomotives ~= nil and (#train.locomotives.frontmovers > 0 or #train.locomotives.backmovers > 0) then
-        newTrainInfo.name = train.locomotives.frontmovers[1].backername or train.locomotives.backmovers[1].backername
+      if train.locomotives ~= nil and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
+        newTrainInfo.name = train.locomotives.front_movers[1].backer_name or train.locomotives.back_movers[1].backer_name
       else
         newTrainInfo.name = "cargoOnly"
       end
@@ -150,9 +150,9 @@ end
 
 function removeInvalidTrains(show)
   local removed = 0
-  for i,t in ipairs(glob.trains) do
+  for i,t in ipairs(global.trains) do
     if not t.train or not t.train.valid then
-      table.remove(glob.trains, i)
+      table.remove(global.trains, i)
       removed = removed + 1
     end
   end
@@ -198,7 +198,7 @@ function addStation(station, schedule, wait, after)
 end
 
 function fuelvalue(item)
-  return game.itemprototypes[item].fuelvalue
+  return game.item_prototypes[item].fuel_value
 end
 
 function addInventoryContents(invA, invB)
@@ -227,36 +227,36 @@ end
 function ontrainchangedstate(event)
   --debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
   local train = event.train
-  local trainKey = getKeyByTrain(glob.trains, train)
+  local trainKey = getKeyByTrain(global.trains, train)
   local t
   if trainKey then
-    t = glob.trains[trainKey]
+    t = global.trains[trainKey]
   end
   if not trainKey or (t.train and not t.train.valid) then
     removeInvalidTrains(true)
-    table.insert(glob.trains, getNewTrainInfo(train))
-    trainKey = getKeyByTrain(glob.trains, train)
-    t = glob.trains[trainKey]
+    table.insert(global.trains, getNewTrainInfo(train))
+    trainKey = getKeyByTrain(global.trains, train)
+    t = global.trains[trainKey]
   end
   if not t.train or not t.train.valid then
     local name = "cargo wagon"
-    if train.locomotives ~= nil and (#train.locomotives.frontmovers > 0 or #train.locomotives.backmovers > 0) then
-      name = train.locomotives.frontmovers[1].backername or train.locomotives.backmovers[1].backername
+    if train.locomotives ~= nil and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
+      name = train.locomotives.front_movers[1].backer_name or train.locomotives.back_movers[1].backer_name
     end
     game.player.print("Couldn't validate train "..name)
     return
   end
   t:updateState()
-  local settings = glob.trains[trainKey].settings
+  local settings = global.trains[trainKey].settings
   local fuel = t:lowestFuel()
   local schedule = train.schedule
   if train.state == defines.trainstate["waitstation"] then
-    if t.line and glob.trainLines[t.line] then
-      if t.line and glob.trainLines[t.line].changed ~= t.lineVersion then
+    if t.line and global.trainLines[t.line] then
+      if t.line and global.trainLines[t.line].changed ~= t.lineVersion then
         local waitingAt = t.train.schedule.records[t.train.schedule.current]
         t.train.manualmode = true
         schedule = {records={}}
-        local trainLine = glob.trainLines[t.line]
+        local trainLine = global.trainLines[t.line]
         for i, record in ipairs(trainLine.records) do
           schedule.records[i] = record
         end
@@ -271,7 +271,7 @@ function ontrainchangedstate(event)
         t.lineVersion = trainLine.changed
         t:flyingText("updating schedule", YELLOW)
       end
-    elseif t.line and not glob.trainLines[t.line] then
+    elseif t.line and not global.trainLines[t.line] then
       t:flyingText("Dettached from line", RED)
       t.line = false
       t.lineVersion = false
@@ -281,7 +281,7 @@ function ontrainchangedstate(event)
   if t.advancedState == defines.trainstate["leftstation"] then
     t.waiting = false
     t.refueling = false
-    if t.line and glob.trainLines[t.line] and glob.trainLines[t.line].rules and glob.trainLines[t.line].rules[train.schedule.current] then
+    if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[train.schedule.current] then
       --Handle line rules here
       --t:flyingText("checking line rules", GREEN, {offset=-1})
       t:nextValidStation()
@@ -289,25 +289,25 @@ function ontrainchangedstate(event)
   end
   if train.state == defines.trainstate["waitstation"] then
     if settings.autoRefuel then
-      if fuel >= (glob.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
-        if inSchedule(glob.settings.refuel.station, schedule) and #schedule.records >= 3 then
-          train.schedule = removeStation(glob.settings.refuel.station, schedule)
+      if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= global.settings.refuel.station then
+        if inSchedule(global.settings.refuel.station, schedule) and #schedule.records >= 3 then
+          train.schedule = removeStation(global.settings.refuel.station, schedule)
           t:flyingText("Refuel station removed", YELLOW)
         end
       end
-      if schedule.records[schedule.current].station == glob.settings.refuel.station then
+      if schedule.records[schedule.current].station == global.settings.refuel.station then
         t:startRefueling()
         t:flyingText("refueling", YELLOW)
       end
     end
-    if settings.autoDepart and schedule.records[schedule.current].station ~= glob.settings.refuel.station then
+    if settings.autoDepart and schedule.records[schedule.current].station ~= global.settings.refuel.station then
       t:startWaiting()
       --t:flyingText("waiting", YELLOW)
     end
   elseif train.state == defines.trainstate["arrivestation"]  or train.state == defines.trainstate["waitsignal"] or train.state == defines.trainstate["arrivesignal"] or train.state == defines.trainstate["onthepath"] then
     if settings.autoRefuel then
-      if fuel < (glob.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(glob.settings.refuel.station, schedule) then
-        train.schedule = addStation(glob.settings.refuel.station, schedule, glob.settings.refuel.time)
+      if fuel < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(global.settings.refuel.station, schedule) then
+        train.schedule = addStation(global.settings.refuel.station, schedule, global.settings.refuel.time)
         t:flyingText("Refuel station added", YELLOW)
       end
     end
@@ -315,51 +315,51 @@ function ontrainchangedstate(event)
 end
 
 function ontick(event)
-  if glob.ticks[event.tick] then
-    for i,train in pairs(glob.ticks[event.tick]) do
+  if global.ticks[event.tick] then
+    for i,train in pairs(global.ticks[event.tick]) do
       if train.train.valid then
-    --for i,train in pairs(glob.trains) do
+    --for i,train in pairs(global.trains) do
         if train:isRefueling() then
           if event.tick >= train.refueling.nextCheck then
-            if train:lowestFuel() >= glob.settings.refuel.rangeMax * fuelvalue("coal") then
+            if train:lowestFuel() >= global.settings.refuel.rangeMax * fuelvalue("coal") then
               train:flyingText("Refueling done", YELLOW)
               train:refuelingDone(true)
             else
-              local nextCheck = event.tick + glob.settings.depart.interval
+              local nextCheck = event.tick + global.settings.depart.interval
               train.refueling.nextCheck = nextCheck
-              if not glob.ticks[nextCheck] then
-                glob.ticks[nextCheck] = {train}
+              if not global.ticks[nextCheck] then
+                global.ticks[nextCheck] = {train}
               else
-                table.insert(glob.ticks[nextCheck], train)
+                table.insert(global.ticks[nextCheck], train)
               end
             end
           end
         end
         if train:isWaiting() then
-          --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + glob.settings.depart.minWait or train.waiting.lastCheck + glob.settings.depart.interval
+          --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + global.settings.depart.minWait or train.waiting.lastCheck + global.settings.depart.interval
           if event.tick >= train.waiting.nextCheck then
             local cargo = train:cargoCount()
             local last = train.waiting.lastCheck
-            if train:cargoEquals(cargo, train.waiting.cargo, glob.settings.depart.minFlow, event.tick - last) then
+            if train:cargoEquals(cargo, train.waiting.cargo, global.settings.depart.minFlow, event.tick - last) then
               train:flyingText("cargoCompare -> leave station", YELLOW)
               train:waitingDone(true)
             else
               train:flyingText("cargoCompare -> stay at station", YELLOW)
               train.waiting.lastCheck = event.tick
               train.waiting.cargo = cargo
-              local nextCheck = event.tick + glob.settings.depart.interval
+              local nextCheck = event.tick + global.settings.depart.interval
               train.waiting.nextCheck = nextCheck
-              if not glob.ticks[nextCheck] then
-                glob.ticks[nextCheck] = {train}
+              if not global.ticks[nextCheck] then
+                global.ticks[nextCheck] = {train}
               else
-                table.insert(glob.ticks[nextCheck], train)
+                table.insert(global.ticks[nextCheck], train)
               end
             end
           end
         end
       end
     end
-    glob.ticks[event.tick] = nil
+    global.ticks[event.tick] = nil
   end
   if event.tick%10==9  then
     for pi, player in ipairs(game.players) do
@@ -388,7 +388,7 @@ function ontick(event)
         elseif gui == nil then
           buildGUI(player)
         end
-        glob.guiData[pi] = nil
+        global.guiData[pi] = nil
       end
     end
   end
@@ -399,11 +399,11 @@ function getTrainKeyFromUI(index)
   local key
   if player.opened ~= nil and player.opened.valid then
     if player.opened.type == "locomotive" and player.opened.train ~= nil then
-      key = getKeyByTrain(glob.trains, player.opened.train)
+      key = getKeyByTrain(global.trains, player.opened.train)
       if not key then
         local ti = getNewTrainInfo(player.opened.train)
-        table.insert(glob.trains, ti)
-        key = getKeyByTrain(glob.trains, player.opened.train)
+        table.insert(global.trains, ti)
+        key = getKeyByTrain(global.trains, player.opened.train)
       end
     end
     return key
@@ -417,7 +417,7 @@ function onbuiltentity(event)
     local newTrainInfo = getNewTrainInfo(ent.train)
     if newTrainInfo ~= nil then
       removeInvalidTrains(true)
-      table.insert(glob.trains, newTrainInfo)
+      table.insert(global.trains, newTrainInfo)
     end
   end
 end
@@ -429,14 +429,14 @@ function onpreplayermineditem(event)
     local oldTrain = ent.train
     local ownPos
     for i,carriage in ipairs(ent.train.carriages) do
-      if ent.equals(carriage) then
+      if ent == carriage then
         ownPos = i
         break
       end
     end
     removeInvalidTrains(true)
-    local old = getKeyByTrain(glob.trains, ent.train)
-    if old then table.remove(glob.trains, old) end
+    local old = getKeyByTrain(global.trains, ent.train)
+    if old then table.remove(global.trains, old) end
 
     if #ent.train.carriages > 1 then
       if ent.train.carriages[ownPos-1] ~= nil then
@@ -455,8 +455,8 @@ function onplayermineditem(event)
   if name == "diesel-locomotive" or name == "cargo-wagon" and #tmpPos > 0 then
     for i,pos in ipairs(tmpPos) do
       local area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
-      local loco = game.findentitiesfiltered{area=area, type="locomotive"}
-      local wagon = game.findentitiesfiltered{area=area, type="cargo-wagon"}
+      local loco = game.players[event.player_index].surface.find_entities_filtered{area=area, type="locomotive"}
+      local wagon = game.players[event.player_index].surface.find_entities_filtered{area=area, type="cargo-wagon"}
       if #loco > 0 then
         table.insert(results, loco)
       elseif #wagon > 0 then
@@ -465,7 +465,7 @@ function onplayermineditem(event)
     end
     for _, result in ipairs(results) do
       for i, t in ipairs(result) do
-        table.insert(glob.trains, getNewTrainInfo(t.train))
+        table.insert(global.trains, getNewTrainInfo(t.train))
       end
     end
     removeInvalidTrains(true)
@@ -499,7 +499,7 @@ function flyingText(line, color, pos, show)
   if show then
     pos = pos or game.player.position
     color = color or RED
-    game.createentity({name="flying-text", position=pos, text=line, color=color})
+    game.player.surface.create_entity({name="flying-text", position=pos, text=line, color=color})
   end
 end
 
@@ -527,15 +527,15 @@ function sortByName(a,b)
   return a.name > b.name
 end
 
-function findAllEntitiesByType(type)
+function findAllEntitiesByType(surface, type)
   local entities = {}
-  for coord in game.getchunks() do
+  for coord in surface.get_chunks() do
     local X,Y = coord.x, coord.y
-    if game.ischunkgenerated{X,Y} then
+    if surface.is_chunk_generated{X,Y} then
       local area = {{X*32, Y*32}, {X*32 + 32, Y*32 + 32}}
-      for i, entity in ipairs(game.findentitiesfiltered{area = area, type = type}) do
+      for i, entity in ipairs(surface.find_entities_filtered{area = area, type = type}) do
         local key = entity.position.x.."A"..entity.position.y
-        local name = entity.backername or entity.name
+        local name = entity.backer_name or entity.name
         local train = entity.train or false
         entities[key] = {name= name, pos = entity.position, train=train}
       end
@@ -546,25 +546,25 @@ end
 
 function saveGlob(name)
   local n = name or ""
-  game.makefile("st/debugGlob"..n..".lua", serpent.block(glob, {name="glob"}))
+  game.makefile("st/debugGlob"..n..".lua", serpent.block(global, {name="glob"}))
   --game.makefile("st/loco"..n..".lua", serpent.block(findAllEntitiesByType("locomotive")))
 end
 
-game.oninit(oninit)
-game.onload(onload)
-game.onevent(defines.events.ontrainchangedstate, ontrainchangedstate)
-game.onevent(defines.events.onplayermineditem, onplayermineditem)
-game.onevent(defines.events.onpreplayermineditem, onpreplayermineditem)
-game.onevent(defines.events.onbuiltentity, onbuiltentity)
-game.onevent(defines.events.onguiclick, onguiclick)
-game.onevent(defines.events.onplayercreated, onplayercreated)
-game.onevent(defines.events.ontick, ontick)
+game.on_init(oninit)
+game.on_load(onload)
+game.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
+game.on_event(defines.events.on_player_mined_item, onplayermineditem)
+game.on_event(defines.events.on_preplayer_mined_item, onpreplayermineditem)
+game.on_event(defines.events.on_built_entity, onbuiltentity)
+game.on_event(defines.events.on_gui_click, onguiclick)
+--game.on_event(defines.events.on_player_created, onplayercreated)
+game.on_event(defines.events.on_tick, ontick)
 
-remote.addinterface("st",
+remote.add_interface("st",
   {
     printGlob = function(name)
       if name then
-        debugDump(glob[name], true)
+        debugDump(global[name], true)
       else
         debugDump(glob, true)
       end
@@ -572,10 +572,10 @@ remote.addinterface("st",
 
     printFile = function(var, name)
       local name = name or "log"
-      if glob[var] then
-        printToFile(serpent.block(glob[var]), name )
+      if global[var] then
+        printToFile(serpent.block(global[var]), name )
       else
-        debugDump("glob["..var.."] not found.")
+        debugDump("global["..var.."] not found.")
       end
     end,
 
@@ -591,16 +591,16 @@ remote.addinterface("st",
     end,
 
     toggleFlyingText = function()
-      glob.showFlyingText = not glob.showFlyingText
-      debugDump("Flying text: "..tostring(glob.showFlyingText),true)
+      global.showFlyingText = not global.showFlyingText
+      debugDump("Flying text: "..tostring(global.showFlyingText),true)
     end,
 
     nilGlob = function(key)
-      if glob[key] then glob[key] = nil end
+      if global[key] then global[key] = nil end
     end,
 
     cleanGui = function()
-      glob.guiDone = nil
+      global.guiDone = nil
       for i,player in ipairs(game.players) do
         if player.gui.top.blueprintTools then
           player.gui.top.blueprintTools.destroy()
@@ -611,7 +611,7 @@ remote.addinterface("st",
 
     printMeta = function()
       local metas = {}
-      for i,to in pairs(glob.trains) do
+      for i,to in pairs(global.trains) do
         table.insert(metas, getmetatable(to))
       end
       printToFile(serpent.block(metas, {name="metas"}), "metatables" )
@@ -626,7 +626,7 @@ remote.addinterface("st",
   --          for _, entity in ipairs(game.findentitiesfiltered{area = area, type = "train-stop"}) do
   --            local key = entity.position.x.."A"..entity.position.y
   --            key = string.gsub(key, "-", "_")
-  --            stations[key] = {entity.backername, entity.position}
+  --            stations[key] = {entity.backer_name, entity.position}
   --          end
   --        end
   --      end

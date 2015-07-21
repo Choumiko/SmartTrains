@@ -16,7 +16,7 @@ GUI = {
     end
     if bind then
       if type == "checkbox" then
-        e.state = glob[bind]
+        e.state = global[bind]
       end
     end
     return parent.add(e)
@@ -77,20 +77,20 @@ GUI = {
       GUI.addLabel(tbl, "Min. flow rate")
       GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small"})
       GUI.addLabel(tbl,"With invalid rules:")
-      GUI.add(tbl,{type="checkbox", name="forever", state=glob.settings.lines.forever, caption="wait forever"})
+      GUI.add(tbl,{type="checkbox", name="forever", state=global.settings.lines.forever, caption="wait forever"})
       GUI.addPlaceHolder(tbl)
       
-      GUI.addLabel(tbl, "Tracked trains: "..#glob.trains)
+      GUI.addLabel(tbl, "Tracked trains: "..#global.trains)
       GUI.addPlaceHolder(tbl, 2)
       GUI.addButton(tbl, {name="globalSettingsSave", caption="Save"})
 
-      tbl.refuelRangeMin.text = glob.settings.refuel.rangeMin
-      tbl.row1.refuelRangeMax.text = glob.settings.refuel.rangeMax
-      tbl.refuelStation.text = glob.settings.refuel.station
-      tbl.refuelTime.text = glob.settings.refuel.time / 60
-      tbl.departInterval.text = glob.settings.depart.interval / 60
-      tbl.minWait.text = glob.settings.depart.minWait / 60
-      tbl.minFlow.text = glob.settings.depart.minFlow
+      tbl.refuelRangeMin.text = global.settings.refuel.rangeMin
+      tbl.row1.refuelRangeMax.text = global.settings.refuel.rangeMax
+      tbl.refuelStation.text = global.settings.refuel.station
+      tbl.refuelTime.text = global.settings.refuel.time / 60
+      tbl.departInterval.text = global.settings.depart.interval / 60
+      tbl.minWait.text = global.settings.depart.minWait / 60
+      tbl.minFlow.text = global.settings.depart.minFlow
     end
   end,
 
@@ -100,10 +100,10 @@ GUI = {
     if gui.dynamicRules ~= nil then
       gui.dynamicRules.destroy()
     end
-    if line and glob.trainLines[line] then
-      local lineName = glob.trainLines[line].name
-      local records = glob.trainLines[line].records
-      local rules = glob.trainLines[line].rules or {}
+    if line and global.trainLines[line] then
+      local lineName = global.trainLines[line].name
+      local records = global.trainLines[line].records
+      local rules = global.trainLines[line].rules or {}
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
       GUI.addLabel(gui, {name="line", caption="Line: "..lineName})
@@ -112,14 +112,14 @@ GUI = {
       GUI.addLabel(tbl, "Filter")
       GUI.addPlaceHolder(tbl, 2)
 
-      glob.guiData[index].rules = glob.guiData[index].rules or {}
+      global.guiData[index].rules = global.guiData[index].rules or {}
       for i,s in ipairs(records) do
         local filter = "style"
         local condition = ">"
         local count = "1"
         if rules[i] then
           filter, condition, count = rules[i].filter, rules[i].condition, rules[i].count
-          glob.guiData[index].rules[i] = filter
+          global.guiData[index].rules[i] = filter
         end
         GUI.addLabel(tbl, {caption=i.." "..s.station})
         GUI.add(tbl, {type="checkbox", name="filterItem__"..i, style="st-icon-"..filter, state=false})
@@ -171,7 +171,7 @@ GUI = {
       lineKey = "__"..trainLine.name
     end
     local tbl = GUI.add(tableRows, {type="table", name="tbl1", colspan=4, style="st_table"})
-    local spp = glob.settings.stationsPerPage
+    local spp = global.settings.stationsPerPage
     local page = page or 1
     if #records > 0 then
       GUI.addLabel(tbl, "Station")
@@ -219,10 +219,10 @@ GUI = {
     end
     local page = page or 1
     local c=0
-    for _,l in pairs(glob.trainLines) do
+    for _,l in pairs(global.trainLines) do
       c = c+1
     end
-    if glob.trainLines and c > 0 then
+    if global.trainLines and c > 0 then
       local trainKey = trainKey or 0
       gui = GUI.add(gui, {type="frame", name="trainLines", caption="Trainlines", direction="vertical", style="st_frame"})
       local tbl = GUI.add(gui, {type="table", name="tbl1", colspan=6})
@@ -237,10 +237,10 @@ GUI = {
       GUI.addLabel(tbl, "Marked")
       GUI.addPlaceHolder(tbl)
       local dirty = 0
-      local spp = glob.settings.stationsPerPage
+      local spp = global.settings.stationsPerPage
       local start = (page-1) * spp + 1
       local max = start + spp - 1
-      for i, l in pairsByKeys(glob.trainLines) do
+      for i, l in pairsByKeys(global.trainLines) do
         dirty= dirty+1
         if dirty >= start and dirty <= max then
           GUI.addLabel(tbl, l.name)
@@ -292,9 +292,9 @@ function refreshUI(index, stationPage, linePage)
   GUI.showSettingsButton(index)
   if type == "locomotive" then
     trainKey = getTrainKeyFromUI(index)
-    train = glob.trains[trainKey]
-    if train.line then trainLine = glob.trainLines[train.line] end
-    GUI.showTrainInfoWindow(index, trainKey, glob.trains[trainKey], trainLine, stationPage)
+    train = global.trains[trainKey]
+    if train.line then trainLine = global.trainLines[train.line] end
+    GUI.showTrainInfoWindow(index, trainKey, global.trains[trainKey], trainLine, stationPage)
   end
   local activeLine = trainLine and trainLine.name or false
   GUI.showTrainLinesWindow(index, trainKey, activeLine, linePage)
@@ -304,7 +304,7 @@ function onguiclick(event)
   local index = event.playerindex or event.name
   local player = game.players[index]
   local refresh = false
-  if not glob.guiData[index] then glob.guiData[index] = {} end
+  if not global.guiData[index] then global.guiData[index] = {} end
   local element = event.element
   if element.name == "toggleSTSettings" then
     if player.gui.left.stGui.settings.globalSettings == nil then
@@ -320,12 +320,12 @@ function onguiclick(event)
   elseif element.name == "globalSettingsSave" then
     local settings = player.gui.left.stGui.settings.globalSettings.tbl
     local time, min, max, station = tonumber(settings.refuelTime.text)*60, tonumber(settings.refuelRangeMin.text), tonumber(settings.row1.refuelRangeMax.text), settings.refuelStation.text
-    glob.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
+    global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
     local interval, minWait = tonumber(settings.departInterval.text)*60, tonumber(settings.minWait.text)*60
     local minFlow = tonumber(settings.minFlow.text)
-    glob.settings.depart = {interval = interval, minWait = minWait}
-    glob.settings.depart.minFlow = minFlow
-    glob.settings.lines.forever = settings.forever.state
+    global.settings.depart = {interval = interval, minWait = minWait}
+    global.settings.depart.minFlow = minFlow
+    global.settings.lines.forever = settings.forever.state
     player.gui.left.stGui.settings.globalSettings.destroy()
     refresh = true
   elseif element.name == "renameLine" then
@@ -345,11 +345,11 @@ function onguiclick(event)
       newName = string.gsub(newName, "_", " ")
       newName = string.gsub(newName, "^%s", "")
       newName = string.gsub(newName, "%s$", "")
-      if newName ~= "" and not glob.trainLines[newName] then
-        glob.trainLines[newName] = table.deepcopy(glob.trainLines[rename])
-        glob.trainLines[newName].name = newName
-        glob.trainLines[rename] = nil
-        for i,t in ipairs(glob.trains) do
+      if newName ~= "" and not global.trainLines[newName] then
+        global.trainLines[newName] = table.deepcopy(global.trainLines[rename])
+        global.trainLines[newName].name = newName
+        global.trainLines[rename] = nil
+        for i,t in ipairs(global.trains) do
           if t.line == rename then
             t.line = newName
           end
@@ -367,12 +367,12 @@ function onguiclick(event)
       if del and group[child].state == true then
         trainKey = tonumber(trainkey)
         if trainKey > 0 then
-          if glob.trains[trainKey] and glob.trains[trainKey].line == line then
-            glob.trains[trainKey].line = false
+          if global.trains[trainKey] and global.trains[trainKey].line == line then
+            global.trains[trainKey].line = false
           end
         end
-        if glob.trainLines[line] then
-            glob.trainLines[line] = nil
+        if global.trainLines[line] then
+            global.trainLines[line] = nil
         end
       end
     end
@@ -396,18 +396,18 @@ function onguiclick(event)
     end
     if option1 == "refuel" then
       option2 = tonumber(option2)
-      glob.trains[option2].settings.autoRefuel = not glob.trains[option2].settings.autoRefuel
+      global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
     elseif option1 == "depart" then
       option2 = tonumber(option2)
-      glob.trains[option2].settings.autoDepart = not glob.trains[option2].settings.autoDepart
+      global.trains[option2].settings.autoDepart = not global.trains[option2].settings.autoDepart
     elseif option1 == "filterItem" then
       local item = "style"
       local stationIndex = tonumber(option2)
       if player.cursorstack then item = player.cursorstack.name end
       player.gui.left.stGui.dynamicRules.frm.tbl[event.element.name].style = "st-icon-"..item
       player.gui.left.stGui.dynamicRules.frm.tbl[event.element.name].state = false
-      if not glob.guiData[index].rules then glob.guiData[index].rules = {} end
-      glob.guiData[index].rules[stationIndex] = item
+      if not global.guiData[index].rules then global.guiData[index].rules = {} end
+      global.guiData[index].rules[stationIndex] = item
     elseif option1 == "togglefilter" then
       local stationIndex = tonumber(option2)
       local newCaption = ">"
@@ -423,8 +423,8 @@ function onguiclick(event)
         newCaption = ">"
       end
       element.caption = newCaption
-      --      if not glob.guiData[index].rules then glob.guiData[index].rules = {[stationIndex]={}} end
-      --      glob.guiData[index].rules[stationIndex].condition = newCaption
+      --      if not global.guiData[index].rules then global.guiData[index].rules = {[stationIndex]={}} end
+      --      global.guiData[index].rules[stationIndex].condition = newCaption
     elseif option1 == "editRules" then
       --destroyGui(player.gui.left.stGui.settings.toggleSTSettings)
       destroyGui(player.gui.left.stGui.trainSettings)
@@ -433,8 +433,8 @@ function onguiclick(event)
       local line = option2
       local gui = player.gui.left.stGui.dynamicRules.frm.tbl
       local tmp = {}
-      for i,rule in pairs(glob.trainLines[line].records) do
-        local item = glob.guiData[index].rules[i]
+      for i,rule in pairs(global.trainLines[line].records) do
+        local item = global.guiData[index].rules[i]
         local condition = gui["togglefilter__"..i].caption
         local count = tonumber(gui["filteramount__"..i].text) or 0
         if item and item ~= "style" then
@@ -443,15 +443,15 @@ function onguiclick(event)
           tmp[i] = nil
         end
       end
-      glob.trainLines[line].rules = tmp
-      glob.guiData[index].rules = nil
+      global.trainLines[line].rules = tmp
+      global.guiData[index].rules = nil
       destroyGui(player.gui.left.stGui.dynamicRules)
       refresh = true
     elseif option1 == "readSchedule" then
       option2 = tonumber(option2)
-      if glob.trains[option2] ~= nil and glob.trains[option2].train.valid then
-        glob.trains[option2].line = false
-        glob.trains[option2].lineVersion = false
+      if global.trains[option2] ~= nil and global.trains[option2].train.valid then
+        global.trains[option2].line = false
+        global.trains[option2].lineVersion = false
       end
       refresh = true
     elseif option1 == "saveAsLine" then
@@ -460,14 +460,14 @@ function onguiclick(event)
       name = string.gsub(name, "^%s", "")
       name = string.gsub(name, "%s$", "")
       option2 = tonumber(option2)
-      local t = glob.trains[option2]
+      local t = global.trains[option2]
       if name ~= "" and #t.train.schedule.records > 0 then
         local changed = game.tick
-        if not glob.trainLines[name] then glob.trainLines[name] = {name=name} end
-        glob.trainLines[name].records = t.train.schedule.records
-        glob.trainLines[name].changed = changed
+        if not global.trainLines[name] then global.trainLines[name] = {name=name} end
+        global.trainLines[name].records = t.train.schedule.records
+        global.trainLines[name].changed = changed
         local schedule = t.train.schedule
-        schedule.records = glob.trainLines[name].records
+        schedule.records = global.trainLines[name].records
         t.train.schedule = schedule
         t.line = name
         t.lineVersion = changed
@@ -476,7 +476,7 @@ function onguiclick(event)
     elseif option1 == "activeLine" then
       local trainKey = tonumber(option3)
       local li = option2
-      local t = glob.trains[trainKey]
+      local t = global.trains[trainKey]
       if t.line ~= li then
         t.line = li
       else
@@ -484,7 +484,7 @@ function onguiclick(event)
       end
       t.lineVersion = false
       --refresh = true
-      GUI.showTrainInfoWindow(index, trainKey, t, glob.trainLines[t.line])
+      GUI.showTrainInfoWindow(index, trainKey, t, global.trainLines[t.line])
       GUI.showTrainLinesWindow(index,trainKey, t.line)
     elseif option1 == "prevPageTrain" then
       local page = tonumber(option2)
@@ -498,7 +498,7 @@ function onguiclick(event)
       local page = tonumber(option2)
       page = page+1
       local trainKey = getTrainKeyFromUI(index)
-      local t = glob.trains[trainKey]
+      local t = global.trains[trainKey]
       refreshUI(index, page)
     elseif option1 == "prevPageLine" then
       local page = tonumber(option2)
@@ -512,7 +512,7 @@ function onguiclick(event)
       local page = tonumber(option2)
       page = page+1
       local trainKey = getTrainKeyFromUI(index)
-      local t = glob.trains[trainKey]
+      local t = global.trains[trainKey]
       refreshUI(index, nil, page)
     end
   end

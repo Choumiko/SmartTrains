@@ -7,7 +7,7 @@ function Train:new(train)
 end
 
 Train.__eq = function(trainA, trainB)
-  return trainA.train.carriages[1].equals(trainB.train.carriages[1])
+  return trainA.train.carriages[1] == trainB.train.carriages[1]
 end
 
 function Train:printName()
@@ -27,13 +27,13 @@ function Train:nextStation()
 end
 
 function Train:startRefueling()
-  self.refueling = {nextCheck = game.tick + glob.settings.depart.interval}
+  self.refueling = {nextCheck = game.tick + global.settings.depart.interval}
   --debugDump({refuel= util.formattime(game.tick)},true)
   local tick = self.refueling.nextCheck
-  if not glob.ticks[tick] then
-    glob.ticks[tick] = {self}
+  if not global.ticks[tick] then
+    global.ticks[tick] = {self}
   else
-    table.insert(glob.ticks[tick], self)
+    table.insert(global.ticks[tick], self)
   end
 end
 
@@ -49,12 +49,12 @@ function Train:refuelingDone(done)
 end
 
 function Train:startWaiting()
-  self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + glob.settings.depart.minWait}
+  self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
   local tick = self.waiting.nextCheck
-  if not glob.ticks[tick] then
-    glob.ticks[tick] = {self}
+  if not global.ticks[tick] then
+    global.ticks[tick] = {self}
   else
-    table.insert(glob.ticks[tick], self)
+    table.insert(global.ticks[tick], self)
   end
 end
 
@@ -74,14 +74,14 @@ function Train:lowestFuel()
   local c
   local locos = self.train.locomotives
   if locos ~= nil then
-    for i,carriage in ipairs(locos.frontmovers) do
-      c = self:calcFuel(carriage.getinventory(1).getcontents())
+    for i,carriage in ipairs(locos.front_movers) do
+      c = self:calcFuel(carriage.get_inventory(1).get_contents())
       if minfuel == nil or c < minfuel then
         minfuel = c
       end
     end
-    for i,carriage in ipairs(locos.backmovers) do
-      c = self:calcFuel(carriage.getinventory(1).getcontents())
+    for i,carriage in ipairs(locos.back_movers) do
+      c = self:calcFuel(carriage.get_inventory(1).get_contents())
       if minfuel == nil or c < minfuel then
         minfuel = c
       end
@@ -94,7 +94,7 @@ end
 
 function Train:calcFuel(contents)
   local value = 0
-  --/c game.player.print(game.player.character.vehicle.train.locomotives.frontmovers[1].energy)
+  --/c game.player.print(game.player.character.vehicle.train.locomotives.front_movers[1].energy)
   for i, c in pairs(contents) do
     value = value + c*fuelvalue(i)
   end
@@ -108,7 +108,7 @@ function Train:cargoCount()
     if wagon.type == "cargo-wagon" then
       if wagon.name ~= "rail-tanker" then
         --sum = sum + wagon.getcontents()
-        sum = addInventoryContents(sum, wagon.getinventory(1).getcontents())
+        sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
       else
         if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
           local d = remote.call("railtanker", "getLiquidByWagon", wagon)
@@ -162,9 +162,9 @@ function Train:nextValidStation()
   local train = self.train
   local old = schedule.current
   local tmp = schedule.current
-  local rules = glob.trainLines[self.line].rules
+  local rules = global.trainLines[self.line].rules
   local skipped, c = "", 0
-  if self.line and rules[tmp] and not (inSchedule(glob.settings.refuel.station, schedule) and self.settings.autoRefuel) then
+  if self.line and rules[tmp] and not (inSchedule(global.settings.refuel.station, schedule) and self.settings.autoRefuel) then
     local cargo = self:cargoCount()
     local filter = rules[tmp].filter
     local filter = filter:match("st%-fluidItem%-(.+)") or rules[tmp].filter
@@ -203,7 +203,7 @@ function Train:nextValidStation()
       end
     end
     if #schedule.records <= c+1 then
-      if glob.settings.lines.forever then
+      if global.settings.lines.forever then
         self:flyingText("Invalid rules", RED, {offset=1, show=true})
         local prevStation = (schedule.current-2) % #schedule.records + 1
         train.manualmode = true
@@ -227,7 +227,7 @@ function Train:nextValidStation()
 end
 
 function Train:flyingText(msg, color, tbl)
-  local s = glob.showFlyingText
+  local s = global.showFlyingText
   local offset = 0
   if type(tbl) == "table" then
     s = tbl.show or s
