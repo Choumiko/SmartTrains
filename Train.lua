@@ -1,20 +1,35 @@
-Train = {}
-function Train:new(train)
-  local o = train or {}
-  setmetatable(o, self)
-  self.__index = self
-  return o
-end
+Train = {
 
-Train.__eq = function(trainA, trainB)
-  return trainA.train.carriages[1] == trainB.train.carriages[1]
-end
+  new = function(train)
+  if train.valid then
+    local new = {
+      train = train,
+      dynamic = false, 
+      line = false,
+      lineVersion = 0, 
+      settings = {},
+      waiting = false,
+      refueling = false,
+      advancedState = false
+    }
+    new.settings.autoDepart = defaultTrainSettings.autoDepart
+    new.settings.autoRefuel = defaultTrainSettings.autoRefuel
+    new.type = ""..#train.locomotives.front_movers .. "-"..#train.cargo_wagons.."-"..#train.locomotives.back_movers
+    if train.locomotives ~= nil and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
+      new.name = train.locomotives.front_movers[1].backer_name or train.locomotives.back_movers[1].backer_name
+    else
+      new.name = "cargoOnly"
+    end
+    setmetatable(new, {__index = Train})
+    return new
+  end
+end,
 
-function Train:printName()
+printName = function(self)
   debugDump(self.name, true)
-end
+end,
 
-function Train:nextStation()
+nextStation = function(self)
   local train = self.train
   if train.manual_mode == false then
     local schedule = train.schedule
@@ -24,9 +39,9 @@ function Train:nextStation()
     train.schedule = schedule
     train.manual_mode = false
   end
-end
+end,
 
-function Train:startRefueling()
+startRefueling = function(self)
   self.refueling = {nextCheck = game.tick + global.settings.depart.interval}
   --debugDump({refuel= util.formattime(game.tick)},true)
   local tick = self.refueling.nextCheck
@@ -35,20 +50,20 @@ function Train:startRefueling()
   else
     table.insert(global.ticks[tick], self)
   end
-end
+end,
 
-function Train:isRefueling()
+isRefueling = function(self)
   return type(self.refueling) == "table" and self.settings.autoRefuel
-end
+end,
 
-function Train:refuelingDone(done)
+refuelingDone = function(self, done)
   if done then
     self.refueling = false
     self:nextStation()
   end
-end
+end,
 
-function Train:startWaiting()
+startWaiting = function(self)
   self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
   local tick = self.waiting.nextCheck
   if not global.ticks[tick] then
@@ -56,20 +71,20 @@ function Train:startWaiting()
   else
     table.insert(global.ticks[tick], self)
   end
-end
+end,
 
-function Train:isWaiting()
+isWaiting = function(self)
   return type(self.waiting) == "table" and self.settings.autoDepart
-end
+end,
 
-function Train:waitingDone(done)
+waitingDone = function(self, done)
   if done then
     self.waiting = false
     self:nextStation()
   end
-end
+end,
 
-function Train:lowestFuel()
+lowestFuel = function(self)
   local minfuel = nil
   local c
   local locos = self.train.locomotives
@@ -90,18 +105,18 @@ function Train:lowestFuel()
   else
     return 0
   end
-end
+end,
 
-function Train:calcFuel(contents)
+calcFuel = function(self, contents)
   local value = 0
   --/c game.player.print(game.player.character.vehicle.train.locomotives.front_movers[1].energy)
   for i, c in pairs(contents) do
     value = value + c*fuelvalue(i)
   end
   return value
-end
+end,
 
-function Train:cargoCount()
+cargoCount = function(self)
   local sum = {}
   local train = self.train
   for i, wagon in pairs(train.carriages) do
@@ -122,9 +137,9 @@ function Train:cargoCount()
     end
   end
   return sum
-end
+end,
 
-function Train:cargoEquals(c1, c2, minFlow, interval)
+cargoEquals = function(self, c1, c2, minFlow, interval)
   local liquids1 = {}
   local liquids2 = {}
   local goodflow = false
@@ -145,9 +160,9 @@ function Train:cargoEquals(c1, c2, minFlow, interval)
     if liquids2[l] ~= false and liquids2[l] > 0 then c2[l] = liquids2[l] end
   end
   return (eq and not goodflow)
-end
+end,
 
-function Train:updateState()
+updateState = function(self)
   self.previousState = self.state
   self.state = self.train.state
   if self.previousState == defines.trainstate["wait_station"] and self.state == defines.trainstate["on_the_path"] then
@@ -155,9 +170,9 @@ function Train:updateState()
   else
     self.advancedState = false
   end
-end
+end,
 
-function Train:nextValidStation()
+nextValidStation = function(self)
   local schedule = self.train.schedule
   local train = self.train
   local old = schedule.current
@@ -224,9 +239,9 @@ function Train:nextValidStation()
     train.schedule = schedule
     train.manual_mode = false
   end
-end
+end,
 
-function Train:flyingText(msg, color, tbl)
+flyingText = function(self, msg, color, tbl)
   local s = global.showFlyingText
   local offset = 0
   if type(tbl) == "table" then
@@ -240,4 +255,8 @@ function Train:flyingText(msg, color, tbl)
     pos.y = pos.y + offset
   end
   flyingText(msg, color, pos, s)
+end
+}
+Train.__eq = function(trainA, trainB)
+  return trainA.train.carriages[1] == trainB.train.carriages[1]
 end
