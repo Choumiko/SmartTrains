@@ -9,7 +9,7 @@ events = {}
 events["on_player_opened"] = game.generate_event_name()
 events["on_player_closed"] = game.generate_event_name()
 
-debug = true
+debug = false
 
 require("gui")
 require("Train")

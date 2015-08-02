@@ -146,7 +146,7 @@ Train = {
               if d.type ~= nil then
                 sum[d.type] = sum[d.type] or 0
                 sum[d.type] = sum[d.type] + d.amount
-                self:flyingText(d.type..": "..math.floor(d.amount), YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+                --self:flyingText(d.type..": "..math.floor(d.amount), YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
               end
             end
           end
@@ -166,7 +166,7 @@ Train = {
           liquids2[l] = c2[l] or 0
           local flow = (liquids1[l] - liquids2[l])/(interval/60)
           if math.abs(flow) >= minFlow then goodflow = true end
-          self:flyingText("flow: "..flow, YELLOW, {offset=1})
+          --self:flyingText("flow: "..flow, YELLOW, {offset=1})
           c1[l] = nil
           c2[l] = nil
         end

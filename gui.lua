@@ -161,7 +161,7 @@ GUI = {
     local t = trainInfo or global.trains[getTrainKeyFromUI(player_index)]
     local trainKey = getTrainKeyByTrain(global.trains, t.train)
     local trainLine = t.line and global.trainLines[t.line] or false
-    gui = GUI.add(gui, {type="frame", name="trainSettings", caption={"", {"lbl-train"}, ": ", t.name}, direction="vertical", style="st_frame"})
+    gui = GUI.add(gui, {type="frame", name="trainSettings", caption={"", {"lbl-train"}, ": ", t.name, " (", t:getType(),")"}, direction="vertical", style="st_frame"})
     local line = "-"
     local dated = " "
     if trainLine then
@@ -372,8 +372,8 @@ function onguiclick(event)
         local option2 = option2 or ""
         local option3 = option3 or ""
         local option4 = option4 or ""
-        debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
-        debugDump(option4,true)
+        --debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
+        --debugDump(option4,true)
       end
       if option1 == "refuel" then
         option2 = tonumber(option2)
