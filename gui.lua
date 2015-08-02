@@ -304,7 +304,7 @@ GUI = {
   end,
   
   sanitizeNumber = function(number, default)
-  
+    return tonumber(number) or default
   end
 }
 
@@ -331,14 +331,14 @@ function onguiclick(event)
       --save settings, return to normal view
     elseif element.name == "globalSettingsSave" then
       local settings = player.gui[GUI.position].stGui.rows.globalSettings.tbl
-      local time = GUI.sanitizeNumber(settings.refuelTime.text, global.settings.refuel.time)*60 
+      local time = GUI.sanitizeNumber(settings.refuelTime.text, global.settings.refuel.time/60)*60 
       local min = GUI.sanitizeNumber(settings.refuelRangeMin.text, global.settings.refuel.rangeMin)
       local max = GUI.sanitizeNumber(settings.row1.refuelRangeMax.text, global.settings.refuel.rangeMax) 
       local station = settings.refuelStation.text
       
       global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
-      local interval = GUI.sanitizeNumber(settings.departInterval.text, global.settings.depart.interval)*60 
-      local minWait = GUI.sanitizeNumber(settings.minWait.text, global.settings.depart.minWait)*60
+      local interval = GUI.sanitizeNumber(settings.departInterval.text, global.settings.depart.interval/60)*60 
+      local minWait = GUI.sanitizeNumber(settings.minWait.text, global.settings.depart.minWait/60)*60
       local minFlow = GUI.sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
       global.settings.depart = {interval = interval, minWait = minWait}
       global.settings.depart.minFlow = minFlow
