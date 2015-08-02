@@ -9,26 +9,28 @@ events = {}
 events["on_player_opened"] = game.generate_event_name()
 events["on_player_closed"] = game.generate_event_name()
 
+debug = true
+
 require("gui")
 require("Train")
 
 defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 defaultSettings =
-  { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 300},
+  { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 600},
     depart={minWait = 240, interval = 120, minFlow = 1},
     lines={forever=false}
   }
 stationsPerPage = 5
 linesPerPage = 5
-  
+
 
 fluids = false
 showFlyingText = true
 
 local tmpPos = {}
-local RED = {r = 0.9}
-local GREEN = {g = 0.7}
-local YELLOW = {r = 0.8, g = 0.8}
+RED = {r = 0.9}
+GREEN = {g = 0.7}
+YELLOW = {r = 0.8, g = 0.8}
 
 defines.trainstate["left_station"] = 11
 
@@ -54,6 +56,9 @@ end
 
 function initGlob()
 
+  if global.version and global.version < "0.3.0" then
+    global.version = "0.0.0"
+  end
   global.version = global.version or "0.0.0"
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
@@ -64,13 +69,13 @@ function initGlob()
 
   global.settings = global.settings or defaultSettings
   global.settings.lines = global.settings.lines or {}
-  
+
   if global.settings.lines.forever == nil then
     global.settings.lines.forever = false
   end
-  
+
   global.settings.stationsPerPage = stationsPerPage
-  global.settings.linesPerPage = linesPerPage 
+  global.settings.linesPerPage = linesPerPage
 
   for _, object in pairs(global.trains) do
     resetMetatable(object, Train)
@@ -104,6 +109,7 @@ end
 
 function removeInvalidTrains(show)
   local removed = 0
+  local show = show or debug
   for i=#global.trains,1,-1 do
     local ti = global.trains[i]
     if not ti.train or not ti.train.valid or (#ti.train.locomotives.front_movers == 0 and #ti.train.locomotives.back_movers == 0) then
@@ -111,7 +117,7 @@ function removeInvalidTrains(show)
       removed = removed + 1
       -- try to detect change through pressing G/V
     else
-      local test = ""..#ti.train.locomotives.front_movers .. "-"..#ti.train.cargo_wagons.."-"..#ti.train.locomotives.back_movers
+      local test = ti:getType()
       if test ~= ti.type then
         table.remove(global.trains, i)
         removed = removed + 1
@@ -197,7 +203,7 @@ function ontrainchangedstate(event)
     end
     if not trainKey or (t.train and not t.train.valid) then
       removeInvalidTrains(true)
-      table.insert(global.trains, getNewTrainInfo(train))
+      getTrainFromEntity(train.carriages[1])
       trainKey = getTrainKeyByTrain(global.trains, train)
       t = global.trains[trainKey]
     end
@@ -206,7 +212,7 @@ function ontrainchangedstate(event)
       if train.locomotives ~= nil and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
         name = train.locomotives.front_movers[1].backer_name or train.locomotives.back_movers[1].backer_name
       end
-      game.player.print("Couldn't validate train "..name)
+      debugDump("Couldn't validate train "..name,true)
       return
     end
     t:updateState()
@@ -214,68 +220,39 @@ function ontrainchangedstate(event)
     local fuel = t:lowestFuel()
     local schedule = train.schedule
     if train.state == defines.trainstate["wait_station"] then
-      if t.line and global.trainLines[t.line] then
-        if t.line and global.trainLines[t.line].changed > t.lineVersion then
-          local waitingAt = t.train.schedule.records[t.train.schedule.current]
-          t.train.manual_mode = true
-          schedule = {records={}}
-          local trainLine = global.trainLines[t.line]
-          for i, record in pairs(trainLine.records) do
-            schedule.records[i] = record
-          end
-          local inLine = inSchedule(waitingAt.station,schedule)
-          if inLine then
-            schedule.current = inLine
-          else
-            schedule.current = 1
-          end
-          t.train.schedule = schedule
-          t.train.manual_mode = false
-          t.lineVersion = trainLine.changed
-          t:flyingText("updating schedule", YELLOW)
+      t:updateLine()
+      if settings.autoRefuel then
+        if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= t:refuelStation() then
+          t:removeRefuelStation()
         end
-      elseif t.line and not global.trainLines[t.line] then
-        t:flyingText("Dettached from line", RED)
-        t.line = false
-        t.lineVersion = false
+        if schedule.records[schedule.current].station == t:refuelStation() then
+          t:startRefueling()
+          t:flyingText("refueling", YELLOW)
+        end
       end
     end
-
-    --  if t.advancedState == defines.trainstate["left_station"] then
-    --    t.waiting = false
-    --    t.refueling = false
-    --    if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[train.schedule.current] then
-    --      --Handle line rules here
-    --      --t:flyingText("checking line rules", GREEN, {offset=-1})
-    --      t:nextValidStation()
-    --    end
-    --  end
-    --  if train.state == defines.trainstate["wait_station"] then
-    --    if settings.autoRefuel then
-    --      if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= global.settings.refuel.station then
-    --        if inSchedule(global.settings.refuel.station, schedule) and #schedule.records >= 3 then
-    --          train.schedule = removeStation(global.settings.refuel.station, schedule)
-    --          t:flyingText("Refuel station removed", YELLOW)
-    --        end
-    --      end
-    --      if schedule.records[schedule.current].station == global.settings.refuel.station then
-    --        t:startRefueling()
-    --        t:flyingText("refueling", YELLOW)
-    --      end
-    --    end
-    --    if settings.autoDepart and schedule.records[schedule.current].station ~= global.settings.refuel.station then
-    --
-    --      t:startWaiting()
-    --      t:flyingText("waiting", YELLOW)
-    --    end
-    --  elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] or train.state == defines.trainstate["on_the_path"] then
-    --    if settings.autoRefuel then
-    --      if fuel < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(global.settings.refuel.station, schedule) then
-    --        train.schedule = addStation(global.settings.refuel.station, schedule, global.settings.refuel.time)
-    --        t:flyingText("Refuel station added", YELLOW)
-    --      end
-    --    end
-    --  end
+    if t.advancedState == defines.trainstate["left_station"] then
+      t.waiting = false
+      t.refueling = false
+      --    if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[train.schedule.current] then
+      --      --Handle line rules here
+      --      --t:flyingText("checking line rules", GREEN, {offset=-1})
+      --      t:nextValidStation()
+      --    end
+    end
+    if train.state == defines.trainstate["wait_station"] then
+      if settings.autoDepart and schedule.records[schedule.current].station ~= t:refuelStation() and #schedule.records > 1 then
+        t:startWaiting()
+        t:flyingText("waiting", YELLOW)
+      end
+    elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] or train.state == defines.trainstate["on_the_path"] then
+      if settings.autoRefuel then
+        if fuel < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(t:refuelStation(), schedule) then
+          train.schedule = addStation(t:refuelStation(), schedule, global.settings.refuel.time)
+          t:flyingText("Refuel station added", YELLOW)
+        end
+      end
+    end
   end
   )
   if not status then
@@ -472,10 +449,6 @@ function onplayermineditem(event)
   local status, err = pcall(function()
     local name = event.item_stack.name
     local results = {}
-    local f = true
-    if f.error then
-    
-    end
     if name == "diesel-locomotive" or name == "cargo-wagon" then
       if #tmpPos > 0 then
         for i,pos in pairs(tmpPos) do
@@ -535,10 +508,15 @@ function debugDump(var, force)
 end
 
 function flyingText(line, color, pos, show)
-  if show then
-    pos = pos or game.player.position
+  if show or debug then
+    local pos = {}
     color = color or RED
-    game.player.surface.create_entity({name="flying-text", position=pos, text=line, color=color})
+    if not pos then
+      for i,p in pairs(game.players) do
+        p.surface.create_entity({name="flying-text", position=p.position, text=line, color=color})
+      end
+      return
+    end
   end
 end
 
