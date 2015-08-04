@@ -90,7 +90,7 @@ Train = {
     end,
 
     isWaitingForAutoDepart = function(self)
-      return type(self.waiting) == "table" and self.settings.autoDepart
+      return type(self.waiting) == "table" and type(self.waiting.cargo) == "table" and self.settings.autoDepart
     end,
 
     waitingDone = function(self, done)
