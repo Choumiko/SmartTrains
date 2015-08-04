@@ -202,9 +202,10 @@ GUI = {
         local s = records[i]
         GUI.addLabel(tbl, i.." "..s.station)
         GUI.addLabel(tbl, s.time_to_wait/60)
-        if line and rules and rules[i] then
-          tbl.add({type="checkbox", state=false, style="st-icon-"..rules[i].filter})
-          GUI.addLabel(tbl, " "..rules[i].condition.." "..rules[i].count)
+        if line and rules and rules[i] and (rules[i].full or rules[i].empty) then
+          local condition = rules[i].full and {"lbl-full"} or {"lbl-empty"}
+          GUI.addLabel(tbl, {"",{"lbl-leave-when"}," ",condition})
+          GUI.addPlaceHolder(tbl)
         else
           GUI.addPlaceHolder(tbl,2)
         end
@@ -277,8 +278,8 @@ GUI = {
           GUI.add(tbl, {type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
           GUI.add(tbl,{type="checkbox", name="lineRefuel__"..i.."__"..trainKey, state=l.settings.autoRefuel})
           GUI.add(tbl,{type="checkbox", name="lineDepart__"..i.."__"..trainKey, state=l.settings.autoDepart})
-          --GUI.addButton(tbl, {name="editRules__"..i, caption={"lbl-rules"}})
-          GUI.addPlaceHolder(tbl)
+          GUI.addButton(tbl, {name="editRules__"..i, caption={"lbl-rules"}})
+          --GUI.addPlaceHolder(tbl)
         end
       end
       local btns = GUI.add(gui, {type="table", name="btns", colspan=6})
@@ -295,6 +296,39 @@ GUI = {
       GUI.addTextfield(btns,{name="newName", text="", style="st_textfield_big"})
     end
   end,
+
+  showDynamicRules = function(index, line, page)
+    --debugDump({i=index,line=line,station=stationKey, tr=trainKey}, true)
+    local gui = game.players[index].gui.left.stGui
+    if gui.dynamicRules ~= nil then
+      gui.dynamicRules.destroy()
+    end
+    if line and global.trainLines[line] then
+      global.guiData[index].line = line
+      local lineName = global.trainLines[line].name
+      local records = global.trainLines[line].records
+      local rules = global.trainLines[line].rules or {}
+      global.guiData[index].rules = table.deepcopy(rules)
+      gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
+      gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
+      GUI.addLabel(gui, {name="line", caption="Line: "..lineName})
+      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=4, style="st_table"})
+      GUI.addLabel(tbl, {"lbl-station"})
+      GUI.addLabel(tbl, {"lbl-leave-when"})
+      GUI.addPlaceHolder(tbl, 2)
+      for i,s in pairs(records) do
+        GUI.addLabel(tbl, {caption=i.." "..s.station})
+        local states = {full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
+                        empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false}
+        GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
+        GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"lbl-full"}, style="st_checkbox", state=states.full})
+        GUI.addPlaceHolder(tbl)
+      end
+      GUI.addButton(gui, {name="saveRules__"..line, caption="Save"})
+      --GUI.addButton(gui, {name="getLiquidItems", caption="Liquid items"})
+    end
+  end,
+
   sanitizeName = function(name)
     local name = string.gsub(name, "_", " ")
     name = string.gsub(name, "^%s", "")
@@ -302,7 +336,7 @@ GUI = {
     name = string.gsub(name, "#", "")
     return name
   end,
-  
+
   sanitizeNumber = function(number, default)
     return tonumber(number) or default
   end
@@ -331,13 +365,13 @@ function onguiclick(event)
       --save settings, return to normal view
     elseif element.name == "globalSettingsSave" then
       local settings = player.gui[GUI.position].stGui.rows.globalSettings.tbl
-      local time = GUI.sanitizeNumber(settings.refuelTime.text, global.settings.refuel.time/60)*60 
+      local time = GUI.sanitizeNumber(settings.refuelTime.text, global.settings.refuel.time/60)*60
       local min = GUI.sanitizeNumber(settings.refuelRangeMin.text, global.settings.refuel.rangeMin)
-      local max = GUI.sanitizeNumber(settings.row1.refuelRangeMax.text, global.settings.refuel.rangeMax) 
+      local max = GUI.sanitizeNumber(settings.row1.refuelRangeMax.text, global.settings.refuel.rangeMax)
       local station = settings.refuelStation.text
-      
+
       global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
-      local interval = GUI.sanitizeNumber(settings.departInterval.text, global.settings.depart.interval/60)*60 
+      local interval = GUI.sanitizeNumber(settings.departInterval.text, global.settings.depart.interval/60)*60
       local minWait = GUI.sanitizeNumber(settings.minWait.text, global.settings.depart.minWait/60)*60
       local minFlow = GUI.sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
       global.settings.depart = {interval = interval, minWait = minWait}
@@ -415,17 +449,15 @@ function onguiclick(event)
         local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
         local tmp = {}
         for i,rule in pairs(global.trainLines[line].records) do
-          local item = global.guiData[index].rules[i]
-          local condition = gui["togglefilter__"..i].caption
-          local count = tonumber(gui["filteramount__"..i].text) or 0
-          if item and item ~= "style" then
-            tmp[i] = {filter=item, condition=condition, count=count, forever=forever}
+          if global.guiData[index].rules[i] then
+            tmp[i] = global.guiData[index].rules[i]
           else
             tmp[i] = nil
           end
         end
+        --debugDump(tmp,true)
         global.trainLines[line].rules = tmp
-        global.guiData[index].rules = nil
+        global.guiData[index].rules = {}
         GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
         refresh = true
       elseif option1 == "readSchedule" then
@@ -538,6 +570,16 @@ function onguiclick(event)
         local page = tonumber(option2)
         global.playerPage[index].line = page + 1
         refresh = true
+      elseif option1 == "leaveFull" then
+        if element.state == true and element.parent["leaveEmpty__"..option2].state == true then
+          element.parent["leaveEmpty__"..option2].state = false
+        end
+        global.guiData[index].rules[tonumber(option2)] = {full = element.state, empty = element.parent["leaveEmpty__"..option2].state}
+      elseif option1 == "leaveEmpty" then
+        if element.state == true and element.parent["leaveFull__"..option2].state == true then
+          element.parent["leaveFull__"..option2].state = false
+        end
+        global.guiData[index].rules[tonumber(option2)] = {empty = element.state, full = element.parent["leaveFull__"..option2].state}
       end
     end
     if refresh then

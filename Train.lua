@@ -90,12 +90,12 @@ Train = {
     end,
 
     isWaiting = function(self)
-      return type(self.waiting) == "table" and self.settings.autoDepart
+      return type(self.waiting) == "table" --and self.settings.autoDepart
     end,
 
     waitingDone = function(self, done)
       if done then
-        self.waiting = false
+        --self.waiting = false
         self:nextStation()
       end
     end,
@@ -146,7 +146,7 @@ Train = {
               if d.type ~= nil then
                 sum[d.type] = sum[d.type] or 0
                 sum[d.type] = sum[d.type] + d.amount
-                --self:flyingText(d.type..": "..math.floor(d.amount), YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+                self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
               end
             end
           end
@@ -177,6 +177,66 @@ Train = {
         if liquids2[l] ~= false and liquids2[l] > 0 then c2[l] = liquids2[l] end
       end
       return (eq and not goodflow)
+    end,
+
+    isCargoEmpty = function(self)
+      local train = self.train
+      for i, wagon in pairs(train.carriages) do
+        if wagon.type == "cargo-wagon" then
+          if wagon.name ~= "rail-tanker" then
+            if not wagon.get_inventory(1).is_empty() then
+              return false
+            end
+          else
+            if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+              local d = remote.call("railtanker", "getLiquidByWagon", wagon)
+              if d.type ~= nil then
+                if math.floor(d.amount) > 0 then
+                  return false
+                end
+              end
+            end
+          end
+        end
+      end
+      return true
+    end,
+
+    isCargoFull = function(self)
+      local train = self.train
+      for i, wagon in pairs(train.carriages) do
+        if wagon.type == "cargo-wagon" then
+          if wagon.name ~= "rail-tanker" then
+            local inv = wagon.get_inventory(1)
+            --check if all slots are blocked
+            if inv.hasbar() and inv.getbar() == 0 then
+              return false
+            end
+            if inv.can_insert{name="railgun", count=1} then
+            --inserted railgun -> at least 1 slot is free
+              return false
+            end
+            -- check if all stacks are full
+            local contents = inv.get_contents()
+            for item, count in pairs(contents) do
+              if inv.can_insert{name=item, count=1} then
+                return false
+              end
+            end
+            -- all stacks are full, 
+          else
+            if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+              local d = remote.call("railtanker", "getLiquidByWagon", wagon)
+              if d.type ~= nil then
+                if math.ceil(d.amount) < 1250 then
+                  return false
+                end
+              end
+            end
+          end
+        end
+      end
+      return true
     end,
 
     updateState = function(self)

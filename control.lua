@@ -67,6 +67,8 @@ function initGlob()
   global.showFlyingText = global.showFlyingText or showFlyingText
   global.playerPage = global.playerPage or {}
 
+  global.guiData = global.guiData or {}
+
   global.settings = global.settings or defaultSettings
   global.settings.lines = global.settings.lines or {}
 
@@ -219,6 +221,17 @@ function ontrainchangedstate(event)
     local settings = global.trains[trainKey].settings
     local fuel = t:lowestFuel()
     local schedule = train.schedule
+    if train.state == defines.trainstate["manual_control_stop"] or train.state == defines.trainstate["manual_control"] then
+      for tick, trains in pairs(global.ticks) do 
+        for i, train in pairs(trains) do
+          if train == t then
+            train.waiting = false
+            train.refueling = false
+            trains[i] = nil
+          end
+        end
+      end
+    end
     if train.state == defines.trainstate["wait_station"] then
       t:updateLine()
       if settings.autoRefuel then
@@ -241,6 +254,9 @@ function ontrainchangedstate(event)
       --    end
     end
     if train.state == defines.trainstate["wait_station"] then
+      if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[schedule.current] then
+        t:startWaiting()
+      end
       if settings.autoDepart and schedule.records[schedule.current].station ~= t:refuelStation() and #schedule.records > 1 then
         t:startWaiting()
         t:flyingText("waiting", YELLOW)
@@ -286,13 +302,35 @@ function ontick(event)
             if train:isWaiting() then
               --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + global.settings.depart.minWait or train.waiting.lastCheck + global.settings.depart.interval
               if event.tick >= train.waiting.nextCheck then
-                local cargo = train:cargoCount()
-                local last = train.waiting.lastCheck
-                if train:cargoEquals(cargo, train.waiting.cargo, global.settings.depart.minFlow, event.tick - last) then
-                  train:flyingText("cargoCompare -> leave station", YELLOW)
-                  train:waitingDone(true)
-                else
-                  train:flyingText("cargoCompare -> stay at station", YELLOW)
+                local keepWaiting = nil
+                if train.line and global.trainLines[train.line] and global.trainLines[train.line].rules and global.trainLines[train.line].rules[train.train.schedule.current] then
+                  --Handle leave when full/empty rules here
+                  train:flyingText("checking full/empty rules", GREEN, {offset=-1})
+                  local rules = global.trainLines[train.line].rules[train.train.schedule.current]
+                  --debugDump(rules,true)
+                  if (rules.full and train:isCargoFull()) or (rules.empty and train:isCargoEmpty()) then
+                    train:waitingDone(true)
+                    train:flyingText("going to next", GREEN, {offset=-2})
+                    keepWaiting = false
+                  else
+                    train:flyingText("not full/empty", GREEN, {offset=-2})
+                    keepWaiting = true
+                  end
+                end
+                local cargo
+                if train.settings.autoDepart and (keepWaiting == nil or keepWaiting) then
+                  cargo = train:cargoCount()
+                  local last = train.waiting.lastCheck
+                  if train:cargoEquals(cargo, train.waiting.cargo, global.settings.depart.minFlow, event.tick - last) then
+                    train:flyingText("cargoCompare -> leave station", YELLOW)
+                    train:waitingDone(true)
+                    keepWaiting = false
+                  else
+                    train:flyingText("cargoCompare -> stay at station", YELLOW)
+                    keepWaiting = true
+                  end
+                end
+                if keepWaiting then
                   train.waiting.lastCheck = event.tick
                   train.waiting.cargo = cargo
                   local nextCheck = event.tick + global.settings.depart.interval
@@ -302,6 +340,8 @@ function ontick(event)
                   else
                     table.insert(global.ticks[nextCheck], train)
                   end
+                else
+                  train.waiting = false
                 end
               end
             end
@@ -343,9 +383,11 @@ function on_player_opened(event)
       local trainInfo = getTrainFromEntity(event.entity)
       removeInvalidTrains(true)
       GUI.create_or_update(trainInfo, event.player_index)
+      global.guiData[event.player_index] = {rules={}}
     elseif event.entity.type == "train-stop" then
       global.playerPage[event.player_index] = {schedule=1,lines=1}
       GUI.create_or_update(false, event.player_index)
+      global.guiData[event.player_index] = {rules={}}
     end
   end
 end
@@ -355,8 +397,10 @@ function on_player_closed(event)
     if event.entity.type == "locomotive" and event.entity.train then
       local name = event.entity.backer_name or event.entity.name
       GUI.destroy(event.player_index)
+      global.guiData[event.player_index] = nil
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)
+      global.guiData[event.player_index] = nil
     end
   end
 end
@@ -478,6 +522,7 @@ end
 
 function onentitydied(event)
   local status, err = pcall(function()
+    debugDump(event.entity.name)
     removeInvalidTrains(true)
   end)
   if not status then
