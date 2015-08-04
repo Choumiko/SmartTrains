@@ -34,13 +34,14 @@ YELLOW = {r = 0.8, g = 0.8}
 
 defines.trainstate["left_station"] = 11
 
-function util.formattime(ticks)
+function util.formattime(ticks, showTicks)
   if ticks then
     local seconds = ticks / 60
     local minutes = math.floor((seconds)/60)
     local seconds = math.floor(seconds - 60*minutes)
     local tick = ticks - (minutes*60*60+seconds*60)
-    return string.format("%d:%02d:%02d", minutes, seconds, tick)
+    local format = showTicks and "%d:%02d:%02d" or "%d:%02d"
+    return string.format(format, minutes, seconds, tick)
   else
     return "-"
   end
@@ -234,6 +235,7 @@ function ontrainchangedstate(event)
     end
     if train.state == defines.trainstate["wait_station"] then
       t:updateLine()
+      t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then
         if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= t:refuelStation() then
           t:removeRefuelStation()
@@ -247,6 +249,7 @@ function ontrainchangedstate(event)
     if t.advancedState == defines.trainstate["left_station"] then
       t.waiting = false
       t.refueling = false
+      t.departAt = false
       --    if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[train.schedule.current] then
       --      --Handle line rules here
       --      --t:flyingText("checking line rules", GREEN, {offset=-1})
@@ -255,11 +258,12 @@ function ontrainchangedstate(event)
     end
     if train.state == defines.trainstate["wait_station"] then
       if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[schedule.current] then
-        t:startWaiting()
+        t:startWaitingForRules()
+        t:flyingText("waiting (rules)", YELLOW)
       end
       if settings.autoDepart and schedule.records[schedule.current].station ~= t:refuelStation() and #schedule.records > 1 then
-        t:startWaiting()
-        t:flyingText("waiting", YELLOW)
+        t:startWaitingForAutoDepart()
+        t:flyingText("waiting (autodepart)", YELLOW)
       end
     elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] or train.state == defines.trainstate["on_the_path"] then
       if settings.autoRefuel then
@@ -282,6 +286,9 @@ function ontick(event)
       function()
         for i,train in pairs(global.ticks[event.tick]) do
           if train.train.valid then
+            if train.departAt then
+              train:flyingText("Leaving in "..util.formattime(train.departAt-event.tick), RED,{offset=-2})
+            end
             --for i,train in pairs(global.trains) do
             if train:isRefueling() then
               if event.tick >= train.refueling.nextCheck then
@@ -303,30 +310,31 @@ function ontick(event)
               --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + global.settings.depart.minWait or train.waiting.lastCheck + global.settings.depart.interval
               if event.tick >= train.waiting.nextCheck then
                 local keepWaiting = nil
-                if train.line and global.trainLines[train.line] and global.trainLines[train.line].rules and global.trainLines[train.line].rules[train.train.schedule.current] then
+                if  train:isWaitingForRules() then
                   --Handle leave when full/empty rules here
-                  train:flyingText("checking full/empty rules", GREEN, {offset=-1})
+                  --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
                   local rules = global.trainLines[train.line].rules[train.train.schedule.current]
                   --debugDump(rules,true)
                   if (rules.full and train:isCargoFull()) or (rules.empty and train:isCargoEmpty()) then
                     train:waitingDone(true)
-                    train:flyingText("going to next", GREEN, {offset=-2})
+                    train:flyingText("going to next", GREEN, {offset=-1})
                     keepWaiting = false
                   else
-                    train:flyingText("not full/empty", GREEN, {offset=-2})
+                    local txt = (rules.full and not train:isCargoFull()) and "full" or "empty" 
+                    train:flyingText("not "..txt, GREEN, {offset=-1})
                     keepWaiting = true
                   end
                 end
                 local cargo
-                if train.settings.autoDepart and (keepWaiting == nil or keepWaiting) then
+                if train:isWaitingForAutoDepart() and (keepWaiting == nil or keepWaiting) then
                   cargo = train:cargoCount()
                   local last = train.waiting.lastCheck
                   if train:cargoEquals(cargo, train.waiting.cargo, global.settings.depart.minFlow, event.tick - last) then
-                    train:flyingText("cargoCompare -> leave station", YELLOW)
+                    train:flyingText("cargoCompare: leave station", YELLOW)
                     train:waitingDone(true)
                     keepWaiting = false
                   else
-                    train:flyingText("cargoCompare -> stay at station", YELLOW)
+                    train:flyingText("cargoCompare: stay at station", YELLOW)
                     keepWaiting = true
                   end
                 end
@@ -398,6 +406,11 @@ function on_player_closed(event)
       local name = event.entity.backer_name or event.entity.name
       GUI.destroy(event.player_index)
       global.guiData[event.player_index] = nil
+      --set line version to -1, so it gets updated at the next station
+      local train = getTrainFromEntity(event.entity)
+      if train.line then
+        train.lineVersion = -1
+      end
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)
       global.guiData[event.player_index] = nil

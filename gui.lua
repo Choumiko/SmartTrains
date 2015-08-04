@@ -166,7 +166,7 @@ GUI = {
     local dated = " "
     if trainLine then
       line = trainLine.name
-      if trainLine.changed ~= t.lineVersion then dated = {"lbl-outdated"} end
+      if trainLine.changed ~= t.lineVersion and t.lineVersion >= 0 then dated = {"lbl-outdated"} end
     end
     local tableRows = GUI.add(gui, {type="table", name="rows", colspan=1})
     local checkboxes = GUI.add(tableRows, {type="table", name="checkboxes", colspan=2})

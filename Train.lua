@@ -79,7 +79,7 @@ Train = {
       end
     end,
 
-    startWaiting = function(self)
+    startWaitingForAutoDepart = function(self)
       self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
       local tick = self.waiting.nextCheck
       if not global.ticks[tick] then
@@ -89,8 +89,8 @@ Train = {
       end
     end,
 
-    isWaiting = function(self)
-      return type(self.waiting) == "table" --and self.settings.autoDepart
+    isWaitingForAutoDepart = function(self)
+      return type(self.waiting) == "table" and self.settings.autoDepart
     end,
 
     waitingDone = function(self, done)
@@ -98,6 +98,25 @@ Train = {
         --self.waiting = false
         self:nextStation()
       end
+    end,
+
+    startWaitingForRules = function(self)
+      self.waiting = {lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
+      local tick = self.waiting.nextCheck
+      if not global.ticks[tick] then
+        global.ticks[tick] = {self}
+      else
+        table.insert(global.ticks[tick], self)
+      end
+    end,
+    
+    isWaitingForRules = function(self)
+      local rules = self.line and global.trainLines[self.line] and global.trainLines[self.line].rules and global.trainLines[self.line].rules[self.train.schedule.current]
+      return type(self.waiting) == "table" and rules
+    end,
+    
+    isWaiting = function(self)
+      return type(self.waiting) == "table"
     end,
 
     lowestFuel = function(self)
@@ -213,7 +232,7 @@ Train = {
               return false
             end
             if inv.can_insert{name="railgun", count=1} then
-            --inserted railgun -> at least 1 slot is free
+              --inserted railgun -> at least 1 slot is free
               return false
             end
             -- check if all stacks are full
@@ -223,7 +242,7 @@ Train = {
                 return false
               end
             end
-            -- all stacks are full, 
+            -- all stacks are full,
           else
             if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
               local d = remote.call("railtanker", "getLiquidByWagon", wagon)
@@ -253,6 +272,9 @@ Train = {
       if self.line and global.trainLines[self.line] then
         local trainLine = global.trainLines[self.line]
         if self.line and trainLine.changed > self.lineVersion then
+          if self.lineVersion >= 0 then          
+            self:flyingText("updating schedule", YELLOW)
+          end        
           local waitingAt = self.train.schedule.records[self.train.schedule.current]
           self.train.manual_mode = true
           local schedule = {records={}}
@@ -270,7 +292,6 @@ Train = {
           self.settings.autoDepart = trainLine.settings.autoDepart
           self.train.manual_mode = false
           self.lineVersion = trainLine.changed
-          self:flyingText("updating schedule", YELLOW)
         end
       elseif self.line and not global.trainLines[self.line] then
         self:flyingText("Dettached from line", RED)
