@@ -79,6 +79,14 @@ Train = {
       end
     end,
 
+    currentStation = function(self)
+      if self.train.valid and type(self.train.schedule.records) == "table" then
+        return self.train.schedule.records[self.train.schedule.current].station
+      else
+        return false
+      end
+    end,
+
     startWaitingForAutoDepart = function(self)
       self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
       local tick = self.waiting.nextCheck
@@ -275,7 +283,8 @@ Train = {
           if self.lineVersion >= 0 then          
             self:flyingText("updating schedule", YELLOW)
           end        
-          local waitingAt = self.train.schedule.records[self.train.schedule.current]
+          local waitingAt = self.train.schedule.records[self.train.schedule.current] or {station="", time_to_wait=0}
+          local oldmode = self.train.manual_mode
           self.train.manual_mode = true
           local schedule = {records={}}
           for i, record in pairs(trainLine.records) do
@@ -290,7 +299,7 @@ Train = {
           self.train.schedule = schedule
           self.settings.autoRefuel = trainLine.settings.autoRefuel
           self.settings.autoDepart = trainLine.settings.autoDepart
-          self.train.manual_mode = false
+          self.train.manual_mode = oldmode
           self.lineVersion = trainLine.changed
         end
       elseif self.line and not global.trainLines[self.line] then

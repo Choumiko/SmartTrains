@@ -135,8 +135,9 @@ GUI = {
 
       GUI.addLabel(tbl, {"stg-min-flow-rate"})
       GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small"})
-      GUI.addLabel(tbl, {"stg-invalid-rules"})
-      GUI.add(tbl,{type="checkbox", name="forever", state=global.settings.lines.forever, caption={"stg-wait-forever"}})
+      --GUI.addLabel(tbl, {"stg-invalid-rules"})
+      GUI.addPlaceHolder(tbl, 2)
+      --GUI.add(tbl,{type="checkbox", name="forever", state=global.settings.lines.forever, caption={"stg-wait-forever"}})
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
@@ -166,7 +167,8 @@ GUI = {
     local dated = " "
     if trainLine then
       line = trainLine.name
-      if trainLine.changed ~= t.lineVersion and t.lineVersion >= 0 then dated = {"lbl-outdated"} end
+      if trainLine.changed ~= t.lineVersion and 
+      t.lineVersion >= 0 then dated = {"lbl-outdated"} end
     end
     local tableRows = GUI.add(gui, {type="table", name="rows", colspan=1})
     local checkboxes = GUI.add(tableRows, {type="table", name="checkboxes", colspan=2})
@@ -299,7 +301,7 @@ GUI = {
 
   showDynamicRules = function(index, line, page)
     --debugDump({i=index,line=line,station=stationKey, tr=trainKey}, true)
-    local gui = game.players[index].gui.left.stGui
+    local gui = game.players[index].gui[GUI.position].stGui
     if gui.dynamicRules ~= nil then
       gui.dynamicRules.destroy()
     end
@@ -319,7 +321,7 @@ GUI = {
       for i,s in pairs(records) do
         GUI.addLabel(tbl, {caption=i.." "..s.station})
         local states = {full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
-                        empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false}
+          empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false}
         GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
         GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"lbl-full"}, style="st_checkbox", state=states.full})
         GUI.addPlaceHolder(tbl)
@@ -343,13 +345,20 @@ GUI = {
 }
 
 function onguiclick(event)
+  local elementName = event.element.name
+  local fullName = ""
+  local e = event.element
+  while e.parent do
+    fullName = e.parent.name .. "."..fullName
+    e = e.parent.name
+  end
   local status, err = pcall(function()
     local index = event.player_index
     local player = game.players[index]
     local refresh = false
     local element = event.element
     local trainInfo = global.trains[getTrainKeyFromUI(index)]
-
+  
     --ST-Settings
     if element.name == "toggleSTSettings" then
       if player.gui[GUI.position].stGui.rows.globalSettings == nil then
@@ -376,7 +385,7 @@ function onguiclick(event)
       local minFlow = GUI.sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
       global.settings.depart = {interval = interval, minWait = minWait}
       global.settings.depart.minFlow = minFlow
-      global.settings.lines.forever = settings.forever.state
+      --global.settings.lines.forever = settings.forever.state
 
       refresh = true
     elseif element.name == "deleteLines" then
@@ -442,7 +451,7 @@ function onguiclick(event)
         --      global.guiData[index].rules[stationIndex].condition = newCaption
       elseif option1 == "editRules" then
         --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
-        GUI.destroyGui(player.gui[GUI.position].stGui.trainSettings)
+        GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
         GUI.showDynamicRules(index,option2)
       elseif option1 == "saveRules" then
         local line = option2
@@ -473,14 +482,11 @@ function onguiclick(event)
         option2 = tonumber(option2)
         local t = global.trains[option2]
         if name ~= "" and t and #t.train.schedule.records > 0 then
-          local changed = game.tick
           if not global.trainLines[name] then global.trainLines[name] = {name=name} end
+          local changed = game.tick
           global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
           global.trainLines[name].records = t.train.schedule.records
           global.trainLines[name].changed = changed
-          local schedule = t.train.schedule
-          schedule.records = global.trainLines[name].records
-          t.train.schedule = schedule
           t.line = name
           t.lineVersion = changed
         end
@@ -546,10 +552,13 @@ function onguiclick(event)
         local t = global.trains[trainKey]
         if t.line ~= li then
           t.line = li
+          if t.train.speed == 0 then
+            t:updateLine()
+          end
         else
           t.line = false
         end
-        t.lineVersion = 0
+        t.lineVersion = -1
         --refresh = true
         GUI.create_or_update(t,index)
       elseif option1 == "prevPageTrain" then
@@ -587,6 +596,6 @@ function onguiclick(event)
     end
   end)
   if not status then
-    pauseError(err, {"on_gui_click", event.element.name})
+    pauseError(err, {"on_gui_click", fullName})
   end
 end

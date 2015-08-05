@@ -73,9 +73,7 @@ function initGlob()
   global.settings = global.settings or defaultSettings
   global.settings.lines = global.settings.lines or {}
 
-  if global.settings.lines.forever == nil then
-    global.settings.lines.forever = false
-  end
+  global.settings.lines.forever = false
 
   global.settings.stationsPerPage = stationsPerPage
   global.settings.linesPerPage = linesPerPage
@@ -237,10 +235,10 @@ function ontrainchangedstate(event)
       t:updateLine()
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then
-        if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and schedule.records[schedule.current].station ~= t:refuelStation() then
+        if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
         end
-        if schedule.records[schedule.current].station == t:refuelStation() then
+        if t:currentStation() == t:refuelStation() then
           t:startRefueling()
           t:flyingText("refueling", YELLOW)
         end
@@ -260,7 +258,7 @@ function ontrainchangedstate(event)
       if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[schedule.current] then
         t:startWaitingForRules()
       end
-      if settings.autoDepart and schedule.records[schedule.current].station ~= t:refuelStation() and #schedule.records > 1 then
+      if settings.autoDepart and t:currentStation() ~= t:refuelStation() and #schedule.records > 1 then
         t:startWaitingForAutoDepart()
       end
       if t:isWaiting() then
@@ -409,7 +407,7 @@ function on_player_closed(event)
       global.guiData[event.player_index] = nil
       --set line version to -1, so it gets updated at the next station
       local train = getTrainFromEntity(event.entity)
-      if train.line then
+      if train.line and train.lineVersion ~= 0 then
         train.lineVersion = -1
       end
     elseif event.entity.type == "train-stop" then
