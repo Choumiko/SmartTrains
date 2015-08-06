@@ -69,6 +69,8 @@ function initGlob()
   global.playerPage = global.playerPage or {}
 
   global.guiData = global.guiData or {}
+  global.openedName = global.openedName or {}
+  global.stationCount = global.stationCount or {}
 
   global.settings = global.settings or defaultSettings
   global.settings.lines = global.settings.lines or {}
@@ -91,7 +93,12 @@ function initGlob()
       end
     end
   end
-  global.version = "0.3.0"
+  if global.version < "0.3.2" then
+    global.stationCount = {}
+    findStations()
+    saveGlob("stations")
+  end
+  global.version = "0.3.2"
 end
 
 function oninit() initGlob() end
@@ -395,6 +402,7 @@ function on_player_opened(event)
       global.playerPage[event.player_index] = {schedule=1,lines=1}
       GUI.create_or_update(false, event.player_index)
       global.guiData[event.player_index] = {rules={}}
+      global.openedName[event.player_index] = event.entity.backer_name
     end
   end
 end
@@ -413,6 +421,61 @@ function on_player_closed(event)
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)
       global.guiData[event.player_index] = nil
+      if event.entity.backer_name ~= global.openedName[event.player_index] then
+        on_station_rename(event.entity, global.openedName[event.player_index])
+      end
+    end
+  end
+end
+
+function on_station_rename(station, oldName)
+  local oldc = decreaseStationCount(oldName)
+  local newc = increaseStationCount(station.backer_name)
+  if oldc == 0 then
+    renameStation(station.backer_name, oldName)
+  end
+end
+
+function decreaseStationCount(name)
+  if not global.stationCount[name] then
+    global.stationCount[name] = 1
+  end
+  global.stationCount[name] = global.stationCount[name] - 1
+  if global.stationCount[name] == 0 then
+    local found = false
+    for line, data in pairs(global.trainLines) do
+      for i, record in pairs(data.records) do
+        if record.station == name then
+          found = true
+          break
+        end
+      end
+    end
+    if not found then 
+      global.stationCount[name] = nil
+      return 0
+    end
+  end
+  return global.stationCount[name]
+end
+
+function increaseStationCount(name)
+  if not global.stationCount[name] or global.stationCount[name] < 0 then
+    global.stationCount[name] = 0
+  end
+  global.stationCount[name] = global.stationCount[name] + 1
+  return global.stationCount[name]
+end
+
+function renameStation(newName, oldName)
+  --update global.trainLines with new name
+  debugDump("Updating lines",true)
+  for line, data in pairs(global.trainLines) do
+    for i, record in pairs(data.records) do
+      if record.station == oldName then
+        debugDump("Line "..line.." changed: "..oldName.." to "..newName,true)
+        record.station = newName
+      end
     end
   end
 end
@@ -463,6 +526,9 @@ function onbuiltentity(event)
       local newTrainInfo = getTrainFromEntity(ent)
       removeInvalidTrains(true)
     end
+    if ctype == "train-stop" then
+      increaseStationCount(ent.backer_name)
+    end
   end)
   if not status then
     pauseError(err, "on_built_entity")
@@ -494,6 +560,9 @@ function onpreplayermineditem(event)
           table.insert(tmpPos, ent.train.carriages[ownPos+1].position)
         end
       end
+    end
+    if ctype == "train-stop" then
+      decreaseStationCount(ent.backer_name)
     end
   end)
   if not status then
@@ -536,9 +605,24 @@ function onentitydied(event)
   local status, err = pcall(function()
     debugDump(event.entity.name)
     removeInvalidTrains(true)
+    if event.entity.type == "train-stop" then
+      decreaseStationCount(event.entity.backer_name)
+    end
   end)
   if not status then
     pauseError(err, "on_entity_died")
+  end
+end
+
+function on_robot_built_entity(event)
+  if event.entity.type == "train-stop" then
+    increaseStationCount(event.entity.backer_name)
+  end
+end
+
+function on_robot_pre_mined(event)
+  if event.entity.type == "train-stop" then
+    decreaseStationCount(event.entity.backer_name)
   end
 end
 
@@ -632,6 +716,41 @@ function pauseError(err, desc)
   global.error = nil
 end
 
+function stationKey(station)
+  return station.position.x..":"..station.position.y
+end
+
+function findStations()
+
+  -- create shorthand object for primary game surface
+  local surface = game.surfaces['nauvis']
+
+  -- determine map size
+  local min_x, min_y, max_x, max_y = 0, 0, 0, 0
+  for c in surface.get_chunks() do
+    if c.x < min_x then
+      min_x = c.x
+    elseif c.x > max_x then
+      max_x = c.x
+    end
+    if c.y < min_y then
+      min_y = c.y
+    elseif c.y > max_y then
+      max_y = c.y
+    end
+  end
+
+  -- create bounding box covering entire generated map
+  local bounds = {{min_x*32,min_y*32},{max_x*32,max_y*32}}
+  for _, station in pairs(surface.find_entities_filtered{area=bounds, type="train-stop"}) do
+    local key = stationKey(station)
+    if not global.stationCount[station.backer_name] then
+      global.stationCount[station.backer_name] = 0
+    end
+    global.stationCount[station.backer_name] = global.stationCount[station.backer_name] + 1
+  end
+end
+
 game.on_init(oninit)
 game.on_load(onload)
 game.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
@@ -640,6 +759,8 @@ game.on_event(defines.events.on_preplayer_mined_item, onpreplayermineditem)
 game.on_event(defines.events.on_entity_died, onentitydied)
 game.on_event(defines.events.on_built_entity, onbuiltentity)
 game.on_event(defines.events.on_gui_click, onguiclick)
+game.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
+game.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
 --game.on_event(defines.events.on_player_created, onplayercreated)
 game.on_event(defines.events.on_tick, ontick)
 

@@ -141,7 +141,16 @@ GUI = {
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
-      GUI.addPlaceHolder(tbl, 2)
+      local noStations, uniqueStations = 0,0
+      for _,station in pairs(global.stationCount) do
+        if station > 0 then
+          noStations = noStations + station
+          uniqueStations = uniqueStations + 1
+        end
+      end
+      GUI.addLabel(tbl,"Stations: "..uniqueStations.."/"..noStations)
+
+      GUI.addPlaceHolder(tbl)
       GUI.addButton(tbl, {name="globalSettingsSave", caption="Save"})
 
       tbl.refuelRangeMin.text = global.settings.refuel.rangeMin
@@ -167,8 +176,8 @@ GUI = {
     local dated = " "
     if trainLine then
       line = trainLine.name
-      if trainLine.changed ~= t.lineVersion and 
-      t.lineVersion >= 0 then dated = {"lbl-outdated"} end
+      if trainLine.changed ~= t.lineVersion and
+        t.lineVersion >= 0 then dated = {"lbl-outdated"} end
     end
     local tableRows = GUI.add(gui, {type="table", name="rows", colspan=1})
     local checkboxes = GUI.add(tableRows, {type="table", name="checkboxes", colspan=2})
@@ -217,9 +226,17 @@ GUI = {
     GUI.addButton(btns, {name="readSchedule__"..trainKey..lineKey, caption={"lbl-read-from-ui"}})
     local pages = GUI.add(btns, {type="flow", name="pages", direction="horizontal"})
     if #records > spp then
-      GUI.addButton(pages, {name="prevPageTrain__"..page, caption="<"})
+      if page > 1 then
+        GUI.addButton(pages, {name="prevPageTrain__"..page, caption="<"})
+      else
+        GUI.addLabel(pages, "< ")
+      end
       GUI.addLabel(pages, page.."/"..math.ceil(#records/spp))
-      GUI.addButton(pages, {name="nextPageTrain__"..page, caption=">"})
+      if math.ceil(#records/spp) >= page+1 then
+        GUI.addButton(pages, {name="nextPageTrain__"..page, caption=">"})
+      else
+        GUI.addLabel(pages, " >")
+      end
     else
       GUI.addPlaceHolder(pages)
     end
@@ -286,9 +303,17 @@ GUI = {
       end
       local btns = GUI.add(gui, {type="table", name="btns", colspan=6})
       if dirty > spp then
-        GUI.addButton(btns, {name="prevPageLine__"..page, caption="<"})
+        if page > 1 then
+          GUI.addButton(btns, {name="prevPageLine__"..page, caption="<"})
+        else
+          GUI.addLabel(btns, "< ")
+        end
         GUI.addLabel(btns, page.."/"..math.ceil(dirty/spp))
-        GUI.addButton(btns, {name="nextPageLine__"..page, caption=">"})
+        if max < c then
+          GUI.addButton(btns, {name="nextPageLine__"..page, caption=">"})
+        else
+          GUI.addLabel(btns, " >")
+        end
       else
         GUI.addPlaceHolder(btns)
       end
@@ -335,8 +360,14 @@ GUI = {
     local name = string.gsub(name, "_", " ")
     name = string.gsub(name, "^%s", "")
     name = string.gsub(name, "%s$", "")
-    name = string.gsub(name, "#", "")
-    return name
+    local pattern = "(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)"
+    local element = "activeLine__"..name.."__".."something"
+    local t1,t2,t3,t4 = element.match(pattern)
+    if t1 == "activeLine" and t2 == name and t3 == "something" then
+      return name
+    else
+      return false
+    end
   end,
 
   sanitizeNumber = function(number, default)
@@ -358,7 +389,7 @@ function onguiclick(event)
     local refresh = false
     local element = event.element
     local trainInfo = global.trains[getTrainKeyFromUI(index)]
-  
+
     --ST-Settings
     if element.name == "toggleSTSettings" then
       if player.gui[GUI.position].stGui.rows.globalSettings == nil then
@@ -393,7 +424,7 @@ function onguiclick(event)
       local trainKey
       for i, child in pairs(group.children_names) do
         --local pattern = "(%w+)__([%w%s]*)_*([%w%s]*)_*(%w*)"
-        local pattern = "(markedDelete)__([%w%s]*)_*(%d*)"
+        local pattern = "(markedDelete)__([%w%s%-%#%!%$]*)_*(%d*)"
         local del, line, trainkey = child:match(pattern)
         if del and group[child].state == true then
           trainKey = tonumber(trainkey)
@@ -407,9 +438,10 @@ function onguiclick(event)
           end
         end
       end
+      global.playerPage[index].line = 1
       refresh = true
     else
-      local option1, option2, option3, option4 = event.element.name:match("(%w+)__([%w%s]*)_*([%w%s]*)_*(%w*)")
+      local option1, option2, option3, option4 = event.element.name:match("(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)")
       do
         local option1 = option1 or ""
         local option2 = option2 or ""
@@ -479,16 +511,20 @@ function onguiclick(event)
       elseif option1 == "saveAsLine" then
         local name = player.gui[GUI.position].stGui.rows.trainSettings.rows.btns.saveAslineName.text
         name = GUI.sanitizeName(name)
-        option2 = tonumber(option2)
-        local t = global.trains[option2]
-        if name ~= "" and t and #t.train.schedule.records > 0 then
-          if not global.trainLines[name] then global.trainLines[name] = {name=name} end
-          local changed = game.tick
-          global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
-          global.trainLines[name].records = t.train.schedule.records
-          global.trainLines[name].changed = changed
-          t.line = name
-          t.lineVersion = changed
+        if name ~= false then
+          option2 = tonumber(option2)
+          local t = global.trains[option2]
+          if name ~= "" and t and #t.train.schedule.records > 0 then
+            if not global.trainLines[name] then global.trainLines[name] = {name=name} end
+            local changed = game.tick
+            global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
+            global.trainLines[name].records = t.train.schedule.records
+            global.trainLines[name].changed = changed
+            t.line = name
+            t.lineVersion = changed
+          end
+        else
+          debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true)
         end
         refresh = true
       elseif option1 == "lineRefuel" then
@@ -525,7 +561,7 @@ function onguiclick(event)
         local count=0
         local newName = player.gui[GUI.position].stGui.rows.trainLines.btns.newName.text
         for i, child in pairs(group.children_names) do
-          local pattern = "(markedDelete)__([%w%s]*)_*(%d*)"
+          local pattern = "(markedDelete)__([%w%s%-%#%!%$]*)_*(%d*)"
           local del, line, trainkey = child:match(pattern)
           if del and group[child].state == true then
             count = count+1
@@ -534,15 +570,19 @@ function onguiclick(event)
         end
         if count == 1 then
           newName = GUI.sanitizeName(newName)
-          if newName ~= "" and not global.trainLines[newName] then
-            global.trainLines[newName] = table.deepcopy(global.trainLines[rename])
-            global.trainLines[newName].name = newName
-            global.trainLines[rename] = nil
-            for i,t in pairs(global.trains) do
-              if t.line == rename then
-                t.line = newName
+          if newName ~= false then
+            if newName ~= "" and not global.trainLines[newName] then
+              global.trainLines[newName] = table.deepcopy(global.trainLines[rename])
+              global.trainLines[newName].name = newName
+              global.trainLines[rename] = nil
+              for i,t in pairs(global.trains) do
+                if t.line == rename then
+                  t.line = newName
+                end
               end
             end
+          else
+            debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true)
           end
           refresh = true
         end
@@ -552,6 +592,7 @@ function onguiclick(event)
         local t = global.trains[trainKey]
         if t.line ~= li then
           t.line = li
+          t.lineVersion = -1
           if t.train.speed == 0 then
             t:updateLine()
           end
