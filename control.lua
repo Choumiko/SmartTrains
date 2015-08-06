@@ -615,8 +615,8 @@ function onentitydied(event)
 end
 
 function on_robot_built_entity(event)
-  if event.entity.type == "train-stop" then
-    increaseStationCount(event.entity.backer_name)
+  if event.created_entity.type == "train-stop" then
+    increaseStationCount(event.created_entity.backer_name)
   end
 end
 
