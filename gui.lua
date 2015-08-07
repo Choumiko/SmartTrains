@@ -342,13 +342,17 @@ GUI = {
       local tbl = GUI.add(gui, {type="table", name="tbl", colspan=4, style="st_table"})
       GUI.addLabel(tbl, {"lbl-station"})
       GUI.addLabel(tbl, {"lbl-leave-when"})
-      GUI.addPlaceHolder(tbl, 2)
+      GUI.addPlaceHolder(tbl,2)
+      --GUI.addLabel(tbl, {"lbl-keepWaiting"})
       for i,s in pairs(records) do
         GUI.addLabel(tbl, {caption=i.." "..s.station})
         local states = {full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
-          empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false}
+          empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false}--,
+          --keepWaiting = false}
+        --states.keepWaiting = rules[i] and rules[i].keepWaiting or false 
         GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
         GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"lbl-full"}, style="st_checkbox", state=states.full})
+        --GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, state=states.keepWaiting})     
         GUI.addPlaceHolder(tbl)
       end
       GUI.addButton(gui, {name="saveRules__"..line, caption="Save"})
@@ -362,7 +366,7 @@ GUI = {
     name = string.gsub(name, "%s$", "")
     local pattern = "(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)"
     local element = "activeLine__"..name.."__".."something"
-    local t1,t2,t3,t4 = element.match(pattern)
+    local t1,t2,t3,t4 = element:match(pattern)
     if t1 == "activeLine" and t2 == name and t3 == "something" then
       return name
     else
@@ -624,12 +628,29 @@ function onguiclick(event)
         if element.state == true and element.parent["leaveEmpty__"..option2].state == true then
           element.parent["leaveEmpty__"..option2].state = false
         end
-        global.guiData[index].rules[tonumber(option2)] = {full = element.state, empty = element.parent["leaveEmpty__"..option2].state}
+        local rules = global.guiData[index].rules[tonumber(option2)] or {}
+        rules.full = element.state
+        rules.empty = element.parent["leaveEmpty__"..option2].state
+        --rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+        global.guiData[index].rules[tonumber(option2)] = rules
       elseif option1 == "leaveEmpty" then
         if element.state == true and element.parent["leaveFull__"..option2].state == true then
           element.parent["leaveFull__"..option2].state = false
         end
-        global.guiData[index].rules[tonumber(option2)] = {empty = element.state, full = element.parent["leaveFull__"..option2].state}
+        local rules = global.guiData[index].rules[tonumber(option2)] or {}
+        rules.empty = element.state
+        rules.full = element.parent["leaveFull__"..option2].state
+        --rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+        global.guiData[index].rules[tonumber(option2)] = rules
+      elseif option1 == "keepWaiting" then
+        local rules = global.guiData[index].rules[tonumber(option2)] or {}
+        rules.empty = element.parent["leaveEmpty__"..option2].state
+        rules.full = element.parent["leaveFull__"..option2].state
+        if not (rules.empty or rules.full) then
+          element.state = false
+        end
+        --rules.keepWaiting = element.state      
+        global.guiData[index].rules[tonumber(option2)] = rules
       end
     end
     if refresh then
