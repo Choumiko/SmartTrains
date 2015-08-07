@@ -10,7 +10,8 @@ Train = {
           settings = {},
           waiting = false,
           refueling = false,
-          advancedState = false
+          advancedState = false,
+          --manualMode = train.manual_mode
         }
         new.settings.autoDepart = defaultTrainSettings.autoDepart
         new.settings.autoRefuel = defaultTrainSettings.autoRefuel
@@ -27,6 +28,7 @@ Train = {
 
     getType = function(self)
       local type = string.rep("L",#self.train.locomotives.front_movers).."-"..string.rep("C", #self.train.cargo_wagons).."-"..string.rep("L",#self.train.locomotives.back_movers)
+      type = string.gsub(type, "L%-%-L", "LL")
       return string.gsub(string.gsub(type, "^-", ""), "-$", "")
     end,
 
@@ -34,9 +36,9 @@ Train = {
       debugDump(self.name, true)
     end,
 
-    nextStation = function(self)
+    nextStation = function(self, force)
       local train = self.train
-      if train.manual_mode == false then
+      if train.manual_mode == false or force then
         local schedule = train.schedule
         local tmp = (schedule.current % #schedule.records) + 1
         train.manual_mode = true
@@ -47,7 +49,14 @@ Train = {
     end,
 
     refuelStation = function(self)
-      return global.settings.refuel.station.. " "..self:getType()
+      local station = global.settings.refuel.station
+      local refuelStation = station.." "..self:getType()
+      for name, c in pairs(global.stationCount) do
+        if name == refuelStation then
+          return refuelStation
+        end
+      end
+      return station
     end,
 
     startRefueling = function(self)
@@ -86,7 +95,7 @@ Train = {
         return false
       end
     end,
-
+    
     startWaitingForAutoDepart = function(self)
       self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
       local tick = self.waiting.nextCheck
@@ -98,31 +107,47 @@ Train = {
     end,
 
     isWaitingForAutoDepart = function(self)
-      return type(self.waiting) == "table" and type(self.waiting.cargo) == "table" and self.settings.autoDepart
+      return type(self.waiting) == "table" and type(self.waiting.cargo) == "table" and self.settings.autoDepart --and self.train.manual_mode == false
     end,
 
     waitingDone = function(self, done)
       if done then
-        --self.waiting = false
-        self:nextStation()
+        local force = self.waitForever or false
+        self.waiting = false
+        self:nextStation(force)
+        --debugDump("waitForever unset")
+        self.waitForever = false
       end
     end,
 
     startWaitingForRules = function(self)
-      self.waiting = {lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
-      local tick = self.waiting.nextCheck
-      if not global.ticks[tick] then
-        global.ticks[tick] = {self}
-      else
-        table.insert(global.ticks[tick], self)
+      if not self.waiting then
+        self.waiting = {lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
+        local tick = self.waiting.nextCheck
+        local rules = (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
+        self.waitForever = false
+        if rules and rules.keepWaiting then
+          --debugDump(util.formattime(game.tick,true).." waitForever set",true)
+          self.waitForever = true
+          if not global.stopTick[tick+5] then
+            global.stopTick[game.tick+5] = {self}
+          else
+            table.insert(global.stopTick[game.tick+5], self)
+          end
+        end
+        if not global.ticks[tick] then
+          global.ticks[tick] = {self}
+        else
+          table.insert(global.ticks[tick], self)
+        end
       end
     end,
-    
+
     isWaitingForRules = function(self)
       local rules = self.line and global.trainLines[self.line] and global.trainLines[self.line].rules and global.trainLines[self.line].rules[self.train.schedule.current]
       return type(self.waiting) == "table" and rules
     end,
-    
+
     isWaiting = function(self)
       return type(self.waiting) == "table"
     end,
@@ -267,6 +292,7 @@ Train = {
     end,
 
     updateState = function(self)
+      --debugDump(util.formattime(game.tick,true).."@ "..getKeyByValue(defines.trainstate, self.train.state),true)
       self.previousState = self.state
       self.state = self.train.state
       if self.previousState == defines.trainstate["wait_station"] and self.state == defines.trainstate["on_the_path"] then
@@ -280,9 +306,9 @@ Train = {
       if self.line and global.trainLines[self.line] then
         local trainLine = global.trainLines[self.line]
         if self.line and trainLine.changed > self.lineVersion then
-          if self.lineVersion >= 0 then          
+          if self.lineVersion >= 0 then
             self:flyingText("updating schedule", YELLOW)
-          end        
+          end
           local waitingAt = self.train.schedule.records[self.train.schedule.current] or {station="", time_to_wait=0}
           local oldmode = self.train.manual_mode
           self.train.manual_mode = true
@@ -304,6 +330,7 @@ Train = {
         end
       elseif self.line and not global.trainLines[self.line] then
         self:flyingText("Dettached from line", RED)
+        self.waitForever = false
         self.line = false
         self.lineVersion = false
       end

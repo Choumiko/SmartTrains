@@ -64,6 +64,7 @@ function initGlob()
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
   global.ticks = global.ticks or {}
+  --global.stopTick = global.stopTick or {}
   global.player_opened = global.player_opened or {}
   global.showFlyingText = global.showFlyingText or showFlyingText
   global.playerPage = global.playerPage or {}
@@ -98,13 +99,28 @@ function initGlob()
     findStations()
     saveGlob("stations")
   end
-  global.version = "0.3.2"
+  if global.version < "0.3.2" then
+    for _, t in pairs(global.trains) do
+      if t.train.valid and t.waitForever == nil then
+        t.waitForever = false
+      end
+    end
+    for _, line in pairs(global.trainLines) do
+      if type(line.rules) == "table" then
+        for _2, rule in pairs(line.rules) do
+          if rule.keepWaiting == nil then
+            rule.keepWaiting = false
+          end
+        end
+      end
+    end
+  end
+  global.version = "0.3.3"
 end
 
 function oninit() initGlob() end
 
 function onload()
-  --global.version = nil --uncomment this line for a hard reset (all SmartTrain settings will be lost)
   initGlob()
   local rem = removeInvalidTrains()
   if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
@@ -231,9 +247,11 @@ function ontrainchangedstate(event)
       for tick, trains in pairs(global.ticks) do
         for i, train in pairs(trains) do
           if train == t then
-            train.waiting = false
-            train.refueling = false
-            trains[i] = nil
+            if not train.waitForever then
+              train.waiting = false
+              train.refueling = false
+              trains[i] = nil
+            end
           end
         end
       end
@@ -250,6 +268,23 @@ function ontrainchangedstate(event)
           t:flyingText("refueling", YELLOW)
         end
       end
+      if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[schedule.current] then
+        t:startWaitingForRules()
+      end
+      if settings.autoDepart and t:currentStation() ~= t:refuelStation() and #schedule.records > 1 then
+        t:startWaitingForAutoDepart()
+      end
+      if t:isWaiting() then
+        --debugDump("waiting",true)
+        t:flyingText("waiting", YELLOW)
+      end
+    elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] or train.state == defines.trainstate["on_the_path"] then
+      if settings.autoRefuel then
+        if fuel < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(t:refuelStation(), schedule) then
+          train.schedule = addStation(t:refuelStation(), schedule, global.settings.refuel.time)
+          t:flyingText("Refuel station added", YELLOW)
+        end
+      end
     end
     if t.advancedState == defines.trainstate["left_station"] then
       t.waiting = false
@@ -261,24 +296,6 @@ function ontrainchangedstate(event)
       --      t:nextValidStation()
       --    end
     end
-    if train.state == defines.trainstate["wait_station"] then
-      if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[schedule.current] then
-        t:startWaitingForRules()
-      end
-      if settings.autoDepart and t:currentStation() ~= t:refuelStation() and #schedule.records > 1 then
-        t:startWaitingForAutoDepart()
-      end
-      if t:isWaiting() then
-        t:flyingText("waiting", YELLOW)
-      end
-    elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] or train.state == defines.trainstate["on_the_path"] then
-      if settings.autoRefuel then
-        if fuel < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(t:refuelStation(), schedule) then
-          train.schedule = addStation(t:refuelStation(), schedule, global.settings.refuel.time)
-          t:flyingText("Refuel station added", YELLOW)
-        end
-      end
-    end
   end
   )
   if not status then
@@ -287,13 +304,26 @@ function ontrainchangedstate(event)
 end
 
 function ontick(event)
+  if global.stopTick[event.tick] then
+    local status,err = pcall(
+      function()
+        for i,train in pairs(global.stopTick[event.tick]) do
+          if train.train.valid then
+            train.train.manual_mode = true
+            --debugDump("manual mode set",true)
+          end
+        end
+        global.stopTick[event.tick] = nil
+      end)
+  end
   if global.ticks[event.tick] then
     local status,err = pcall(
       function()
         for i,train in pairs(global.ticks[event.tick]) do
           if train.train.valid then
             if train.departAt then
-              train:flyingText("Leaving in "..util.formattime(train.departAt-event.tick), RED,{offset=-2})
+              local text = train.waitForever and "waiting forever" or "Leaving in "..util.formattime(train.departAt-event.tick)
+              train:flyingText(text, RED,{offset=-2})
             end
             --for i,train in pairs(global.trains) do
             if train:isRefueling() then
@@ -328,11 +358,12 @@ function ontick(event)
                     keepWaiting = false
                   else
                     local txt = (rules.full and not train:isCargoFull()) and "full" or "empty"
-                    train:flyingText("not "..txt, YELLOW, {offset=-1})
+                    if rules.full or rules.empty then
+                      train:flyingText("not "..txt, YELLOW, {offset=-1})
+                    end
                     keepWaiting = true
                   end
-                end
-                if train:isWaitingForAutoDepart() and (keepWaiting == nil or keepWaiting) then
+                elseif train:isWaitingForAutoDepart() and (keepWaiting == nil or keepWaiting) then
                   cargo = train:cargoCount()
                   local last = train.waiting.lastCheck
                   if train:cargoEquals(cargo, train.waiting.cargo, global.settings.depart.minFlow, event.tick - last) then
@@ -344,7 +375,7 @@ function ontick(event)
                     keepWaiting = true
                   end
                 end
-                if keepWaiting then
+                if keepWaiting and train.train.speed == 0 then
                   train.waiting.lastCheck = event.tick
                   train.waiting.cargo = cargo
                   local nextCheck = event.tick + global.settings.depart.interval
@@ -356,6 +387,7 @@ function ontick(event)
                   end
                 else
                   train.waiting = false
+                  train.waitForever = false
                 end
               end
             end
@@ -451,7 +483,7 @@ function decreaseStationCount(name)
         end
       end
     end
-    if not found then 
+    if not found then
       global.stationCount[name] = nil
       return 0
     end
