@@ -64,7 +64,7 @@ function initGlob()
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
   global.ticks = global.ticks or {}
-  --global.stopTick = global.stopTick or {}
+  global.stopTick = global.stopTick or {}
   global.player_opened = global.player_opened or {}
   global.showFlyingText = global.showFlyingText or showFlyingText
   global.playerPage = global.playerPage or {}
@@ -99,7 +99,7 @@ function initGlob()
     findStations()
     saveGlob("stations")
   end
-  if global.version < "0.3.2" then
+  if global.version < "0.3.4" then
     for _, t in pairs(global.trains) do
       if t.train.valid and t.waitForever == nil then
         t.waitForever = false
@@ -115,7 +115,7 @@ function initGlob()
       end
     end
   end
-  global.version = "0.3.3"
+  global.version = "0.3.4"
 end
 
 function oninit() initGlob() end
