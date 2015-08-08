@@ -142,14 +142,22 @@ function addPos(p1,p2)
   return {x=p1.x+p2.x, y=p1.y+p2.y}
 end
 
+function expandPos(pos, range)
+  local range = range or 0.5
+  if not pos or not pos.x then error("invalid pos",3) end
+  return {{pos.x - range, pos.y - range}, {pos.x + range, pos.y + range}}
+end
+
 function createProxy(trainstop)
   local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
   local pos = addPos(trainstop.position, offset[trainstop.direction])
   
   local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.force, position=pos}
   local ent = trainstop.surface.create_entity(proxy)
-  debugDump(ent,true)
-  global.smartTrainstops[stationKey(trainstop)] = {entity = trainstop, proxy=ent}
+  if ent.valid then
+    global.smartTrainstops[stationKey(trainstop)] = {entity = trainstop, proxy=ent}
+    ent.minable = false
+  end
 end
 
 function removeProxy(trainstop)
@@ -160,6 +168,24 @@ function removeProxy(trainstop)
     end
     global.smartTrainstops[stationKey(trainstop)] = nil
   end
+end
+
+function findSmartTrainStopByTrain(train, stationName)
+  local areas = {expandPos(train.carriages[1].position, 3), expandPos(train.carriages[#train.carriages].position, 3)}
+  local surface = train.carriages[1].surface
+  local found = false
+  for _,area in pairs(areas) do
+    for _1, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
+      flyingText("S", GREEN, station.position, true)
+      if station.backer_name == stationName then
+        --debugDump("found",true)
+        found = station
+        break
+      end
+      if found then break end
+    end
+  end
+  return found
 end
 
 function removeInvalidTrains(show)
@@ -383,14 +409,19 @@ function ontick(event)
                   --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
                   local rules = global.trainLines[train.line].rules[train.train.schedule.current]
                   --debugDump(rules,true)
-                  if (rules.full and train:isCargoFull()) or (rules.empty and train:isCargoEmpty()) then
-                    train:waitingDone(true)
-                    train:flyingText("leave station", YELLOW, {offset=-1})
+                  if (rules.full and train:isCargoFull()) or (rules.empty and train:isCargoEmpty())
+                    or (rules.waitForCircuit and train:getCircuitSignal())then
+                    local jump = rules.waitForCircuit and rules.jumpTo or false
+                    train:waitingDone(true, jump)
+                    if not rules.jumpTo then
+                      train:flyingText("leave station", YELLOW, {offset=-1})
+                    end
                     keepWaiting = false
                   else
-                    local txt = (rules.full and not train:isCargoFull()) and "full" or "empty"
-                    if rules.full or rules.empty then
-                      train:flyingText("not "..txt, YELLOW, {offset=-1})
+                    local txt = (rules.full and not train:isCargoFull()) and "not full" or "not empty"
+                    txt = rules.waitForCircuit and "waiting for circuit" or txt
+                    if rules.full or rules.empty or rules.waitForCircuit then
+                      train:flyingText(txt, YELLOW, {offset=-1})
                     end
                     keepWaiting = true
                   end
@@ -795,6 +826,7 @@ function pauseError(err, desc)
 end
 
 function stationKey(station)
+  if type(station) == "boolean" then error("wrong type", 2) end
   return station.position.x..":"..station.position.y
 end
 

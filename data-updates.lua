@@ -1,3 +1,9 @@
+table.insert(data.raw["technology"]["automated-rail-transportation"].effects,
+  {
+    type="unlock-recipe",
+    recipe = "smart-train-stop"
+  })  
+
 for k,prototype in pairs(data.raw["fluid"]) do
   data:extend(
     {

@@ -11,7 +11,7 @@ Train = {
           waiting = false,
           refueling = false,
           advancedState = false,
-          --manualMode = train.manual_mode
+        --manualMode = train.manual_mode
         }
         new.settings.autoDepart = defaultTrainSettings.autoDepart
         new.settings.autoRefuel = defaultTrainSettings.autoRefuel
@@ -36,11 +36,15 @@ Train = {
       debugDump(self.name, true)
     end,
 
-    nextStation = function(self, force)
+    nextStation = function(self, force, index)
       local train = self.train
       if train.manual_mode == false or force then
         local schedule = train.schedule
         local tmp = (schedule.current % #schedule.records) + 1
+        if index and index <= #schedule.records then
+          tmp = index
+          self:flyingText("Going to "..schedule.records[index].station, YELLOW, {offset = -1})
+        end
         train.manual_mode = true
         schedule.current = tmp
         train.schedule = schedule
@@ -95,7 +99,7 @@ Train = {
         return false
       end
     end,
-    
+
     startWaitingForAutoDepart = function(self)
       self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
       local tick = self.waiting.nextCheck
@@ -110,11 +114,11 @@ Train = {
       return type(self.waiting) == "table" and type(self.waiting.cargo) == "table" and self.settings.autoDepart --and self.train.manual_mode == false
     end,
 
-    waitingDone = function(self, done)
+    waitingDone = function(self, done, index)
       if done then
         local force = self.waitForever or false
         self.waiting = false
-        self:nextStation(force)
+        self:nextStation(force, index)
         --debugDump("waitForever unset")
         self.waitForever = false
       end
@@ -122,19 +126,33 @@ Train = {
 
     startWaitingForRules = function(self)
       if not self.waiting then
-        self.waiting = {lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
-        local tick = self.waiting.nextCheck
+        self.waiting = {lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait, signalProxy = false}
         local rules = (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
         self.waitForever = false
-        if rules and rules.keepWaiting then
-          --debugDump(util.formattime(game.tick,true).." waitForever set",true)
-          self.waitForever = true
-          if not global.stopTick[tick+5] then
-            global.stopTick[game.tick+5] = {self}
-          else
-            table.insert(global.stopTick[game.tick+5], self)
+        if rules then
+          if rules.keepWaiting then
+            --debugDump(util.formattime(game.tick,true).." waitForever set",true)
+            self.waitForever = true
+            if not global.stopTick[game.tick+5] then
+              global.stopTick[game.tick+5] = {self}
+            else
+              table.insert(global.stopTick[game.tick+5], self)
+            end
+          end
+          if rules.waitForCircuit then
+            self.waiting.nextCheck = game.tick + 30
+            local station = findSmartTrainStopByTrain(self.train, self.train.schedule.records[self.train.schedule.current].station)
+            local proxy
+            if station then
+              local smartStop = global.smartTrainstops[stationKey(station)]
+              proxy = (smartStop and smartStop.proxy) and smartStop.proxy or false
+            else
+              proxy = false
+            end
+            self.waiting.signalProxy = proxy
           end
         end
+        local tick = self.waiting.nextCheck
         if not global.ticks[tick] then
           global.ticks[tick] = {self}
         else
@@ -150,6 +168,16 @@ Train = {
 
     isWaiting = function(self)
       return type(self.waiting) == "table"
+    end,
+
+    getCircuitSignal = function(self)
+      if self:isWaitingForRules() and self.waiting.signalProxy and self.waiting.signalProxy.valid then
+        local proxy = self.waiting.signalProxy
+        if proxy.valid then
+          return proxy.get_circuit_condition(1).fulfilled and proxy.energy > 0
+        end
+      end
+      return false
     end,
 
     lowestFuel = function(self)

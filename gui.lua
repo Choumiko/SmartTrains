@@ -217,6 +217,15 @@ GUI = {
           local condition = rules[i].full and {"lbl-full"} or {"lbl-empty"}
           GUI.addLabel(tbl, {"",{"lbl-leave-when"}," ",condition})
           GUI.addPlaceHolder(tbl)
+        elseif line and rules and rules[i] and rules[i].waitForCircuit then
+          local jmp = ""
+          if rules[i].jumpTo and rules[i].jumpTo <= #records then
+            GUI.addLabel(tbl, {"", {"lbl-jump-to"},"", rules[i].jumpTo})
+          end
+          if not rules[i].jumpTo then
+            GUI.addLabel(tbl, {"lbl-wait-for-circuit"})
+          end
+            GUI.addPlaceHolder(tbl)
         else
           GUI.addPlaceHolder(tbl,2)
         end
@@ -339,21 +348,27 @@ GUI = {
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
       GUI.addLabel(gui, {name="line", caption="Line: "..lineName})
-      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=4, style="st_table"})
+      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=6, style="st_table"})
       GUI.addLabel(tbl, {"lbl-station"})
+      GUI.addPlaceHolder(tbl)
       GUI.addLabel(tbl, {"lbl-leave-when"})
-      GUI.addPlaceHolder(tbl,1)
+      GUI.addPlaceHolder(tbl)
       GUI.addLabel(tbl, {"lbl-keepWaiting"})
+      GUI.addLabel(tbl, {"lbl-jump-to"})
       for i,s in pairs(records) do
         GUI.addLabel(tbl, {caption=i.." "..s.station})
         local states = {full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
           empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false,
-          keepWaiting = false}
-        states.keepWaiting = rules[i] and rules[i].keepWaiting or false 
+          keepWaiting = false, waitForCircuit = false}
+        states.keepWaiting = rules[i] and rules[i].keepWaiting or false
+        states.waitForCircuit = rules[i] and rules[i].waitForCircuit or false
         GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
         GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"lbl-full"}, style="st_checkbox", state=states.full})
-        GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, state=states.keepWaiting})     
+        GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, caption={"lbl-waitForCircuit"}, style="st_checkbox", state=states.waitForCircuit})
+        GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, state=states.keepWaiting})
+        GUI.addTextfield(tbl, {name="jumpTo__"..i, text="", style="st_textfield_small"})
         --GUI.addPlaceHolder(tbl)
+        tbl["jumpTo__"..i].text = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
       end
       GUI.addButton(gui, {name="saveRules__"..line, caption="Save"})
       --GUI.addButton(gui, {name="getLiquidItems", caption="Liquid items"})
@@ -496,6 +511,11 @@ function onguiclick(event)
         for i,rule in pairs(global.trainLines[line].records) do
           if global.guiData[index].rules[i] then
             tmp[i] = global.guiData[index].rules[i]
+            local jump = GUI.sanitizeNumber(gui["jumpTo__"..i].text, false)
+            tmp[i].jumpTo = (tmp[i].waitForCircuit) and jump or false
+            if not (tmp[i].empty or tmp[i].full or tmp[i].waitForCircuit) then
+              tmp[i].keepWaiting = false
+            end
           else
             tmp[i] = nil
           end
@@ -625,31 +645,71 @@ function onguiclick(event)
         global.playerPage[index].line = page + 1
         refresh = true
       elseif option1 == "leaveFull" then
-        if element.state == true and element.parent["leaveEmpty__"..option2].state == true then
-          element.parent["leaveEmpty__"..option2].state = false
+        if element.state == true then
+          if element.parent["leaveEmpty__"..option2].state == true then
+            element.parent["leaveEmpty__"..option2].state = false
+          end
+          element.parent["waitForCircuit__"..option2].state = false
+          element.parent["jumpTo__"..option2].text = ""
+        end
+        if element.parent["leaveFull__"..option2].state == false and
+          element.parent["leaveEmpty__"..option2].state == false and
+          element.parent["waitForCircuit__"..option2].state == false then
+          element.parent["keepWaiting__"..option2].state = false
         end
         local rules = global.guiData[index].rules[tonumber(option2)] or {}
         rules.full = element.state
         rules.empty = element.parent["leaveEmpty__"..option2].state
         rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+        rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+        rules.jumpTo = element.parent["jumpTo__"..option2].text
         global.guiData[index].rules[tonumber(option2)] = rules
       elseif option1 == "leaveEmpty" then
-        if element.state == true and element.parent["leaveFull__"..option2].state == true then
-          element.parent["leaveFull__"..option2].state = false
+        if element.state == true then
+          if element.parent["leaveFull__"..option2].state == true then
+            element.parent["leaveFull__"..option2].state = false
+          end
+          element.parent["waitForCircuit__"..option2].state = false
+          element.parent["jumpTo__"..option2].text = ""
+        end
+        if element.parent["leaveFull__"..option2].state == false and
+          element.parent["leaveEmpty__"..option2].state == false and
+          element.parent["waitForCircuit__"..option2].state == false then
+          element.parent["keepWaiting__"..option2].state = false
         end
         local rules = global.guiData[index].rules[tonumber(option2)] or {}
         rules.empty = element.state
         rules.full = element.parent["leaveFull__"..option2].state
         rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+        rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
         global.guiData[index].rules[tonumber(option2)] = rules
       elseif option1 == "keepWaiting" then
         local rules = global.guiData[index].rules[tonumber(option2)] or {}
         rules.empty = element.parent["leaveEmpty__"..option2].state
         rules.full = element.parent["leaveFull__"..option2].state
-        if not (rules.empty or rules.full) then
+        rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+        if not (rules.empty or rules.full or rules.waitForCircuit) then
           element.state = false
         end
-        rules.keepWaiting = element.state      
+        rules.keepWaiting = element.state
+        global.guiData[index].rules[tonumber(option2)] = rules
+      elseif option1 == "waitForCircuit" then
+        if element.state == true then
+          element.parent["leaveFull__"..option2].state = false
+          element.parent["leaveEmpty__"..option2].state = false
+        else
+          element.parent["jumpTo__"..option2].text = ""
+        end
+        if element.parent["leaveFull__"..option2].state == false and
+          element.parent["leaveEmpty__"..option2].state == false and
+          element.parent["waitForCircuit__"..option2].state == false then
+          element.parent["keepWaiting__"..option2].state = false
+        end
+        local rules = global.guiData[index].rules[tonumber(option2)] or {}
+        rules.waitForCircuit = element.state
+        rules.empty = element.parent["leaveEmpty__"..option2].state
+        rules.full = element.parent["leaveFull__"..option2].state
+        rules.keepWaiting = element.parent["keepWaiting__"..option2].state
         global.guiData[index].rules[tonumber(option2)] = rules
       end
     end
