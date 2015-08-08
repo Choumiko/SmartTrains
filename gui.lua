@@ -225,7 +225,7 @@ GUI = {
           if not rules[i].jumpTo then
             GUI.addLabel(tbl, {"lbl-wait-for-circuit"})
           end
-            GUI.addPlaceHolder(tbl)
+          GUI.addPlaceHolder(tbl)
         else
           GUI.addPlaceHolder(tbl,2)
         end

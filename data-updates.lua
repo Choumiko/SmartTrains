@@ -2,7 +2,18 @@ table.insert(data.raw["technology"]["automated-rail-transportation"].effects,
   {
     type="unlock-recipe",
     recipe = "smart-train-stop"
-  })  
+  })
+
+if data.raw["item"]["small-lamp-green"] then
+  local st_proxy = copyPrototype("lamp","small-lamp-green","smart-train-stop-proxy")
+  st_proxy.energy_usage_per_tick = "250W"
+  st_proxy.collision_mask = {"resource-layer"}
+
+  local st_proxy_i = copyPrototype("item","small-lamp-green","smart-train-stop-proxy")
+  data.raw["lamp"]["smart-train-stop-proxy"] = st_proxy
+  data.raw["item"]["smart-train-stop-proxy"] = st_proxy_i
+end
+
 
 for k,prototype in pairs(data.raw["fluid"]) do
   data:extend(
@@ -17,36 +28,36 @@ for k,prototype in pairs(data.raw["fluid"]) do
         stack_size = 1
       },
     })
-    local style =
-          {
-            type = "checkbox_style",
-            parent = "st-icon-style",
-            default_background =
-            {
-              filename = prototype.icon,
-              width = 32,
-              height = 32
-            },
-            hovered_background =
-            {
-              filename = prototype.icon,
-              width = 32,
-              height = 32
-            },
-            checked_background =
-            {
-              filename = prototype.icon,
-              width = 32,
-              height = 32
-            },
-            clicked_background =
-            {
-              filename = prototype.icon,
-              width = 32,
-              height = 32
-            }
-          }
-      data.raw["gui-style"].default["st-icon-"..prototype.name] = style
+  local style =
+    {
+      type = "checkbox_style",
+      parent = "st-icon-style",
+      default_background =
+      {
+        filename = prototype.icon,
+        width = 32,
+        height = 32
+      },
+      hovered_background =
+      {
+        filename = prototype.icon,
+        width = 32,
+        height = 32
+      },
+      checked_background =
+      {
+        filename = prototype.icon,
+        width = 32,
+        height = 32
+      },
+      clicked_background =
+      {
+        filename = prototype.icon,
+        width = 32,
+        height = 32
+      }
+    }
+  data.raw["gui-style"].default["st-icon-"..prototype.name] = style
 end
 data.raw["gui-style"].default["st-icon-style"] =
   {
