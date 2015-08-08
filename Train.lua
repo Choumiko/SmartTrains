@@ -418,7 +418,7 @@ Train = {
       elseif type(offset) == "number" then
         pos.y = pos.y + offset
       end
-      self.train.carriages[1].surface.create_entity({name="flying-text", position=pos, text=msg, color=color})
+      if s then self.train.carriages[1].surface.create_entity({name="flying-text", position=pos, text=msg, color=color}) end
     end
 }
 Train.__eq = function(trainA, trainB)

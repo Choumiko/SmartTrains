@@ -1,3 +1,5 @@
+require "prototypes/smart_train_stop"
+
 data:extend(
   {
     {

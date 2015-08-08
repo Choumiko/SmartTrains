@@ -25,7 +25,6 @@ linesPerPage = 5
 
 
 fluids = false
-showFlyingText = true
 
 local tmpPos = {}
 RED = {r = 0.9}
@@ -66,8 +65,9 @@ function initGlob()
   global.ticks = global.ticks or {}
   global.stopTick = global.stopTick or {}
   global.player_opened = global.player_opened or {}
-  global.showFlyingText = global.showFlyingText or showFlyingText
+  global.showFlyingText = global.showFlyingText or false
   global.playerPage = global.playerPage or {}
+  global.smartTrainstops = global.smartTrainstops or {}
 
   global.guiData = global.guiData or {}
   global.openedName = global.openedName or {}
@@ -129,6 +129,37 @@ end
 function resetMetatable(o, mt)
   setmetatable(o,{__index=mt})
   return o
+end
+
+function addPos(p1,p2)
+  if not p1.x then
+    error("Invalid position", 2)
+  end
+  if p2 and not p2.x then
+    error("Invalid position 2", 2)
+  end
+  local p2 = p2 or {x=0,y=0}
+  return {x=p1.x+p2.x, y=p1.y+p2.y}
+end
+
+function createProxy(trainstop)
+  local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
+  local pos = addPos(trainstop.position, offset[trainstop.direction])
+  
+  local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.force, position=pos}
+  local ent = trainstop.surface.create_entity(proxy)
+  debugDump(ent,true)
+  global.smartTrainstops[stationKey(trainstop)] = {entity = trainstop, proxy=ent}
+end
+
+function removeProxy(trainstop)
+  if global.smartTrainstops[stationKey(trainstop)] then
+    local proxy = global.smartTrainstops[stationKey(trainstop)].proxy
+    if proxy and proxy.valid then
+      proxy.destroy()
+    end
+    global.smartTrainstops[stationKey(trainstop)] = nil
+  end
 end
 
 function removeInvalidTrains(show)
@@ -561,6 +592,9 @@ function onbuiltentity(event)
     if ctype == "train-stop" then
       increaseStationCount(ent.backer_name)
     end
+    if ent.name == "smart-train-stop" then
+      createProxy(event.created_entity)
+    end
   end)
   if not status then
     pauseError(err, "on_built_entity")
@@ -595,6 +629,9 @@ function onpreplayermineditem(event)
     end
     if ctype == "train-stop" then
       decreaseStationCount(ent.backer_name)
+    end
+    if ent.name == "smart-train-stop" then
+      removeProxy(event.entity)
     end
   end)
   if not status then
@@ -640,6 +677,9 @@ function onentitydied(event)
     if event.entity.type == "train-stop" then
       decreaseStationCount(event.entity.backer_name)
     end
+    if event.entity.name == "smart-train-stop" then
+      removeProxy(event.entity)
+    end
   end)
   if not status then
     pauseError(err, "on_entity_died")
@@ -650,11 +690,17 @@ function on_robot_built_entity(event)
   if event.created_entity.type == "train-stop" then
     increaseStationCount(event.created_entity.backer_name)
   end
+  if event.created_entity.name == "smart-train-stop" then
+    createProxy(event.created_entity)
+  end
 end
 
 function on_robot_pre_mined(event)
   if event.entity.type == "train-stop" then
     decreaseStationCount(event.entity.backer_name)
+  end
+  if event.entity.name == "smart-train-stop" then
+
   end
 end
 
