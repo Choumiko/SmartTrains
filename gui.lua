@@ -135,8 +135,9 @@ GUI = {
 
       GUI.addLabel(tbl, {"stg-min-flow-rate"})
       GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small"})
-      --GUI.addLabel(tbl, {"stg-invalid-rules"})
-      GUI.addPlaceHolder(tbl, 2)
+      GUI.addLabel(tbl, {"stg-circuit-interval"})
+      GUI.addTextfield(tbl, {name="circuitInterval", style="st_textfield_small"})
+      GUI.addPlaceHolder(tbl)
       --GUI.add(tbl,{type="checkbox", name="forever", state=global.settings.lines.forever, caption={"stg-wait-forever"}})
       GUI.addPlaceHolder(tbl)
 
@@ -160,6 +161,7 @@ GUI = {
       tbl.departInterval.text = global.settings.depart.interval / 60
       tbl.minWait.text = global.settings.depart.minWait / 60
       tbl.minFlow.text = global.settings.depart.minFlow
+      tbl.circuitInterval.text = global.settings.circuit.interval
     end
   end,
 
@@ -364,14 +366,13 @@ GUI = {
         states.waitForCircuit = rules[i] and rules[i].waitForCircuit or false
         GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
         GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"lbl-full"}, style="st_checkbox", state=states.full})
-        GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, caption={"lbl-waitForCircuit"}, style="st_checkbox", state=states.waitForCircuit})
+        GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, caption={"lbl-waitForCircuit"}, state=states.waitForCircuit})
         GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, state=states.keepWaiting})
         GUI.addTextfield(tbl, {name="jumpTo__"..i, text="", style="st_textfield_small"})
         --GUI.addPlaceHolder(tbl)
         tbl["jumpTo__"..i].text = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
       end
       GUI.addButton(gui, {name="saveRules__"..line, caption="Save"})
-      --GUI.addButton(gui, {name="getLiquidItems", caption="Liquid items"})
     end
   end,
 
@@ -433,8 +434,12 @@ function onguiclick(event)
       local interval = GUI.sanitizeNumber(settings.departInterval.text, global.settings.depart.interval/60)*60
       local minWait = GUI.sanitizeNumber(settings.minWait.text, global.settings.depart.minWait/60)*60
       local minFlow = GUI.sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
+      local circuitInterval = GUI.sanitizeNumber(settings.circuitInterval.text,global.settings.circuit.interval)
+      if circuitInterval < 1 then circuitInterval = 1 end
+      
       global.settings.depart = {interval = interval, minWait = minWait}
       global.settings.depart.minFlow = minFlow
+      global.settings.circuit.interval = circuitInterval
       --global.settings.lines.forever = settings.forever.state
 
       refresh = true
@@ -475,31 +480,6 @@ function onguiclick(event)
       elseif option1 == "depart" then
         option2 = tonumber(option2)
         global.trains[option2].settings.autoDepart = not global.trains[option2].settings.autoDepart
-      elseif option1 == "filterItem" then
-        local item = "style"
-        local stationIndex = tonumber(option2)
-        if player.cursor_stack.valid_for_read then item = player.cursor_stack.name end
-        player.gui[GUI.position].stGui.dynamicRules.frm.tbl[event.element.name].style = "st-icon-"..item
-        player.gui[GUI.position].stGui.dynamicRules.frm.tbl[event.element.name].state = false
-        if not global.guiData[index].rules then global.guiData[index].rules = {} end
-        global.guiData[index].rules[stationIndex] = item
-      elseif option1 == "togglefilter" then
-        local stationIndex = tonumber(option2)
-        local newCaption = ">"
-        if element.caption == ">" then
-          newCaption = "<"
-        elseif element.caption == "<" then
-          newCaption = "="
-        elseif element.caption == "=" then
-          newCaption = ">="
-        elseif element.caption == ">=" then
-          newCaption = "<="
-        elseif element.caption == "<=" then
-          newCaption = ">"
-        end
-        element.caption = newCaption
-        --      if not global.guiData[index].rules then global.guiData[index].rules = {[stationIndex]={}} end
-        --      global.guiData[index].rules[stationIndex].condition = newCaption
       elseif option1 == "editRules" then
         --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
         GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
@@ -649,8 +629,6 @@ function onguiclick(event)
           if element.parent["leaveEmpty__"..option2].state == true then
             element.parent["leaveEmpty__"..option2].state = false
           end
-          element.parent["waitForCircuit__"..option2].state = false
-          element.parent["jumpTo__"..option2].text = ""
         end
         if element.parent["leaveFull__"..option2].state == false and
           element.parent["leaveEmpty__"..option2].state == false and
@@ -669,8 +647,6 @@ function onguiclick(event)
           if element.parent["leaveFull__"..option2].state == true then
             element.parent["leaveFull__"..option2].state = false
           end
-          element.parent["waitForCircuit__"..option2].state = false
-          element.parent["jumpTo__"..option2].text = ""
         end
         if element.parent["leaveFull__"..option2].state == false and
           element.parent["leaveEmpty__"..option2].state == false and
@@ -694,10 +670,7 @@ function onguiclick(event)
         rules.keepWaiting = element.state
         global.guiData[index].rules[tonumber(option2)] = rules
       elseif option1 == "waitForCircuit" then
-        if element.state == true then
-          element.parent["leaveFull__"..option2].state = false
-          element.parent["leaveEmpty__"..option2].state = false
-        else
+        if element.state == false then
           element.parent["jumpTo__"..option2].text = ""
         end
         if element.parent["leaveFull__"..option2].state == false and

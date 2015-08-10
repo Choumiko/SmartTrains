@@ -18,13 +18,14 @@ defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 defaultSettings =
   { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 600},
     depart={minWait = 240, interval = 120, minFlow = 1},
+    circuit={interval = 2},
     lines={forever=false}
   }
 stationsPerPage = 5
 linesPerPage = 5
 
 
-fluids = false
+fluids = game.fluid_prototypes
 
 local tmpPos = {}
 RED = {r = 0.9}
@@ -85,15 +86,6 @@ function initGlob()
     resetMetatable(object, Train)
   end
 
-  if not fluids then
-    fluids = {}
-    for index, item in pairs(game.item_prototypes) do
-      local fluid = index:match("st%-fluidItem%-(.+)")
-      if fluid then
-        fluids[fluid] = true
-      end
-    end
-  end
   if global.version < "0.3.2" then
     global.stationCount = {}
     findStations()
@@ -114,6 +106,10 @@ function initGlob()
         end
       end
     end
+  end
+  if global.version < "0.3.5" then
+    global.settings.circuit = {}
+    global.settings.circuit.interval = 30
   end
   global.version = "0.3.4"
 end
@@ -150,21 +146,34 @@ end
 
 function createProxy(trainstop)
   local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
+  local offsetcargo = {[0] = {x=-0.5,y=0.5},[2]={x=-0.5,y=-0.5},[4]={x=0.5,y=-0.5},[6]={x=0.5,y=0.5}}
   local pos = addPos(trainstop.position, offset[trainstop.direction])
-  
+  local poscargo = addPos(trainstop.position, offsetcargo[trainstop.direction])
+
   local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.force, position=pos}
+  local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.force, position=poscargo}
   local ent = trainstop.surface.create_entity(proxy)
   if ent.valid then
     global.smartTrainstops[stationKey(trainstop)] = {entity = trainstop, proxy=ent}
     ent.minable = false
+  end
+  local ent2 = trainstop.surface.create_entity(proxycargo)
+  if ent.valid and ent2.valid then
+    global.smartTrainstops[stationKey(trainstop)].cargo = ent2
+    ent2.minable = false
+    ent2.operable = false
   end
 end
 
 function removeProxy(trainstop)
   if global.smartTrainstops[stationKey(trainstop)] then
     local proxy = global.smartTrainstops[stationKey(trainstop)].proxy
+    local cargo = global.smartTrainstops[stationKey(trainstop)].cargo
     if proxy and proxy.valid then
       proxy.destroy()
+    end
+    if cargo and cargo.valid then
+      cargo.destroy()
     end
     global.smartTrainstops[stationKey(trainstop)] = nil
   end
@@ -178,7 +187,6 @@ function findSmartTrainStopByTrain(train, stationName)
     for _1, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
       flyingText("S", GREEN, station.position, true)
       if station.backer_name == stationName then
-        --debugDump("found",true)
         found = station
         break
       end
@@ -305,6 +313,8 @@ function ontrainchangedstate(event)
         for i, train in pairs(trains) do
           if train == t then
             if not train.waitForever then
+              train:resetCircuitSignal()
+              t.waitingStation = false
               train.waiting = false
               train.refueling = false
               trains[i] = nil
@@ -315,6 +325,8 @@ function ontrainchangedstate(event)
     end
     if train.state == defines.trainstate["wait_station"] then
       t:updateLine()
+      t:setWaitingStation()
+      t:setCircuitSignal()
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then
         if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and t:currentStation() ~= t:refuelStation() then
@@ -330,10 +342,10 @@ function ontrainchangedstate(event)
       end
       if settings.autoDepart and t:currentStation() ~= t:refuelStation() and #schedule.records > 1 then
         t:startWaitingForAutoDepart()
+        t:flyingText("waiting", YELLOW)
       end
       if t:isWaiting() then
-        --debugDump("waiting",true)
-        t:flyingText("waiting", YELLOW)
+      --debugDump("waiting",true)
       end
     elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] or train.state == defines.trainstate["on_the_path"] then
       if settings.autoRefuel then
@@ -344,6 +356,8 @@ function ontrainchangedstate(event)
       end
     end
     if t.advancedState == defines.trainstate["left_station"] then
+      t:resetCircuitSignal()
+      t.waitingStation = false
       t.waiting = false
       t.refueling = false
       t.departAt = false
@@ -361,6 +375,14 @@ function ontrainchangedstate(event)
 end
 
 function ontick(event)
+  if event.tick % global.settings.circuit.interval == 0 then
+    for i,train in pairs(global.trains) do
+      if train.waitingStation then
+        train:setCircuitSignal()
+      end
+    end
+  end
+  
   if global.stopTick[event.tick] then
     local status,err = pcall(
       function()
@@ -378,7 +400,8 @@ function ontick(event)
       function()
         for i,train in pairs(global.ticks[event.tick]) do
           if train.train.valid then
-            if train.departAt then
+            train.lastMessage = train.lastMessage or 0
+            if train.departAt  and event.tick - train.lastMessage >= 120 then
               local text = train.waitForever and "waiting forever" or "Leaving in "..util.formattime(train.departAt-event.tick)
               train:flyingText(text, RED,{offset=-2})
             end
@@ -404,10 +427,11 @@ function ontick(event)
               if event.tick >= train.waiting.nextCheck then
                 local keepWaiting = nil
                 local cargo
+                local rules
                 if  train:isWaitingForRules() then
                   --Handle leave when full/empty rules here
                   --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
-                  local rules = global.trainLines[train.line].rules[train.train.schedule.current]
+                  rules = global.trainLines[train.line].rules[train.train.schedule.current]
                   --debugDump(rules,true)
                   if (rules.full and train:isCargoFull()) or (rules.empty and train:isCargoEmpty())
                     or (rules.waitForCircuit and train:getCircuitSignal())then
@@ -421,7 +445,10 @@ function ontick(event)
                     local txt = (rules.full and not train:isCargoFull()) and "not full" or "not empty"
                     txt = rules.waitForCircuit and "waiting for circuit" or txt
                     if rules.full or rules.empty or rules.waitForCircuit then
-                      train:flyingText(txt, YELLOW, {offset=-1})
+                      if not rules.waitForCircuit or (rules.waitForCircuit and event.tick - train.lastMessage >= 120) then
+                        train:flyingText(txt, YELLOW, {offset=-1})
+                        train.lastMessage = event.tick
+                      end
                     end
                     keepWaiting = true
                   end
@@ -441,6 +468,9 @@ function ontick(event)
                   train.waiting.lastCheck = event.tick
                   train.waiting.cargo = cargo
                   local nextCheck = event.tick + global.settings.depart.interval
+                  if rules and rules.waitForCircuit then
+                    nextCheck = event.tick + global.settings.circuit.interval
+                  end
                   train.waiting.nextCheck = nextCheck
                   if not global.ticks[nextCheck] then
                     global.ticks[nextCheck] = {train}
@@ -448,6 +478,8 @@ function ontick(event)
                     table.insert(global.ticks[nextCheck], train)
                   end
                 else
+                  train:resetCircuitSignal()
+                  train.waitingStation = false
                   train.waiting = false
                   train.waitForever = false
                 end

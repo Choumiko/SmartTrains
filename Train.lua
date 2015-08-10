@@ -117,6 +117,7 @@ Train = {
     waitingDone = function(self, done, index)
       if done then
         local force = self.waitForever or false
+        self:resetCircuitSignal()
         self.waiting = false
         self:nextStation(force, index)
         --debugDump("waitForever unset")
@@ -140,16 +141,7 @@ Train = {
             end
           end
           if rules.waitForCircuit then
-            self.waiting.nextCheck = game.tick + 30
-            local station = findSmartTrainStopByTrain(self.train, self.train.schedule.records[self.train.schedule.current].station)
-            local proxy
-            if station then
-              local smartStop = global.smartTrainstops[stationKey(station)]
-              proxy = (smartStop and smartStop.proxy) and smartStop.proxy or false
-            else
-              proxy = false
-            end
-            self.waiting.signalProxy = proxy
+            self.waiting.nextCheck = game.tick + 5 + global.settings.circuit.interval
           end
         end
         local tick = self.waiting.nextCheck
@@ -170,14 +162,63 @@ Train = {
       return type(self.waiting) == "table"
     end,
 
+    setWaitingStation = function(self)
+      local station = findSmartTrainStopByTrain(self.train, self.train.schedule.records[self.train.schedule.current].station)
+      local proxy, cargoProxy = false, false
+      if station then
+        local smartStop = global.smartTrainstops[stationKey(station)]
+        proxy = (smartStop and smartStop.proxy) and smartStop.proxy or false
+        cargoProxy = (smartStop and smartStop.cargo) and smartStop.cargo or false
+      end
+      self.waitingStation = {station = station, signalProxy = proxy, cargoProxy = cargoProxy}
+      self:setCircuitSignal()
+    end,
+
     getCircuitSignal = function(self)
-      if self:isWaitingForRules() and self.waiting.signalProxy and self.waiting.signalProxy.valid then
-        local proxy = self.waiting.signalProxy
-        if proxy.valid then
-          return proxy.get_circuit_condition(1).fulfilled and proxy.energy > 0
-        end
+      if self.waitingStation and self.waitingStation.signalProxy and self.waitingStation.signalProxy.valid then
+        return self.waitingStation.signalProxy.get_circuit_condition(1).fulfilled and self.waitingStation.signalProxy.energy > 0
       end
       return false
+    end,
+
+    setCircuitSignal = function(self)
+      if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
+        local cargoProxy = self.waitingStation.cargoProxy
+        local output = cargoProxy.get_circuit_condition(1)
+        local cargoCount = self:cargoCount()
+
+        output.parameters[1]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 1}
+        output.parameters[2]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 2}
+        local i=3
+        for name, count in pairs(cargoCount) do
+          local type = "item"
+          if fluids[name] then
+            type = "fluid"
+            count = math.floor(count)
+          end
+          output.parameters[i]={signal={type = type, name = name}, count=count, index = i}
+          i=i+1
+          if i>50 then break end
+        end
+        for c=i,50 do
+          output.parameters[i]={signal={type = "item", name = nil}, count = 1, index = c}
+        end
+        cargoProxy.set_circuit_condition(1,output)
+      end
+    end,
+
+    resetCircuitSignal = function(self)
+      if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
+        local cargoProxy = self.waitingStation.cargoProxy
+        local output=cargoProxy.get_circuit_condition(1)
+        --Blue: Train at station (# of locos), C: # of cargo wagons
+        output.parameters[1]={signal={type = "virtual", name = "signal-locomotives"}, count = 0, index = 1}
+        output.parameters[2]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 2}
+        for i=3,50 do
+          output.parameters[i]={signal={type = "item", name = nil}, count = 1, index = i}
+        end
+        cargoProxy.set_circuit_condition(1,output)
+      end
     end,
 
     lowestFuel = function(self)
@@ -215,6 +256,7 @@ Train = {
     cargoCount = function(self)
       local sum = {}
       local train = self.train
+      self:flyingText("check", YELLOW)
       for i, wagon in pairs(train.carriages) do
         if wagon.type == "cargo-wagon" then
           if wagon.name ~= "rail-tanker" then
@@ -226,7 +268,7 @@ Train = {
               if d.type ~= nil then
                 sum[d.type] = sum[d.type] or 0
                 sum[d.type] = sum[d.type] + d.amount
-                self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+                --self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
               end
             end
           end
