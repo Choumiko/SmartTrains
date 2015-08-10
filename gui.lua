@@ -138,8 +138,6 @@ GUI = {
       GUI.addLabel(tbl, {"stg-circuit-interval"})
       GUI.addTextfield(tbl, {name="circuitInterval", style="st_textfield_small"})
       GUI.addPlaceHolder(tbl)
-      --GUI.add(tbl,{type="checkbox", name="forever", state=global.settings.lines.forever, caption={"stg-wait-forever"}})
-      GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
       local noStations, uniqueStations = 0,0

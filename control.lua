@@ -110,6 +110,9 @@ function initGlob()
   if global.version < "0.3.5" then
     global.settings.circuit = {}
     global.settings.circuit.interval = 30
+    for _, trainstop in pairs(global.smartTrainstops) do
+      recreateProxy(trainstop)
+    end
   end
   global.version = "0.3.4"
 end
@@ -176,6 +179,23 @@ function removeProxy(trainstop)
       cargo.destroy()
     end
     global.smartTrainstops[stationKey(trainstop)] = nil
+  end
+end
+
+function recreateProxy(trainstop)
+  local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
+  local offsetcargo = {[0] = {x=-0.5,y=0.5},[2]={x=-0.5,y=-0.5},[4]={x=0.5,y=-0.5},[6]={x=0.5,y=0.5}}
+  if trainstop.entity.valid then
+    if not trainstop.cargo or not trainstop.cargo.valid then
+      local poscargo = addPos(trainstop.entity.position, offsetcargo[trainstop.entity.direction])
+      local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.entity.force, position=poscargo}
+      local ent2 = trainstop.entity.surface.create_entity(proxycargo)
+      if ent2.valid then
+        global.smartTrainstops[stationKey(trainstop.entity)].cargo = ent2
+        ent2.minable = false
+        ent2.operable = false
+      end
+    end
   end
 end
 
@@ -382,7 +402,7 @@ function ontick(event)
       end
     end
   end
-  
+
   if global.stopTick[event.tick] then
     local status,err = pcall(
       function()
@@ -433,8 +453,14 @@ function ontick(event)
                   --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
                   rules = global.trainLines[train.line].rules[train.train.schedule.current]
                   --debugDump(rules,true)
-                  if (rules.full and train:isCargoFull()) or (rules.empty and train:isCargoEmpty())
-                    or (rules.waitForCircuit and train:getCircuitSignal())then
+                  local full = train:isCargoFull()
+                  local empty = train:isCargoEmpty()
+                  local signal = train:getCircuitSignal()
+                  if  (rules.full and full and not rules.waitForCircuit) or  -- only full set
+                    (rules.empty and empty and not rules.waitForCircuit) or --only empty set
+                    (rules.waitForCircuit and signal and not (rules.empty or rules.full)) or --circuit and empty/full NOT set
+                    (rules.waitForCircuit and signal and ((rules.empty and empty) or (rules.full and full))) then
+
                     local jump = rules.waitForCircuit and rules.jumpTo or false
                     train:waitingDone(true, jump)
                     if not rules.jumpTo then

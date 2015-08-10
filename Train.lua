@@ -256,7 +256,6 @@ Train = {
     cargoCount = function(self)
       local sum = {}
       local train = self.train
-      self:flyingText("check", YELLOW)
       for i, wagon in pairs(train.carriages) do
         if wagon.type == "cargo-wagon" then
           if wagon.name ~= "rail-tanker" then
