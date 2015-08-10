@@ -107,14 +107,14 @@ function initGlob()
       end
     end
   end
-  if global.version < "0.3.5" then
+  if global.version < "0.3.6" then
     global.settings.circuit = {}
     global.settings.circuit.interval = 30
     for _, trainstop in pairs(global.smartTrainstops) do
       recreateProxy(trainstop)
     end
   end
-  global.version = "0.3.4"
+  global.version = "0.3.6"
 end
 
 function oninit() initGlob() end
@@ -159,12 +159,14 @@ function createProxy(trainstop)
   if ent.valid then
     global.smartTrainstops[stationKey(trainstop)] = {entity = trainstop, proxy=ent}
     ent.minable = false
+    ent.destructible = false
   end
   local ent2 = trainstop.surface.create_entity(proxycargo)
   if ent.valid and ent2.valid then
     global.smartTrainstops[stationKey(trainstop)].cargo = ent2
     ent2.minable = false
     ent2.operable = false
+    ent2.destructible = false
   end
 end
 
@@ -194,6 +196,8 @@ function recreateProxy(trainstop)
         global.smartTrainstops[stationKey(trainstop.entity)].cargo = ent2
         ent2.minable = false
         ent2.operable = false
+        ent2.destructible = false
+        debugDump("Updated smart train stop:"..trainstop.entity.backer_name,true)
       end
     end
   end
