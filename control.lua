@@ -793,7 +793,7 @@ function on_robot_pre_mined(event)
     decreaseStationCount(event.entity.backer_name)
   end
   if event.entity.name == "smart-train-stop" then
-
+    removeProxy(event.entity)
   end
 end
 
