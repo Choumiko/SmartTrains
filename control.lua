@@ -333,6 +333,7 @@ function ontrainchangedstate(event)
     local fuel = t:lowestFuel()
     local schedule = train.schedule
     if train.state == defines.trainstate["manual_control_stop"] or train.state == defines.trainstate["manual_control"] then
+      local done = false
       for tick, trains in pairs(global.ticks) do
         for i, train in pairs(trains) do
           if train == t then
@@ -342,6 +343,19 @@ function ontrainchangedstate(event)
               train.waiting = false
               train.refueling = false
               trains[i] = nil
+              done = true
+            end
+          end
+        end
+      end
+      if not done then
+        for i, train in pairs(global.trains) do
+          if train == t then
+            if not train.waitForever then
+              train:resetCircuitSignal()
+              t.waitingStation = false
+              train.waiting = false
+              train.refueling = false
             end
           end
         end
@@ -349,7 +363,7 @@ function ontrainchangedstate(event)
     end
     if train.state == defines.trainstate["wait_station"] then
       t:updateLine()
-      t:setWaitingStation()
+      local smartStop = t:setWaitingStation()
       t:setCircuitSignal()
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then

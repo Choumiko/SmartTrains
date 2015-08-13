@@ -27,14 +27,19 @@ local st_proxyc_i = copyPrototype("item","constant-combinator","smart-train-stop
 data:extend({smart_train_stop,item,recipe, st_proxy, st_proxy_i,})
 data:extend({st_proxyc,st_proxyc_i})
 
+local signalStop = copyPrototype("virtual-signal", "signal-1", "signal-train-at-station")
+signalStop.icon = "__SmartTrains__/graphics/signal_train_at_station.png"
+signalStop.subgroup = "virtual-signal"
+signalStop.order = "e[smarttrains]-a[train-at-station]"
+
 local signalLoco = copyPrototype("virtual-signal", "signal-1", "signal-locomotives")
 signalLoco.icon = "__SmartTrains__/graphics/signal_locomotives.png"
 signalLoco.subgroup = "virtual-signal"
-signalLoco.order = "e[smarttrains]-a[locomotives]"
+signalLoco.order = "e[smarttrains]-b[locomotives]"
 
 local signalCargo = copyPrototype("virtual-signal", "signal-1", "signal-cargowagons")
 signalCargo.icon = "__SmartTrains__/graphics/signal_cargowagons.png"
 signalCargo.subgroup = "virtual-signal"
-signalCargo.order = "e[smarttrains]-b[cargowagons]"
+signalCargo.order = "e[smarttrains]-c[cargowagons]"
 
-data:extend({signalLoco, signalCargo})
+data:extend({signalStop, signalLoco, signalCargo})

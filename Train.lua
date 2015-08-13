@@ -162,6 +162,7 @@ Train = {
       return type(self.waiting) == "table"
     end,
 
+    -- return true when at a smart train stop
     setWaitingStation = function(self)
       local station = findSmartTrainStopByTrain(self.train, self.train.schedule.records[self.train.schedule.current].station)
       local proxy, cargoProxy = false, false
@@ -172,6 +173,7 @@ Train = {
       end
       self.waitingStation = {station = station, signalProxy = proxy, cargoProxy = cargoProxy}
       self:setCircuitSignal()
+      return station and proxy and cargoProxy
     end,
 
     getCircuitSignal = function(self)
@@ -187,9 +189,10 @@ Train = {
         local output = cargoProxy.get_circuit_condition(1)
         local cargoCount = self:cargoCount()
 
-        output.parameters[1]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 1}
-        output.parameters[2]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 2}
-        local i=3
+        output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
+        output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
+        output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
+        local i=4
         for name, count in pairs(cargoCount) do
           local type = "item"
           if fluids[name] then
@@ -211,10 +214,11 @@ Train = {
       if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
         local cargoProxy = self.waitingStation.cargoProxy
         local output=cargoProxy.get_circuit_condition(1)
-        --Blue: Train at station (# of locos), C: # of cargo wagons
-        output.parameters[1]={signal={type = "virtual", name = "signal-locomotives"}, count = 0, index = 1}
-        output.parameters[2]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 2}
-        for i=3,50 do
+        
+        output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 0, index = 1}
+        output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = 0, index = 2}
+        output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 3}
+        for i=4,50 do
           output.parameters[i]={signal={type = "item", name = nil}, count = 1, index = i}
         end
         cargoProxy.set_circuit_condition(1,output)
