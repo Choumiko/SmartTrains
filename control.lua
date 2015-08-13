@@ -400,12 +400,33 @@ end
 
 function ontick(event)
   if event.tick % global.settings.circuit.interval == 0 then
-    for i,train in pairs(global.trains) do
-      if train.waitingStation then
-        train:setCircuitSignal()
-      end
+    local status,err = pcall(
+      function()
+        for i,train in pairs(global.trains) do
+          if train.waitingStation then
+            train:setCircuitSignal()
+          end
+        end
+      end)
+    if not status then
+      pauseError(err, "on_tick: updateCircuit")
     end
   end
+
+  if event.tick % 60 == 0 then
+    local status,err = pcall(
+      function()
+        for i,train in pairs(global.trains) do
+          if train.train.speed == 0 then
+            train:updateLine()
+          end
+        end
+      end)
+    if not status then
+      pauseError(err, "on_tick: updateLine")
+    end
+  end
+
 
   if global.stopTick[event.tick] then
     local status,err = pcall(
