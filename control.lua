@@ -139,7 +139,7 @@ function initGlob()
       end
     end
   end
-  global.version = "0.3.61"
+  global.version = "0.3.62"
 end
 
 function oninit() initGlob() end
@@ -223,6 +223,16 @@ function recreateProxy(trainstop)
         ent2.operable = false
         ent2.destructible = false
         debugDump("Updated smart train stop:"..trainstop.entity.backer_name,true)
+      end
+    end
+    if not trainstop.proxy or not trainstop.proxy.valid then
+      local pos = addPos(trainstop.position, offset[trainstop.direction])
+      local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.entity.force, position=pos}
+      local ent = trainstop.surface.create_entity(proxy)
+      if ent.valid then
+        global.smartTrainstops[stationKey(trainstop)].proxy=ent
+        ent.minable = false
+        ent.destructible = false
       end
     end
   end
