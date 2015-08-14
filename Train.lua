@@ -11,6 +11,8 @@ Train = {
           waiting = false,
           refueling = false,
           advancedState = false,
+          cargo = {},
+          cargoUpdated = 0
         --manualMode = train.manual_mode
         }
         new.settings.autoDepart = defaultTrainSettings.autoDepart
@@ -41,7 +43,7 @@ Train = {
       if train.manual_mode == false or force then
         local schedule = train.schedule
         local tmp = (schedule.current % #schedule.records) + 1
-        if index and index <= #schedule.records then
+        if index and index > 0 and index <= #schedule.records then
           tmp = index
           self:flyingText("Going to "..schedule.records[index].station, YELLOW, {offset = -1})
         end
@@ -103,11 +105,7 @@ Train = {
     startWaitingForAutoDepart = function(self)
       self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
       local tick = self.waiting.nextCheck
-      if not global.ticks[tick] then
-        global.ticks[tick] = {self}
-      else
-        table.insert(global.ticks[tick], self)
-      end
+      insertInTable(global.ticks, tick, self )
     end,
 
     isWaitingForAutoDepart = function(self)
@@ -134,22 +132,14 @@ Train = {
           if rules.keepWaiting then
             --debugDump(util.formattime(game.tick,true).." waitForever set",true)
             self.waitForever = true
-            if not global.stopTick[game.tick+5] then
-              global.stopTick[game.tick+5] = {self}
-            else
-              table.insert(global.stopTick[game.tick+5], self)
-            end
+            insertInTable(global.stopTick, game.tick+5, self)
           end
           if rules.waitForCircuit then
             self.waiting.nextCheck = game.tick + 5 + global.settings.circuit.interval
           end
         end
         local tick = self.waiting.nextCheck
-        if not global.ticks[tick] then
-          global.ticks[tick] = {self}
-        else
-          table.insert(global.ticks[tick], self)
-        end
+        insertInTable(global.ticks, tick, self)
       end
     end,
 
@@ -178,9 +168,13 @@ Train = {
 
     getCircuitSignal = function(self)
       if self.waitingStation and self.waitingStation.signalProxy and self.waitingStation.signalProxy.valid then
-        return self.waitingStation.signalProxy.get_circuit_condition(1).fulfilled and self.waitingStation.signalProxy.energy > 0
+        local condition = self.waitingStation.signalProxy.get_circuit_condition(1)
+        local signal = (condition.condition and condition.condition.first_signal and condition.condition.first_signal.name) and condition.condition.first_signal or false 
+        local signalTrue = condition.fulfilled and self.waitingStation.signalProxy.energy > 0
+        --local signalValue =  (signal and signal.name) and deduceSignalValue(self.waitingStation.signalProxy, signal, 1) or false
+        return signalTrue--, signalValue 
       end
-      return false
+      return false, false
     end,
 
     setCircuitSignal = function(self)
@@ -214,7 +208,7 @@ Train = {
       if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
         local cargoProxy = self.waitingStation.cargoProxy
         local output=cargoProxy.get_circuit_condition(1)
-        
+
         output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 0, index = 1}
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = 0, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 3}
@@ -258,26 +252,30 @@ Train = {
     end,
 
     cargoCount = function(self)
-      local sum = {}
-      local train = self.train
-      for i, wagon in pairs(train.carriages) do
-        if wagon.type == "cargo-wagon" then
-          if wagon.name ~= "rail-tanker" then
-            --sum = sum + wagon.getcontents()
-            sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
-          else
-            if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
-              local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-              if d.type ~= nil then
-                sum[d.type] = sum[d.type] or 0
-                sum[d.type] = sum[d.type] + d.amount
-                --self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+      if self.cargoUpdated + global.settings.circuit.interval - 1 < game.tick then
+        local sum = {}
+        local train = self.train
+        for i, wagon in pairs(train.carriages) do
+          if wagon.type == "cargo-wagon" then
+            if wagon.name ~= "rail-tanker" then
+              --sum = sum + wagon.getcontents()
+              sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
+            else
+              if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+                local d = remote.call("railtanker", "getLiquidByWagon", wagon)
+                if d.type ~= nil then
+                  sum[d.type] = sum[d.type] or 0
+                  sum[d.type] = sum[d.type] + d.amount
+                  --self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+                end
               end
             end
           end
         end
+        self.cargo = sum
+        self.cargoUpdated = game.tick
       end
-      return sum
+      return self.cargo
     end,
 
     cargoEquals = function(self, c1, c2, minFlow, interval)

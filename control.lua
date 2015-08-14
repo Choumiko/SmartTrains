@@ -65,6 +65,8 @@ function initGlob()
   global.trainLines = global.trainLines or {}
   global.ticks = global.ticks or {}
   global.stopTick = global.stopTick or {}
+  global.updateTick = global.updateTick or {}
+
   global.player_opened = global.player_opened or {}
   global.showFlyingText = global.showFlyingText or false
   global.playerPage = global.playerPage or {}
@@ -90,6 +92,7 @@ function initGlob()
     global.stationCount = {}
     findStations()
     saveGlob("stations")
+    global.version = "0.3.2"
   end
   if global.version < "0.3.4" then
     for _, t in pairs(global.trains) do
@@ -106,15 +109,37 @@ function initGlob()
         end
       end
     end
+    global.version = "0.3.4"
   end
+
   if global.version < "0.3.6" then
     global.settings.circuit = {}
     global.settings.circuit.interval = 30
     for _, trainstop in pairs(global.smartTrainstops) do
       recreateProxy(trainstop)
     end
+    global.version = "0.3.6"
   end
-  global.version = "0.3.6"
+
+  if global.version < "0.3.62" then
+    saveGlob("preInit")
+    for _, t in pairs(global.trains) do
+      if t.train.valid and t.cargoUpdated == nil then
+        t.cargoUpdated = 0
+        t:cargoCount()
+      end
+    end
+    for _, line in pairs(global.trainLines) do
+      if type(line.rules) == "table" then
+        for _2, rule in pairs(line.rules) do
+          if rule.jumpToCircuit == nil then
+            rule.jumpToCircuit = false
+          end
+        end
+      end
+    end
+  end
+  global.version = "0.3.61"
 end
 
 function oninit() initGlob() end
@@ -364,7 +389,11 @@ function ontrainchangedstate(event)
     if train.state == defines.trainstate["wait_station"] then
       t:updateLine()
       local smartStop = t:setWaitingStation()
-      t:setCircuitSignal()
+      if smartStop then
+        t:setCircuitSignal()
+        local tick = event.tick + global.settings.circuit.interval
+        insertInTable(global.updateTick,tick,t)
+      end
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then
         if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and t:currentStation() ~= t:refuelStation() then
@@ -412,19 +441,54 @@ function ontrainchangedstate(event)
   end
 end
 
+function insertInTable(tableA, key, value)
+  if not tableA[key] then tableA[key] = {} end
+  table.insert(tableA[key], value)
+end
+
+--https://github.com/GopherAtl/logistic-combinators/blob/master/control.lua
+function deduceSignalValue(entity,signal,condNum)
+  local t=2^31
+  local v=0
+  condNum=condNum or 1
+  local condition=entity.get_circuit_condition(condNum)
+  local restore = util.table.deepcopy(condition)
+  condition.condition.first_signal=signal
+  condition.condition.comparator="<"
+  while t~=1 do
+    condition.condition.constant=v
+    entity.set_circuit_condition(condNum,condition)
+    t=t/2
+    if entity.get_circuit_condition(condNum).fulfilled==true then
+      v=v-t
+    else
+      v=v+t
+    end
+  end
+  condition.condition.constant=v
+  entity.set_circuit_condition(condNum,condition)
+  if entity.get_circuit_condition(condNum).fulfilled then
+    v=v-1
+  end
+  entity.set_circuit_condition(condNum,restore)
+  return v
+end
+
 function ontick(event)
-  if event.tick % global.settings.circuit.interval == 0 then
-    local status,err = pcall(
-      function()
-        for i,train in pairs(global.trains) do
+  if global.updateTick[event.tick] then
+    for _, train in pairs(global.updateTick[event.tick]) do
+      local status,err = pcall(
+        function()
           if train.waitingStation then
             train:setCircuitSignal()
+            insertInTable(global.updateTick,event.tick+global.settings.circuit.interval,train)
           end
-        end
-      end)
-    if not status then
-      pauseError(err, "on_tick: updateCircuit")
+        end)
+      if not status then
+        pauseError(err, "on_tick: updateCircuit")
+      end
     end
+    global.updateTick[event.tick] = nil
   end
 
   if event.tick % 60 == 0 then
@@ -437,7 +501,7 @@ function ontick(event)
             end
           else
             debugDump("removed "..removeInvalidTrains().." invalid trains",true)
-          end 
+          end
         end
       end)
     if not status then
@@ -505,8 +569,9 @@ function ontick(event)
                     (rules.waitForCircuit and signal and ((rules.empty and empty) or (rules.full and full))) then
 
                     local jump = rules.waitForCircuit and rules.jumpTo or false
+                    --jump = rules.jumpToCircuit and signalValue or jump
                     train:waitingDone(true, jump)
-                    if not rules.jumpTo then
+                    if not (rules.jumpTo or rules.jumpToCircuit) then
                       train:flyingText("leave station", YELLOW, {offset=-1})
                     end
                     keepWaiting = false
@@ -1027,6 +1092,10 @@ remote.add_interface("st",
       end
       printToFile(serpent.block(metas, {name="metas"}), "metatables" )
     end,
+
+    deduceSignal = function(entity)
+      debugDump(deduceSignalValue(entity,entity.get_circuit_condition(1).condition.first_signal,1),true)
+    end
 
   --    findStations = function()
   --      local stations = {}

@@ -355,6 +355,7 @@ GUI = {
       GUI.addPlaceHolder(tbl)
       GUI.addLabel(tbl, {"lbl-keepWaiting"})
       GUI.addLabel(tbl, {"lbl-jump-to"})
+      --GUI.addPlaceHolder(tbl)
       for i,s in pairs(records) do
         GUI.addLabel(tbl, {caption=i.." "..s.station})
         local states = {full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
@@ -362,11 +363,13 @@ GUI = {
           keepWaiting = false, waitForCircuit = false}
         states.keepWaiting = rules[i] and rules[i].keepWaiting or false
         states.waitForCircuit = rules[i] and rules[i].waitForCircuit or false
+        --states.jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false
         GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
         GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"",{"lbl-full"}," (AND)"}, style="st_checkbox", state=states.full})
         GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, caption={"lbl-waitForCircuit"}, state=states.waitForCircuit})
         GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, state=states.keepWaiting})
         GUI.addTextfield(tbl, {name="jumpTo__"..i, text="", style="st_textfield_small"})
+        --GUI.add(tbl,{type="checkbox", name="jumpToCircuit__"..i, caption={"lbl-waitForCircuit"}, state=states.jumpToCircuit})
         --GUI.addPlaceHolder(tbl)
         tbl["jumpTo__"..i].text = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
       end
@@ -434,7 +437,7 @@ function onguiclick(event)
       local minFlow = GUI.sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
       local circuitInterval = GUI.sanitizeNumber(settings.circuitInterval.text,global.settings.circuit.interval)
       if circuitInterval < 1 then circuitInterval = 1 end
-      
+
       global.settings.depart = {interval = interval, minWait = minWait}
       global.settings.depart.minFlow = minFlow
       global.settings.circuit.interval = circuitInterval
@@ -490,7 +493,7 @@ function onguiclick(event)
           if global.guiData[index].rules[i] then
             tmp[i] = global.guiData[index].rules[i]
             local jump = GUI.sanitizeNumber(gui["jumpTo__"..i].text, false)
-            tmp[i].jumpTo = (tmp[i].waitForCircuit) and jump or false
+            tmp[i].jumpTo = (tmp[i].waitForCircuit and not tmp[i].jumpToCircuit) and jump or false
             if not (tmp[i].empty or tmp[i].full or tmp[i].waitForCircuit) then
               tmp[i].keepWaiting = false
             end
@@ -639,6 +642,7 @@ function onguiclick(event)
         rules.keepWaiting = element.parent["keepWaiting__"..option2].state
         rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
         rules.jumpTo = element.parent["jumpTo__"..option2].text
+        --rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
         global.guiData[index].rules[tonumber(option2)] = rules
       elseif option1 == "leaveEmpty" then
         if element.state == true then
@@ -656,12 +660,14 @@ function onguiclick(event)
         rules.full = element.parent["leaveFull__"..option2].state
         rules.keepWaiting = element.parent["keepWaiting__"..option2].state
         rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+        --rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
         global.guiData[index].rules[tonumber(option2)] = rules
       elseif option1 == "keepWaiting" then
         local rules = global.guiData[index].rules[tonumber(option2)] or {}
         rules.empty = element.parent["leaveEmpty__"..option2].state
         rules.full = element.parent["leaveFull__"..option2].state
         rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+        --rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
         if not (rules.empty or rules.full or rules.waitForCircuit) then
           element.state = false
         end
@@ -681,7 +687,27 @@ function onguiclick(event)
         rules.empty = element.parent["leaveEmpty__"..option2].state
         rules.full = element.parent["leaveFull__"..option2].state
         rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+        --rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
         global.guiData[index].rules[tonumber(option2)] = rules
+--      elseif option1 == "jumpToCircuit" then
+--        if not element.parent["waitForCircuit__"..option2].state then
+--          element.state = false
+--        end
+--        if element.state == true then
+--          element.parent["jumpTo__"..option2].text = ""
+--        end
+--        if element.parent["leaveFull__"..option2].state == false and
+--          element.parent["leaveEmpty__"..option2].state == false and
+--          element.parent["waitForCircuit__"..option2].state == false then
+--          element.parent["keepWaiting__"..option2].state = false
+--        end
+--        local rules = global.guiData[index].rules[tonumber(option2)] or {}
+--        rules.empty = element.parent["leaveEmpty__"..option2].state
+--        rules.full = element.parent["leaveFull__"..option2].state
+--        rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+--        rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+--        rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
+--        global.guiData[index].rules[tonumber(option2)] = rules
       end
     end
     if refresh then
