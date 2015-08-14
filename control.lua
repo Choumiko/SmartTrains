@@ -306,7 +306,7 @@ function getKeyByValue(tableA, value)
 end
 
 function ontrainchangedstate(event)
-  --debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
+  debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
   local status, err = pcall(function()
     local train = event.train
     local trainKey = getTrainKeyByTrain(global.trains, train)
@@ -431,9 +431,13 @@ function ontick(event)
     local status,err = pcall(
       function()
         for i,train in pairs(global.trains) do
-          if train.train.speed == 0 then
-            train:updateLine()
-          end
+          if train.train and train.train.valid then
+            if train.line and train.train.speed == 0 then
+              train:updateLine()
+            end
+          else
+            debugDump("removed "..removeInvalidTrains().." invalid trains",true)
+          end 
         end
       end)
     if not status then
