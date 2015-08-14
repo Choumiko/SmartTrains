@@ -306,7 +306,7 @@ function getKeyByValue(tableA, value)
 end
 
 function ontrainchangedstate(event)
-  debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
+  --debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
   local status, err = pcall(function()
     local train = event.train
     local trainKey = getTrainKeyByTrain(global.trains, train)
