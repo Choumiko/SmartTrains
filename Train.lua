@@ -182,7 +182,9 @@ Train = {
         local cargoProxy = self.waitingStation.cargoProxy
         local output = cargoProxy.get_circuit_condition(1)
         local cargoCount = self:cargoCount()
-
+        for c=1,50 do
+          output.parameters[c]={signal={type = "item", name = nil}, count = 1, index = c}
+        end
         output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}

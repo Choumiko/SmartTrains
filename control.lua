@@ -139,7 +139,7 @@ function initGlob()
       end
     end
   end
-  if global.version < "0.3.63" then
+  if global.version < "0.3.64" then
     for _, line in pairs(global.trainLines) do
       if type(line.records) == "table" then
         if type(line.rules) == "table" then
@@ -151,8 +151,9 @@ function initGlob()
         end
       end
     end
+    global.version = "0.3.64"
   end
-  global.version = "0.3.62"
+  global.version = "0.3.64"
 end
 
 function oninit() initGlob() end
@@ -758,6 +759,11 @@ function renameStation(newName, oldName)
       if record.station == oldName then
         debugDump("Line "..line.." changed: "..oldName.." to "..newName,true)
         record.station = newName
+      end
+    end
+    for i, rule in pairs(data.rules) do
+      if rule.station == oldName then
+        rule.station = newName
       end
     end
   end
