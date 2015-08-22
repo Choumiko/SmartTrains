@@ -139,6 +139,19 @@ function initGlob()
       end
     end
   end
+  if global.version < "0.3.63" then
+    for _, line in pairs(global.trainLines) do
+      if type(line.records) == "table" then
+        if type(line.rules) == "table" then
+          for i, record in pairs(line.records) do
+            if line.rules[i] then
+              line.rules[i].station = record.station 
+            end
+          end  
+        end
+      end
+    end
+  end
   global.version = "0.3.62"
 end
 

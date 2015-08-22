@@ -95,7 +95,7 @@ Train = {
     end,
 
     currentStation = function(self)
-      if self.train.valid and type(self.train.schedule.records) == "table" then
+      if self.train.valid and type(self.train.schedule.records) == "table" and self.train.schedule.records[self.train.schedule.current] then
         return self.train.schedule.records[self.train.schedule.current].station
       else
         return false
@@ -171,8 +171,8 @@ Train = {
         local condition = self.waitingStation.signalProxy.get_circuit_condition(1)
         local signal = (condition.condition and condition.condition.first_signal and condition.condition.first_signal.name) and condition.condition.first_signal or false 
         local signalTrue = condition.fulfilled and self.waitingStation.signalProxy.energy > 0
-        --local signalValue =  (signal and signal.name) and deduceSignalValue(self.waitingStation.signalProxy, signal, 1) or false
-        return signalTrue--, signalValue 
+        local signalValue =  (signal and signal.name) and deduceSignalValue(self.waitingStation.signalProxy, signal, 1) or false
+        return signalTrue, signalValue 
       end
       return false, false
     end,
