@@ -585,14 +585,14 @@ function ontick(event)
                   --debugDump(rules,true)
                   local full = train:isCargoFull()
                   local empty = train:isCargoEmpty()
-                  local signal = train:getCircuitSignal()
+                  local signal, signalValue = train:getCircuitSignal()
                   if  (rules.full and full and not rules.waitForCircuit) or  -- only full set
                     (rules.empty and empty and not rules.waitForCircuit) or --only empty set
                     (rules.waitForCircuit and signal and not (rules.empty or rules.full)) or --circuit and empty/full NOT set
                     (rules.waitForCircuit and signal and ((rules.empty and empty) or (rules.full and full))) then
 
                     local jump = rules.waitForCircuit and rules.jumpTo or false
-                    --jump = rules.jumpToCircuit and signalValue or jump
+                    jump = rules.jumpToCircuit and signalValue or jump
                     train:waitingDone(true, jump)
                     if not (rules.jumpTo or rules.jumpToCircuit) then
                       train:flyingText("leave station", YELLOW, {offset=-1})

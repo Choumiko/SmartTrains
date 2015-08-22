@@ -363,7 +363,7 @@ GUI = {
           keepWaiting = false, waitForCircuit = false}
         states.keepWaiting = rules[i] and rules[i].keepWaiting or false
         states.waitForCircuit = rules[i] and rules[i].waitForCircuit or false
-        --states.jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false
+        states.jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false
         GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
         GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"",{"lbl-full"}," (AND)"}, style="st_checkbox", state=states.full})
         GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, caption={"lbl-waitForCircuit"}, state=states.waitForCircuit})
