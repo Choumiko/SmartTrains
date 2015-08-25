@@ -40,6 +40,12 @@ Train = {
 
     nextStation = function(self, force, index)
       local train = self.train
+      if self.settings.autoRefuel then
+        if self:lowestFuel() < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(self:refuelStation(), train.schedule) then
+          train.schedule = addStation(self:refuelStation(), train.schedule, global.settings.refuel.time)
+          self:flyingText("Refuel station added", YELLOW)
+        end
+      end
       if train.manual_mode == false or force then
         local schedule = train.schedule
         local tmp = (schedule.current % #schedule.records) + 1

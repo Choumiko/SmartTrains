@@ -145,9 +145,9 @@ function initGlob()
         if type(line.rules) == "table" then
           for i, record in pairs(line.records) do
             if line.rules[i] then
-              line.rules[i].station = record.station 
+              line.rules[i].station = record.station
             end
-          end  
+          end
         end
       end
     end
@@ -438,10 +438,10 @@ function ontrainchangedstate(event)
       if t:isWaiting() then
       --debugDump("waiting",true)
       end
-    elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] or train.state == defines.trainstate["on_the_path"] then
-      if settings.autoRefuel then
-        if fuel < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(t:refuelStation(), schedule) then
-          train.schedule = addStation(t:refuelStation(), schedule, global.settings.refuel.time)
+    elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] then
+      if t.settings.autoRefuel then
+        if t:lowestFuel() < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(t:refuelStation(), train.schedule) then
+          train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
           t:flyingText("Refuel station added", YELLOW)
         end
       end
@@ -761,9 +761,11 @@ function renameStation(newName, oldName)
         record.station = newName
       end
     end
-    for i, rule in pairs(data.rules) do
-      if rule.station == oldName then
-        rule.station = newName
+    if type(data.rules) == "table" then
+      for i, rule in pairs(data.rules) do
+        if rule.station == oldName then
+          rule.station = newName
+        end
       end
     end
   end
