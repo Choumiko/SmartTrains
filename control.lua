@@ -74,6 +74,7 @@ function initGlob()
 
   global.guiData = global.guiData or {}
   global.openedName = global.openedName or {}
+  global.openedTrain = global.openedTrain or {}
   global.stationCount = global.stationCount or {}
 
   global.settings = global.settings or defaultSettings
@@ -682,6 +683,7 @@ function on_player_opened(event)
       removeInvalidTrains(true)
       GUI.create_or_update(trainInfo, event.player_index)
       global.guiData[event.player_index] = {rules={}}
+      global.openedTrain[event.player_index] = event.entity.train
     elseif event.entity.type == "train-stop" then
       global.playerPage[event.player_index] = {schedule=1,lines=1}
       GUI.create_or_update(false, event.player_index)
@@ -697,6 +699,7 @@ function on_player_closed(event)
       local name = event.entity.backer_name or event.entity.name
       GUI.destroy(event.player_index)
       global.guiData[event.player_index] = nil
+      global.openedTrain[event.player_index] = nil
       --set line version to -1, so it gets updated at the next station
       local train = getTrainFromEntity(event.entity)
       if train.line and train.lineVersion ~= 0 then
@@ -1015,7 +1018,7 @@ function saveGlob(name)
 end
 
 function pauseError(err, desc)
-  game.show_message_dialog({text="Error in SmartTrains:"..err})
+  debugDump("Error in SmartTrains:",true)
   debugDump(err,true)
   global.error = {msg = err, desc = desc}
   game.makefile("errorReportSmartTrains.txt", serpent.block(global, {name="global"}))
