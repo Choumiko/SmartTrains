@@ -504,9 +504,11 @@ function ontick(event)
     for _, train in pairs(global.updateTick[event.tick]) do
       local status,err = pcall(
         function()
-          if train.waitingStation then
+          if train.train and train.train.valid and train.waitingStation then
             train:setCircuitSignal()
             insertInTable(global.updateTick,event.tick+global.settings.circuit.interval,train)
+          else
+            removeInvalidTrains(true)
           end
         end)
       if not status then
@@ -525,7 +527,7 @@ function ontick(event)
               train:updateLine()
             end
           else
-            debugDump("removed "..removeInvalidTrains().." invalid trains",true)
+            removeInvalidTrains(true)
           end
         end
       end)
@@ -539,9 +541,11 @@ function ontick(event)
     local status,err = pcall(
       function()
         for i,train in pairs(global.stopTick[event.tick]) do
-          if train.train.valid then
+          if train.train and train.train.valid then
             train.train.manual_mode = true
             --debugDump("manual mode set",true)
+          else
+            removeInvalidTrains(true)
           end
         end
         global.stopTick[event.tick] = nil
@@ -644,6 +648,8 @@ function ontick(event)
                 end
               end
             end
+          else
+            removeInvalidTrains(true)
           end
         end
         global.ticks[event.tick] = nil
@@ -905,6 +911,10 @@ function onentitydied(event)
   local status, err = pcall(function()
     debugDump(event.entity.name)
     removeInvalidTrains(true)
+    if event.entity.type == "locomotive" or event.entity.type == "cargo-wagon" then
+      removeInvalidTrains(true)
+      return
+    end
     if event.entity.type == "train-stop" then
       decreaseStationCount(event.entity.backer_name)
     end
