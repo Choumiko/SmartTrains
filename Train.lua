@@ -359,7 +359,7 @@ Train = {
             if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
               local d = remote.call("railtanker", "getLiquidByWagon", wagon)
               if d.type ~= nil then
-                if math.ceil(d.amount) < 1250 then
+                if math.ceil(d.amount) < 2500 then
                   return false
                 end
               end
