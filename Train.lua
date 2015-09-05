@@ -383,6 +383,10 @@ Train = {
 
     updateLine = function(self)
       if self.line and global.trainLines[self.line] then
+        if self.settings.autoRefuel and self.train.schedule.current == inSchedule(self:refuelStation(), self.train.schedule) then
+          --self:flyingText("Skipping line update", YELLOW)
+          return
+        end
         local trainLine = global.trainLines[self.line]
         if self.line and trainLine.changed > self.lineVersion then
           if self.lineVersion >= 0 then
