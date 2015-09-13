@@ -16,7 +16,7 @@ require("Train")
 
 defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 defaultSettings =
-  { refuel={station="Refuel", rangeMin = 25, rangeMax = 50, time = 600},
+  { refuel={station="Refuel", rangeMin = 25*8, rangeMax = 50*8, time = 600},
     depart={minWait = 240, interval = 120, minFlow = 1},
     circuit={interval = 2},
     lines={forever=false}
@@ -154,7 +154,13 @@ function initGlob()
     end
     global.version = "0.3.64"
   end
-  global.version = "0.3.64"
+  
+  if global.version < "0.3.67" then
+    global.settings.refuel.rangeMin = global.settings.refuel.rangeMin * 8
+    global.settings.refuel.rangeMax = global.settings.refuel.rangeMax * 8
+    global.version = "0.3.67"
+  end
+  global.version = "0.3.67"
 end
 
 function oninit() initGlob() end
@@ -329,7 +335,11 @@ function addStation(station, schedule, wait, after)
 end
 
 function fuelvalue(item)
-  return game.item_prototypes[item].fuel_value
+  return game.item_prototypes[item].fuel_value/1000000
+end
+
+function fuel_value_to_coal(value)
+  return math.ceil(value/(game.item_prototypes["coal"].fuel_value/1000000))
 end
 
 function addInventoryContents(invA, invB)
@@ -421,7 +431,7 @@ function ontrainchangedstate(event)
       end
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then
-        if fuel >= (global.settings.refuel.rangeMax * fuelvalue("coal")) and t:currentStation() ~= t:refuelStation() then
+        if t:lowestFuel() >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
         end
         if t:currentStation() == t:refuelStation() then
@@ -441,7 +451,7 @@ function ontrainchangedstate(event)
       end
     elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] then
       if t.settings.autoRefuel then
-        if t:lowestFuel() < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(t:refuelStation(), train.schedule) then
+        if t:lowestFuel() < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
           train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
           t:flyingText("Refuel station added", YELLOW)
         end
@@ -564,7 +574,7 @@ function ontick(event)
             --for i,train in pairs(global.trains) do
             if train:isRefueling() then
               if event.tick >= train.refueling.nextCheck then
-                if train:lowestFuel() >= global.settings.refuel.rangeMax * fuelvalue("coal") then
+                if train:lowestFuel() >= global.settings.refuel.rangeMax then
                   train:flyingText("Refueling done", YELLOW)
                   train:refuelingDone(true)
                 else

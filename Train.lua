@@ -41,7 +41,7 @@ Train = {
     nextStation = function(self, force, index)
       local train = self.train
       if self.settings.autoRefuel then
-        if self:lowestFuel() < (global.settings.refuel.rangeMin * fuelvalue("coal")) and not inSchedule(self:refuelStation(), train.schedule) then
+        if self:lowestFuel() < (global.settings.refuel.rangeMin) and not inSchedule(self:refuelStation(), train.schedule) then
           train.schedule = addStation(self:refuelStation(), train.schedule, global.settings.refuel.time)
           self:flyingText("Refuel station added", YELLOW)
         end
@@ -227,6 +227,7 @@ Train = {
       end
     end,
 
+    --returns fuelvalue (in MJ)
     lowestFuel = function(self)
       local minfuel = nil
       local c

@@ -113,18 +113,21 @@ GUI = {
       gui.globalSettings.add{type="table", name="tbl", colspan=5}
       local tbl = gui.globalSettings.tbl
 
+      local coal_min = fuel_value_to_coal(global.settings.refuel.rangeMin)
+      local coal_max = fuel_value_to_coal(global.settings.refuel.rangeMax)
+
       GUI.addLabel(tbl, {"stg-refuel-below1"})
-      GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield_small"})
-      GUI.addLabel(tbl, {"stg-refuel-below2"})
+      GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield"})
+      GUI.addLabel(tbl, {"", {"stg-MJ"}, " ("..coal_min.." ", game.get_localised_item_name("coal"), ")",{"stg-refuel-below2"}})
       local r = GUI.add(tbl, {type="flow", name="row1", direction="horizontal"})
-      GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield_small"})
-      GUI.addLabel(r, game.get_localised_item_name("coal"))
+      GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield"})
+      GUI.addLabel(r, {"", {"stg-MJ"}, " ("..coal_max.." ", game.get_localised_item_name("coal"),")"})
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"stg-max-refuel-time"})
       GUI.addTextfield(tbl, {name="refuelTime", style="st_textfield_small"})
       GUI.addLabel(tbl,  {"stg-refuel-station"})
-      GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield"})
+      GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_big"})
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"stg-min-wait-time"})
@@ -147,9 +150,9 @@ GUI = {
           uniqueStations = uniqueStations + 1
         end
       end
-      GUI.addLabel(tbl,"Stations: "..uniqueStations.."/"..noStations)
-
       GUI.addPlaceHolder(tbl)
+      GUI.addLabel(tbl,{"", {"lbl-stations"}, ": ", uniqueStations, "/", noStations})
+
       GUI.addButton(tbl, {name="globalSettingsSave", caption="Save"})
 
       tbl.refuelRangeMin.text = global.settings.refuel.rangeMin
@@ -213,14 +216,17 @@ GUI = {
         local s = records[i]
         GUI.addLabel(tbl, i.." "..s.station)
         GUI.addLabel(tbl, s.time_to_wait/60)
+        local inf = ""
         if line and rules and rules[i] and (rules[i].full or rules[i].empty) then
           local condition = rules[i].full and {"lbl-full"} or {"lbl-empty"}
-          GUI.addLabel(tbl, {"",{"lbl-leave-when"}," ",condition})
+          if rules[i].keepWaiting then inf = {"", ", ", {"lbl-wait"}, " ", {"lbl-forever"}} end
+          GUI.addLabel(tbl, {"",{"lbl-leave-when"}," ",condition, inf})
           GUI.addPlaceHolder(tbl)
         elseif line and rules and rules[i] and rules[i].waitForCircuit then
           local jmp = ""
+          if rules[i].keepWaiting then inf = {"", ", ", {"lbl-wait"}, " ", {"lbl-forever"}} end          
           if rules[i].jumpTo and rules[i].jumpTo <= #records then
-            GUI.addLabel(tbl, {"", {"lbl-jump-to"},"", rules[i].jumpTo})
+            GUI.addLabel(tbl, {"", {"lbl-jump-to"},"", rules[i].jumpTo, inf})
           end
           if not rules[i].jumpTo then
             GUI.addLabel(tbl, {"lbl-wait-for-circuit"})
@@ -366,10 +372,10 @@ GUI = {
         states.jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false
         GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
         GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"",{"lbl-full"}," (AND)"}, style="st_checkbox", state=states.full})
-        GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, caption={"lbl-waitForCircuit"}, state=states.waitForCircuit})
+        GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, caption={"lbl-wait-for-circuit"}, state=states.waitForCircuit})
         GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, state=states.keepWaiting})
         GUI.addTextfield(tbl, {name="jumpTo__"..i, text="", style="st_textfield_small"})
-        GUI.add(tbl,{type="checkbox", name="jumpToCircuit__"..i, caption={"lbl-waitForCircuit"}, state=states.jumpToCircuit})
+        GUI.add(tbl,{type="checkbox", name="jumpToCircuit__"..i, caption={"lbl-jump-to-signal"}, state=states.jumpToCircuit})
         --GUI.addPlaceHolder(tbl)
         tbl["jumpTo__"..i].text = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
       end
