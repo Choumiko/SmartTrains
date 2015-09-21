@@ -264,6 +264,7 @@ Train = {
       if self.cargoUpdated + global.settings.circuit.interval - 1 < game.tick then
         local sum = {}
         local train = self.train
+        --sum = train.get_contents()
         for i, wagon in pairs(train.carriages) do
           if wagon.type == "cargo-wagon" then
             if wagon.name ~= "rail-tanker" then
