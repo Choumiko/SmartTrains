@@ -256,7 +256,10 @@ GUI = {
       GUI.addPlaceHolder(pages)
     end
     GUI.addButton(btns, {name="saveAsLine__"..trainKey..lineKey, caption={"lbl-save-as-line"}})
-    GUI.addTextfield(btns, {name="saveAslineName", text="", style="st_textfield_big"})
+    local line = GUI.addTextfield(btns, {name="saveAslineName", text="", style="st_textfield_big"})
+    if trainLine then
+      line.text = trainLine.name
+    end
   end,
 
   showTrainLinesWindow = function(parent, trainInfo, player_index)
