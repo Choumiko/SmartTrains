@@ -259,20 +259,22 @@ function recreateProxy(trainstop)
   end
 end
 
-function findSmartTrainStopByTrain(train, stationName)
-  local areas = {expandPos(train.carriages[1].position, 3), expandPos(train.carriages[#train.carriages].position, 3)}
-  local surface = train.carriages[1].surface
+function findSmartTrainStopByTrain(vehicle, stationName)
+  --local areas = {expandPos(vehicle.carriages[1].position, 3), expandPos(vehicle.carriages[#vehicle.carriages].position, 3)}
+  local surface = vehicle.surface
   local found = false
-  for _,area in pairs(areas) do
+
+  local area = expandPos(vehicle.position, 3)
+  --for _,area in pairs(areas) do
     for _1, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
-      flyingText("S", GREEN, station.position, true)
+      --flyingText("S", GREEN, station.position, true)
       if station.backer_name == stationName then
         found = station
         break
       end
       if found then break end
     end
-  end
+  --end
   return found
 end
 
@@ -282,12 +284,15 @@ function removeInvalidTrains(show)
   for i=#global.trains,1,-1 do
     local ti = global.trains[i]
     if not ti.train or not ti.train.valid or (#ti.train.locomotives.front_movers == 0 and #ti.train.locomotives.back_movers == 0) then
+      ti:resetCircuitSignal()
+      
       table.remove(global.trains, i)
       removed = removed + 1
       -- try to detect change through pressing G/V
     else
       local test = ti:getType()
       if test ~= ti.type then
+        ti:resetCircuitSignal()
         table.remove(global.trains, i)
         removed = removed + 1
       end
@@ -456,6 +461,9 @@ function ontrainchangedstate(event)
           t:flyingText("Refuel station added", YELLOW)
         end
       end
+    end
+    if train.state == defines.trainstate["arrive_station"] then
+        t.direction = t.train.speed < 0 and 1 or 0
     end
     if t.advancedState == defines.trainstate["left_station"] then
       t:resetCircuitSignal()

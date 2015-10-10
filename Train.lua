@@ -12,7 +12,8 @@ Train = {
           refueling = false,
           advancedState = false,
           cargo = {},
-          cargoUpdated = 0
+          cargoUpdated = 0,
+          direction = 0 -- 0 = front, 1 back
         --manualMode = train.manual_mode
         }
         new.settings.autoDepart = defaultTrainSettings.autoDepart
@@ -160,10 +161,13 @@ Train = {
 
     -- return true when at a smart train stop
     setWaitingStation = function(self)
-      local station = findSmartTrainStopByTrain(self.train, self.train.schedule.records[self.train.schedule.current].station)
+      local vehicle = (self.direction and self.direction == 0) and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
+      --self:flyingText("V", GREEN, {offset=vehicle.position})
+      local station = findSmartTrainStopByTrain(vehicle, self.train.schedule.records[self.train.schedule.current].station)
       local proxy, cargoProxy = false, false
       if station then
         local smartStop = global.smartTrainstops[stationKey(station)]
+        --self:flyingText("S", GREEN, {offset=station.position})
         proxy = (smartStop and smartStop.proxy) and smartStop.proxy or false
         cargoProxy = (smartStop and smartStop.cargo) and smartStop.cargo or false
       end
@@ -175,10 +179,10 @@ Train = {
     getCircuitSignal = function(self)
       if self.waitingStation and self.waitingStation.signalProxy and self.waitingStation.signalProxy.valid then
         local condition = self.waitingStation.signalProxy.get_circuit_condition(1)
-        local signal = (condition.condition and condition.condition.first_signal and condition.condition.first_signal.name) and condition.condition.first_signal or false 
+        local signal = (condition.condition and condition.condition.first_signal and condition.condition.first_signal.name) and condition.condition.first_signal or false
         local signalTrue = condition.fulfilled and self.waitingStation.signalProxy.energy > 0
         local signalValue =  (signal and signal.name) and deduceSignalValue(self.waitingStation.signalProxy, signal, 1) or false
-        return signalTrue, signalValue 
+        return signalTrue, signalValue
       end
       return false, false
     end,
