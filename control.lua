@@ -6,8 +6,8 @@ require "util"
 -- this event is raised with extra parameter foo with value "bar"
 --game.raiseevent(myevent, {foo="bar"})
 events = {}
-events["on_player_opened"] = game.generate_event_name()
-events["on_player_closed"] = game.generate_event_name()
+events["on_player_opened"] = script.generate_event_name()
+events["on_player_closed"] = script.generate_event_name()
 
 debug = false
 
@@ -23,9 +23,6 @@ defaultSettings =
   }
 stationsPerPage = 5
 linesPerPage = 5
-
-
-fluids = game.fluid_prototypes
 
 local tmpPos = {}
 RED = {r = 0.9}
@@ -56,10 +53,6 @@ function onplayercreated(event)
 end
 
 function initGlob()
-
-  if global.version and global.version < "0.3.0" then
-    global.version = "0.0.0"
-  end
   global.version = global.version or "0.0.0"
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
@@ -89,86 +82,28 @@ function initGlob()
     resetMetatable(object, Train)
   end
 
-  if global.version < "0.3.2" then
-    global.stationCount = {}
-    findStations()
-    saveGlob("stations")
-    global.version = "0.3.2"
-  end
-  if global.version < "0.3.4" then
-    for _, t in pairs(global.trains) do
-      if t.train.valid and t.waitForever == nil then
-        t.waitForever = false
-      end
-    end
-    for _, line in pairs(global.trainLines) do
-      if type(line.rules) == "table" then
-        for _2, rule in pairs(line.rules) do
-          if rule.keepWaiting == nil then
-            rule.keepWaiting = false
-          end
-        end
-      end
-    end
-    global.version = "0.3.4"
-  end
-
-  if global.version < "0.3.6" then
-    global.settings.circuit = {}
-    global.settings.circuit.interval = 30
-    for _, trainstop in pairs(global.smartTrainstops) do
-      recreateProxy(trainstop)
-    end
-    global.version = "0.3.6"
-  end
-
-  if global.version < "0.3.62" then
-    saveGlob("preInit")
-    for _, t in pairs(global.trains) do
-      if t.train.valid and t.cargoUpdated == nil then
-        t.cargoUpdated = 0
-        t:cargoCount()
-      end
-    end
-    for _, line in pairs(global.trainLines) do
-      if type(line.rules) == "table" then
-        for _2, rule in pairs(line.rules) do
-          if rule.jumpToCircuit == nil then
-            rule.jumpToCircuit = false
-          end
-        end
-      end
-    end
-  end
-  if global.version < "0.3.64" then
-    for _, line in pairs(global.trainLines) do
-      if type(line.records) == "table" then
-        if type(line.rules) == "table" then
-          for i, record in pairs(line.records) do
-            if line.rules[i] then
-              line.rules[i].station = record.station
-            end
-          end
-        end
-      end
-    end
-    global.version = "0.3.64"
-  end
-  
-  if global.version < "0.3.67" then
-    global.settings.refuel.rangeMin = global.settings.refuel.rangeMin * 8
-    global.settings.refuel.rangeMax = global.settings.refuel.rangeMax * 8
-    global.version = "0.3.67"
-  end
-  global.version = "0.3.67"
+  global.version = "0.3.69"
 end
 
-function oninit() initGlob() end
+function oninit()
+  initGlob()
+  findStations()
+end
 
 function onload()
   initGlob()
-  local rem = removeInvalidTrains()
-  if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
+  local rem = removeInvalidTrains(false)
+  --if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
+end
+
+function on_configuration_changed(data)
+  local status, err = pcall(function()
+    --debugDump(data,true)
+    if data.mod_changes.SmartTrains and not data.mod_changes.SmartTrains.old_version then
+      findStations()
+    end
+  end)
+  if not status then error(err, 2) end
 end
 
 function resetMetatable(o, mt)
@@ -266,14 +201,14 @@ function findSmartTrainStopByTrain(vehicle, stationName)
 
   local area = expandPos(vehicle.position, 3)
   --for _,area in pairs(areas) do
-    for _1, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
-      --flyingText("S", GREEN, station.position, true)
-      if station.backer_name == stationName then
-        found = station
-        break
-      end
-      if found then break end
+  for _1, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
+    --flyingText("S", GREEN, station.position, true)
+    if station.backer_name == stationName then
+      found = station
+      break
     end
+    if found then break end
+  end
   --end
   return found
 end
@@ -285,7 +220,7 @@ function removeInvalidTrains(show)
     local ti = global.trains[i]
     if not ti.train or not ti.train.valid or (#ti.train.locomotives.front_movers == 0 and #ti.train.locomotives.back_movers == 0) then
       ti:resetCircuitSignal()
-      
+
       table.remove(global.trains, i)
       removed = removed + 1
       -- try to detect change through pressing G/V
@@ -463,7 +398,7 @@ function ontrainchangedstate(event)
       end
     end
     if train.state == defines.trainstate["arrive_station"] then
-        t.direction = t.train.speed < 0 and 1 or 0
+      t.direction = t.train.speed < 0 and 1 or 0
     end
     if t.advancedState == defines.trainstate["left_station"] then
       t:resetCircuitSignal()
@@ -798,8 +733,8 @@ function renameStation(newName, oldName)
   end
 end
 
-game.on_event(events.on_player_opened, on_player_opened)
-game.on_event(events.on_player_closed, on_player_closed)
+script.on_event(events.on_player_opened, on_player_opened)
+script.on_event(events.on_player_closed, on_player_closed)
 
 function getTrainFromEntity(ent)
   for i,trainInfo in pairs(global.trains) do
@@ -1001,7 +936,7 @@ end
 function printToFile(line, path)
   path = path or "log"
   path = table.concat({ "st", "/", path, ".lua" })
-  game.makefile( path,  line)
+  game.write_file( path,  line)
 end
 
 function pairsByKeys (t, f)
@@ -1041,15 +976,15 @@ end
 
 function saveGlob(name)
   local n = name or ""
-  game.makefile("st/debugGlob"..n..".lua", serpent.block(global, {name="glob"}))
-  --game.makefile("st/loco"..n..".lua", serpent.block(findAllEntitiesByType("locomotive")))
+  game.write_file("st/debugGlob"..n..".lua", serpent.block(global, {name="glob"}))
+  --game.write_file("st/loco"..n..".lua", serpent.block(findAllEntitiesByType("locomotive")))
 end
 
 function pauseError(err, desc)
   debugDump("Error in SmartTrains:",true)
   debugDump(err,true)
   global.error = {msg = err, desc = desc}
-  game.makefile("errorReportSmartTrains.txt", serpent.block(global, {name="global"}))
+  game.write_file("errorReportSmartTrains.txt", serpent.block(global, {name="global"}))
   global.error = nil
 end
 
@@ -1089,18 +1024,19 @@ function findStations()
   end
 end
 
-game.on_init(oninit)
-game.on_load(onload)
-game.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
-game.on_event(defines.events.on_player_mined_item, onplayermineditem)
-game.on_event(defines.events.on_preplayer_mined_item, onpreplayermineditem)
-game.on_event(defines.events.on_entity_died, onentitydied)
-game.on_event(defines.events.on_built_entity, onbuiltentity)
-game.on_event(defines.events.on_gui_click, onguiclick)
-game.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
-game.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
---game.on_event(defines.events.on_player_created, onplayercreated)
-game.on_event(defines.events.on_tick, ontick)
+script.on_init(oninit)
+script.on_load(onload)
+script.on_configuration_changed(on_configuration_changed)
+script.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
+script.on_event(defines.events.on_player_mined_item, onplayermineditem)
+script.on_event(defines.events.on_preplayer_mined_item, onpreplayermineditem)
+script.on_event(defines.events.on_entity_died, onentitydied)
+script.on_event(defines.events.on_built_entity, onbuiltentity)
+script.on_event(defines.events.on_gui_click, onguiclick)
+script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
+script.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
+--script.on_event(defines.events.on_player_created, onplayercreated)
+script.on_event(defines.events.on_tick, ontick)
 
 remote.add_interface("st",
   {

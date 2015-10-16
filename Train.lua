@@ -201,7 +201,7 @@ Train = {
         local i=4
         for name, count in pairs(cargoCount) do
           local type = "item"
-          if fluids[name] then
+          if game.fluid_prototypes[name] then
             type = "fluid"
             count = math.floor(count)
           end
@@ -296,6 +296,7 @@ Train = {
       local liquids1 = {}
       local liquids2 = {}
       local goodflow = false
+      local fluids = game.fluid_prototypes
       for l,_ in pairs(fluids) do
         liquids1[l], liquids2[l] = false, false
         if c1[l] ~= nil or c2[l] ~= nil then
