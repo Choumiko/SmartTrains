@@ -1083,32 +1083,37 @@ remote.add_interface("st",
       end
     end,
 
-    printMeta = function()
-      local metas = {}
-      for i,to in pairs(global.trains) do
-        table.insert(metas, getmetatable(to))
-      end
-      printToFile(serpent.block(metas, {name="metas"}), "metatables" )
-    end,
-
     deduceSignal = function(entity)
       debugDump(deduceSignalValue(entity,entity.get_circuit_condition(1).condition.first_signal,1),true)
-    end
+    end,
 
-  --    findStations = function()
-  --      local stations = {}
-  --      for coord in game.getchunks() do
-  --        local X,Y = coord.x, coord.y
-  --        if game.ischunkgenerated{X,Y} then
-  --          local area = {{X*32, Y*32}, {X*32 + 32, Y*32 + 32}}
-  --          for _, entity in pairs(game.findentitiesfiltered{area = area, type = "train-stop"}) do
-  --            local key = entity.position.x.."A"..entity.position.y
-  --            key = string.gsub(key, "-", "_")
-  --            stations[key] = {entity.backer_name, entity.position}
-  --          end
-  --        end
-  --      end
-  --      printToFile(serpent.block(stations),"stations")
-  --    end
+    deactivate = function()
+      script.on_event(defines.events.on_train_changed_state, nil)
+      script.on_event(defines.events.on_tick, nil)
+      script.on_event(defines.events.on_gui_click, nil)
+      script.on_event(events.on_player_opened, nil)
+      script.on_event(events.on_player_closed, nil)
+      global.ticks = {}
+      global.stopTick = {}
+      global.updateTick = {}
+      for i, t in pairs(global.trains) do
+        if t:isWaiting() then
+          t.waiting = false
+          t:nextStation(t.waitForever)
+          t.waitForever = false
+        end
+        if t:isRefueling() then
+          t:refuelingDone(true)
+        end
+      end
+    end,
+
+    activate = function()
+      script.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
+      script.on_event(defines.events.on_gui_click, onguiclick)
+      script.on_event(defines.events.on_tick, ontick)
+      script.on_event(events.on_player_opened, on_player_opened)
+      script.on_event(events.on_player_closed, on_player_closed)
+    end
   }
 )
