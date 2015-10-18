@@ -294,7 +294,7 @@ GUI = {
       local spp = global.settings.linesPerPage
       local start = (page-1) * spp + 1
       local max = start + spp - 1
-      for i, l in pairsByKeys(global.trainLines) do
+      for i, l in pairsByKeys(global.trainLines, sortByName) do
         local trainCount = 0
         for _,t in pairs(global.trains) do
           if t.line == i then

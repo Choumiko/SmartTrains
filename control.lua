@@ -99,8 +99,11 @@ end
 function on_configuration_changed(data)
   local status, err = pcall(function()
     --debugDump(data,true)
-    if data.mod_changes.SmartTrains and not data.mod_changes.SmartTrains.old_version then
-      findStations()
+    if data.mod_changes.SmartTrains then
+      local old_version = data.mod_changes.SmartTrains.old_version
+      if not old_version or old_version < "0.3.2" then
+        findStations()
+      end
     end
   end)
   if not status then error(err, 2) end
@@ -954,7 +957,22 @@ function pairsByKeys (t, f)
 end
 
 function sortByName(a,b)
-  return a.name > b.name
+  local function padnum(d) return ("%012d"):format(d) end
+  --table.sort(o, function(a,b)
+    return tostring(a):gsub("%d+",padnum):lower() < tostring(b):gsub("%d+",padnum):lower()
+  --return a < b
+end
+
+
+--for k,v in ipairs(alphanumsort(unsorted)) do print(v) end
+function alphanumsort(o)
+  --local maxl = 0
+  --for n,v in ipairs(o) do tostring(v):gsub("%d+", function(d) if #d > maxl then maxl = #d end; return d end) end
+  --local function padnum(d) return ("%0"..maxl.."d"):format(d) end
+  local function padnum(d) return ("%012d"):format(d) end
+  table.sort(o, function(a,b)
+    return tostring(a):gsub("%d+",padnum):lower() < tostring(b):gsub("%d+",padnum):lower() end)
+  return o
 end
 
 function findAllEntitiesByType(surface, type)
