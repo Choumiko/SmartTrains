@@ -53,7 +53,7 @@ function onplayercreated(event)
 end
 
 function initGlob()
-  global.version = global.version or "0.0.0"
+  global.version = global.version or "0.3.7"
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
   global.ticks = global.ticks or {}
@@ -78,11 +78,13 @@ function initGlob()
   global.settings.stationsPerPage = stationsPerPage
   global.settings.linesPerPage = linesPerPage
 
+  setMetatables()
+end
+
+function setMetatables()
   for _, object in pairs(global.trains) do
     resetMetatable(object, Train)
   end
-
-  global.version = "0.3.69"
 end
 
 function oninit()
@@ -91,19 +93,25 @@ function oninit()
 end
 
 function onload()
-  initGlob()
-  local rem = removeInvalidTrains(false)
+  --initGlob()
+  setMetatables()
+  --local rem = removeInvalidTrains(false)
   --if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
 end
 
 function on_configuration_changed(data)
   local status, err = pcall(function()
+    if not data.mod_changes then
+      return
+    end
     --debugDump(data,true)
     if data.mod_changes.SmartTrains then
       local old_version = data.mod_changes.SmartTrains.old_version
+      local new_version = data.mod_changes.SmartTrains.new_version
       if not old_version or old_version < "0.3.2" then
         findStations()
       end
+      global.version = new_version
     end
   end)
   if not status then error(err, 2) end
@@ -243,9 +251,11 @@ function removeInvalidTrains(show)
 end
 
 function inSchedule(station, schedule)
-  for i, rec in pairs(schedule.records) do
-    if rec.station == station then
-      return i
+  if type(schedule) == "table" then
+    for i, rec in pairs(schedule.records) do
+      if rec.station == station then
+        return i
+      end
     end
   end
   return false
@@ -1074,7 +1084,7 @@ remote.add_interface("st",
         debugDump("global["..var.."] not found.")
       end
     end,
-
+--/c remote.call("st", "saveGlob")
     saveGlob = function(name)
       saveGlob(name)
     end,

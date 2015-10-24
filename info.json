@@ -1,9 +1,9 @@
 {
   "name": "SmartTrains",
-  "version": "0.3.69",
+  "version": "0.3.7",
   "title": "Smarter Trains",
   "author": "Choumiko",
   "homepage": " ",
   "description": "Train lines, automated refueling and departure",
-  "dependencies": ["base >= 0.12.11", "? RailTanker >= 1.1.1", "? 5dim_trains"]
+  "dependencies": ["base >= 0.12.12", "? RailTanker >= 1.1.1", "? 5dim_trains"]
 }

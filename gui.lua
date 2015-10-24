@@ -118,10 +118,10 @@ GUI = {
 
       GUI.addLabel(tbl, {"stg-refuel-below1"})
       GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield"})
-      GUI.addLabel(tbl, {"", {"stg-MJ"}, " ("..coal_min.." ", game.get_localised_item_name("coal"), ")",{"stg-refuel-below2"}})
+      GUI.addLabel(tbl, {"", {"stg-MJ"}, " ("..coal_min.." ", game.item_prototypes["coal"].localised_name, ")",{"stg-refuel-below2"}})
       local r = GUI.add(tbl, {type="flow", name="row1", direction="horizontal"})
       GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield"})
-      GUI.addLabel(r, {"", {"stg-MJ"}, " ("..coal_max.." ", game.get_localised_item_name("coal"),")"})
+      GUI.addLabel(r, {"", {"stg-MJ"}, " ("..coal_max.." ", game.item_prototypes["coal"].localised_name,")"})
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"stg-max-refuel-time"})
