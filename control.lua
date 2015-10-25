@@ -147,13 +147,25 @@ function createProxy(trainstop)
 
   local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.force, position=pos}
   local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.force, position=poscargo}
-  local ent = trainstop.surface.create_entity(proxy)
+  local area = expandPos(pos,0.2)
+  local ent = trainstop.surface.find_entities_filtered{area = area, name="smart-train-stop-proxy", force = trainstop.force}
+  if not ent[1] then
+    ent = trainstop.surface.create_entity(proxy)
+  else
+    ent = ent[1]
+  end
   if ent.valid then
     global.smartTrainstops[stationKey(trainstop)] = {entity = trainstop, proxy=ent}
     ent.minable = false
     ent.destructible = false
   end
-  local ent2 = trainstop.surface.create_entity(proxycargo)
+  area = expandPos(poscargo,0.2)
+  local ent2 = trainstop.surface.find_entities_filtered{area = area, name="smart-train-stop-proxy-cargo", force = trainstop.force}
+  if not ent2[1] then
+    ent2 = trainstop.surface.create_entity(proxycargo)
+  else
+    ent2 = ent2[1]
+  end
   if ent.valid and ent2.valid then
     global.smartTrainstops[stationKey(trainstop)].cargo = ent2
     ent2.minable = false
@@ -788,6 +800,21 @@ function onbuiltentity(event)
   local status, err = pcall(function()
     local ent = event.created_entity
     local ctype = ent.type
+    --debugDump({e=ent.ghost_name, t=ctype},true)
+    if ctype == "entity-ghost" and (ent.ghost_name == "smart-train-stop-proxy" or ent.ghost_name == "smart-train-stop-proxy-cargo") then
+      local surface = ent.surface
+      local name = ent.ghost_name
+      local area = expandPos(ent.position, 0.2)
+      ent.revive()
+      local ent = surface.find_entities_filtered{area=area, name = name}
+      debugDump({ent[1].name},true)
+      ent[1].destructible = false
+      ent[1].minable = false
+      if ent[1].name == "smart-train-stop-proxy-cargo" then 
+        ent[1].operable = false
+      end
+      return
+    end
     if ctype == "locomotive" or ctype == "cargo-wagon" then
       local newTrainInfo = getTrainFromEntity(ent)
       removeInvalidTrains(true)
