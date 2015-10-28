@@ -29,7 +29,7 @@ RED = {r = 0.9}
 GREEN = {g = 0.7}
 YELLOW = {r = 0.8, g = 0.8}
 
-defines.trainstate["left_station"] = 11
+defines.trainstate.left_station = 11
 
 function util.formattime(ticks, showTicks)
   if ticks then
@@ -101,7 +101,7 @@ end
 
 function on_configuration_changed(data)
   local status, err = pcall(function()
-    if not data.mod_changes then
+    if not data or not data.mod_changes then
       return
     end
     --debugDump(data,true)
@@ -357,7 +357,7 @@ function ontrainchangedstate(event)
     local settings = global.trains[trainKey].settings
     local fuel = t:lowestFuel()
     local schedule = train.schedule
-    if train.state == defines.trainstate["manual_control_stop"] or train.state == defines.trainstate["manual_control"] then
+    if train.state == defines.trainstate.manual_control_stop or train.state == defines.trainstate.manual_control then
       local done = false
       for tick, trains in pairs(global.ticks) do
         for i, train in pairs(trains) do
@@ -386,7 +386,7 @@ function ontrainchangedstate(event)
         end
       end
     end
-    if train.state == defines.trainstate["wait_station"] then
+    if train.state == defines.trainstate.wait_station then
       t:updateLine()
       local smartStop = t:setWaitingStation()
       if smartStop then
@@ -414,7 +414,7 @@ function ontrainchangedstate(event)
       if t:isWaiting() then
       --debugDump("waiting",true)
       end
-    elseif train.state == defines.trainstate["arrive_station"]  or train.state == defines.trainstate["wait_signal"] or train.state == defines.trainstate["arrive_signal"] then
+    elseif train.state == defines.trainstate.arrive_station or train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then
       if t.settings.autoRefuel then
         if t:lowestFuel() < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
           train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
@@ -422,10 +422,10 @@ function ontrainchangedstate(event)
         end
       end
     end
-    if train.state == defines.trainstate["arrive_station"] then
+    if train.state == defines.trainstate.arrive_station then
       t.direction = t.train.speed < 0 and 1 or 0
     end
-    if t.advancedState == defines.trainstate["left_station"] then
+    if t.advancedState == defines.trainstate.left_station then
       t:resetCircuitSignal()
       t.waitingStation = false
       t.waiting = false

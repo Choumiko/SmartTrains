@@ -381,14 +381,17 @@ Train = {
       --debugDump(util.formattime(game.tick,true).."@ "..getKeyByValue(defines.trainstate, self.train.state),true)
       self.previousState = self.state
       self.state = self.train.state
-      if self.previousState == defines.trainstate["wait_station"] and self.state == defines.trainstate["on_the_path"] then
-        self.advancedState = defines.trainstate["left_station"]
+      if self.previousState == defines.trainstate.wait_station and self.state == defines.trainstate.on_the_path then
+        self.advancedState = defines.trainstate.left_station
       else
         self.advancedState = false
       end
     end,
 
     updateLine = function(self)
+      if self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
+        return
+      end
       if self.line and global.trainLines[self.line] then
         if self.settings.autoRefuel and self.train.schedule.current == inSchedule(self:refuelStation(), self.train.schedule) then
           --self:flyingText("Skipping line update", YELLOW)
