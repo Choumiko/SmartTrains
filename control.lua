@@ -111,6 +111,7 @@ function on_configuration_changed(data)
       if not old_version or old_version < "0.3.2" then
         findStations()
       end
+      initGlob()
       global.version = new_version
     end
   end)
@@ -263,7 +264,7 @@ function removeInvalidTrains(show)
 end
 
 function inSchedule(station, schedule)
-  if type(schedule) == "table" then
+  if type(schedule) == "table" and type(schedule.records) == "table" then
     for i, rec in pairs(schedule.records) do
       if rec.station == station then
         return i
@@ -1099,7 +1100,7 @@ remote.add_interface("st",
       if name then
         debugDump(global[name], true)
       else
-        debugDump(glob, true)
+        debugDump(global, true)
       end
     end,
 
