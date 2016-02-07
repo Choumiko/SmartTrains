@@ -65,7 +65,7 @@ Train = {
       local station = global.settings.refuel.station
       local refuelStation = station.." "..self:getType()
       for name, c in pairs(global.stationCount) do
-        if name == refuelStation then
+        if name == refuelStation and c > 0 then
           return refuelStation
         end
       end
