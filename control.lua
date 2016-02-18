@@ -23,6 +23,7 @@ defaultSettings =
   }
 stationsPerPage = 5
 linesPerPage = 5
+rulesPerPage = 5
 
 local tmpPos = {}
 RED = {r = 0.9}
@@ -63,6 +64,7 @@ function initGlob()
   global.player_opened = global.player_opened or {}
   global.showFlyingText = global.showFlyingText or false
   global.playerPage = global.playerPage or {}
+  global.playerRules = global.playerRules or {}
   global.smartTrainstops = global.smartTrainstops or {}
 
   global.guiData = global.guiData or {}
@@ -108,11 +110,16 @@ function on_configuration_changed(data)
     if data.mod_changes.SmartTrains then
       local old_version = data.mod_changes.SmartTrains.old_version
       local new_version = data.mod_changes.SmartTrains.new_version
+      initGlob()
       if not old_version or old_version < "0.3.2" then
         findStations()
       end
-      initGlob()
       global.version = new_version
+      if old_version < "0.3.72" then
+        for i,p in pairs(game.players) do
+          global.playerRules[i] = {line = false, page=1}
+        end
+      end
     end
   end)
   if not status then error(err, 2) end

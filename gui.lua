@@ -655,6 +655,14 @@ function onguiclick(event)
         local page = tonumber(option2)
         global.playerPage[index].line = page + 1
         refresh = true
+      elseif option1 == "nextPageRule" then
+        local line = option2
+        local page = tonumber(option3)
+        global.playerRules[index] = {line = line, page = page}
+      elseif option1 == "prevPageRule" then
+        local line = option2
+        local page = tonumber(option3)
+        global.playerRules[index] = {line = line, page = page}
       elseif option1 == "leaveFull" then
         if element.state == true then
           if element.parent["leaveEmpty__"..option2].state == true then
