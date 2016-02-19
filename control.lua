@@ -1177,6 +1177,50 @@ remote.add_interface("st",
       script.on_event(defines.events.on_tick, ontick)
       script.on_event(events.on_player_opened, on_player_opened)
       script.on_event(events.on_player_closed, on_player_closed)
-    end
+    end,
+    
+    set_train_mode = function(lua_train, mode)
+      local status, err = pcall(function()
+        local trainKey = getTrainKeyByTrain(global.trains, lua_train)
+        local train = global.trains[trainKey]
+        
+        --debugDump(train,true)
+        if train.waitForever or train.waiting then
+          if train.waiting and global.ticks[train.waiting.nextCheck] then
+            local id = false
+              for i, train2 in pairs(global.ticks[train.waiting.nextCheck]) do
+                if train2.train == train.train then
+                  id = i
+                end
+              end
+              if id then global.ticks[train.waiting.nextCheck][id] = nil end
+          end
+          train:resetCircuitSignal()
+          train.waitingStation = false
+          train.waiting = false
+          train.waitForever = false
+        end
+        end)
+      if not status then
+        pauseError(err, "set_train_mode")
+      end
+    end,
+    
+    is_waiting_forever = function(lua_train)
+      local trainKey = getTrainKeyByTrain(global.trains, lua_train)
+      local train = global.trains[trainKey]
+      --debugDump(train,true)
+      if train.line then
+        if train.waitForever then
+          return train.train.schedule.records[train.train.schedule.current].station
+        else
+          return false
+        end        
+      else
+        return false
+      end
+    end,
+    
+    
   }
 )
