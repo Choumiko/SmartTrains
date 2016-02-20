@@ -42,4 +42,9 @@ signalCargo.icon = "__SmartTrains__/graphics/signal_cargowagons.png"
 signalCargo.subgroup = "virtual-signal"
 signalCargo.order = "e[smarttrains]-c[cargowagons]"
 
-data:extend({signalStop, signalLoco, signalCargo})
+local signalPassenger = copyPrototype("virtual-signal", "signal-1", "signal-passenger")
+signalPassenger.icon = "__SmartTrains__/graphics/signal_passenger.png"
+signalPassenger.subgroup = "virtual-signal"
+signalPassenger.order = "e[smarttrains]-d[passenger]"
+
+data:extend({signalStop, signalLoco, signalCargo, signalPassenger})

@@ -74,7 +74,7 @@ function initGlob()
   global.settings.rulesPerPage = rulesPerPage
 
   if not global.settings.circuit then
-    lobal.settings.circuit = table.deepcopy(defaultSettings.circuit)
+    global.settings.circuit = table.deepcopy(defaultSettings.circuit)
   end
 
   setMetatables()

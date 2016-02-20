@@ -195,10 +195,19 @@ Train = {
         for c=1,50 do
           output.parameters[c]={signal={type = "item", name = nil}, count = 1, index = c}
         end
+        local passenger = 0
+        for j, carriage in pairs(self.train.carriages) do
+          if carriage.passenger and carriage.passenger.name ~= "fatcontroller" then
+            passenger = passenger + 1
+            break
+          end
+        end
+        
         output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
-        local i=4
+        output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = passenger, index = 4}
+        local i=5
         for name, count in pairs(cargoCount) do
           local type = "item"
           if game.fluid_prototypes[name] then
@@ -224,7 +233,8 @@ Train = {
         output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 0, index = 1}
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = 0, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 3}
-        for i=4,50 do
+        output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = 0, index = 4}
+        for i=5,50 do
           output.parameters[i]={signal={type = "item", name = nil}, count = 1, index = i}
         end
         cargoProxy.set_circuit_condition(1,output)
