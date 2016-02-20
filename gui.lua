@@ -82,6 +82,9 @@ GUI = {
 
   addButton = function(parent, e, bind)
     e.type="button"
+    if not e.style then
+      e.style = "st_button_style"
+    end
     return GUI.add(parent, e, bind)
   end,
 
@@ -242,15 +245,15 @@ GUI = {
     local pages = GUI.add(btns, {type="flow", name="pages", direction="horizontal"})
     if #records > spp then
       if page > 1 then
-        GUI.addButton(pages, {name="prevPageTrain__"..page, caption="<"})
+        GUI.addButton(pages, {name="prevPageTrain__"..page, caption="<", style="st_button_style_bold"})
       else
-        GUI.addLabel(pages, "< ")
+        GUI.addButton(pages, {name="asdfFoo", caption="<", style="st_disabled_button_bold"})
       end
-      GUI.addLabel(pages, page.."/"..math.ceil(#records/spp))
+      GUI.addButton(pages, {caption=page.."/"..math.ceil(#records/spp), style="st_disabled_button_bold"})
       if math.ceil(#records/spp) >= page+1 then
-        GUI.addButton(pages, {name="nextPageTrain__"..page, caption=">"})
+        GUI.addButton(pages, {name="nextPageTrain__"..page, caption=">", style="st_button_style"})
       else
-        GUI.addLabel(pages, " >")
+        GUI.addButton(pages, {name="asdfFoo2", caption= ">", style="st_disabled_button_bold"})
       end
     else
       GUI.addPlaceHolder(pages)
@@ -315,8 +318,7 @@ GUI = {
           GUI.add(tbl, {type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
           GUI.add(tbl,{type="checkbox", name="lineRefuel__"..i.."__"..trainKey, state=l.settings.autoRefuel})
           GUI.add(tbl,{type="checkbox", name="lineDepart__"..i.."__"..trainKey, state=l.settings.autoDepart})
-          GUI.addButton(tbl, {name="editRules__"..i, caption={"lbl-rules"}})
-          --GUI.addPlaceHolder(tbl)
+          GUI.addButton(tbl, {name="editRules__"..i, caption={"lbl-rules"}, style="st_button_style_bold"})
         end
       end
       local btns = GUI.add(gui, {type="table", name="btns", colspan=6})
@@ -391,10 +393,20 @@ GUI = {
       end
       local buttonFlow = GUI.add(gui,{name="buttonFlow", type="flow"})
       local pageButtons = GUI.add(buttonFlow, {name="pageButtons", type="flow"})
-      GUI.addButton(pageButtons,{name="prevPageRule", caption="<"})
-      GUI.addLabel(pageButtons,{name="rule_page_number", caption=page.."/"..page_count(#records, global.settings.rulesPerPage)})
-      GUI.addButton(pageButtons,{name="nextPageRule", caption=">"})
-      GUI.addButton(buttonFlow, {name="saveRules__"..line, caption="Save"})
+
+      local prevPage = GUI.addButton(pageButtons,{name="prevPageRule", caption="<", style="st_button_style_bold"})
+      if page == 1 then
+        prevPage.style = "st_disabled_button_bold"
+      end
+      local maxPage = page_count(#records, global.settings.rulesPerPage)
+      GUI.addButton(pageButtons,{name="rule_page_number", caption=page.."/"..maxPage, style="st_disabled_button_bold"})
+      
+      local nextPage = GUI.addButton(pageButtons,{name="nextPageRule", caption=">", style="st_button_style_bold"})
+      if page == maxPage then
+        nextPage.style = "st_disabled_button_bold"
+      end 
+      
+      GUI.addButton(buttonFlow, {name="saveRules__"..line, caption="Save", style="st_button_style_bold"})
     end
   end,
 
@@ -521,6 +533,7 @@ function onguiclick(event)
         --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
         GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
         global.guiData[index].rules = false
+        global.playerRules[player.index].page = 1
         GUI.showDynamicRules(index,option2)
       elseif option1 == "saveRules" then
         local line = option2

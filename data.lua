@@ -171,3 +171,100 @@ data.raw["gui-style"].default["st_checkbox"] =
       y = 34
     }
   }
+
+data.raw["gui-style"].default["st_button_style"] =
+  {
+    type = "button_style",
+    parent = "button_style",
+    font = "default",
+    top_padding = 1,
+    right_padding = 5,
+    bottom_padding = 1,
+    left_padding = 5,
+    left_click_sound =
+    {
+      {
+        filename = "__core__/sound/gui-click.ogg",
+        volume = 1
+      }
+    }
+  }
+
+data.raw["gui-style"].default["st_button_style_bold"] =
+  {
+    type = "button_style",
+    font="default-bold",
+    parent = "st_button_style",
+  }
+
+data.raw["gui-style"].default["st_disabled_button"] =
+  {
+    type = "button_style",
+    parent = "st_button_style",
+
+    default_font_color={r=0.34, g=0.34, b=0.34},
+
+    hovered_font_color={r=0.34, g=0.34, b=0.38},
+    hovered_graphical_set =
+    {
+      type = "composition",
+      filename = "__core__/graphics/gui.png",
+      corner_size = {3, 3},
+      position = {0, 0}
+    },
+
+    clicked_font_color={r=0.34, g=0.34, b=0.38},
+    clicked_graphical_set =
+    {
+      type = "composition",
+      filename = "__core__/graphics/gui.png",
+      corner_size = {3, 3},
+      position = {0, 0}
+    },
+  }
+
+data.raw["gui-style"].default["st_disabled_button_bold"] =
+  {
+    type = "button_style",
+    parent = "st_disabled_button",
+    font = "default-bold",
+    default_font_color={r=0.5, g=0.5, b=0.5},
+    hovered_font_color={r=0.5, g=0.5, b=0.5},
+  }
+    
+
+
+data.raw["gui-style"].default["st_selected_button"] =
+  {
+    type = "button_style",
+    parent = "st_button_style",
+
+    default_font_color={r=0, g=0, b=0},
+    default_graphical_set =
+    {
+      type = "composition",
+      filename = "__core__/graphics/gui.png",
+      corner_size = {3, 3},
+      position = {0, 8}
+    },
+
+
+
+    hovered_font_color={r=1, g=1, b=1},
+    hovered_graphical_set =
+    {
+      type = "composition",
+      filename = "__core__/graphics/gui.png",
+      corner_size = {3, 3},
+      position = {0, 16}
+    },
+
+    clicked_font_color={r=0, g=0, b=0},
+    clicked_graphical_set =
+    {
+      type = "composition",
+      filename = "__core__/graphics/gui.png",
+      corner_size = {3, 3},
+      position = {0, 0}
+    },
+  }

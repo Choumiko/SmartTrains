@@ -73,6 +73,10 @@ function initGlob()
   global.settings.linesPerPage = linesPerPage
   global.settings.rulesPerPage = rulesPerPage
 
+  if not global.settings.circuit then
+    lobal.settings.circuit = table.deepcopy(defaultSettings.circuit)
+  end
+
   setMetatables()
 end
 
@@ -1133,6 +1137,7 @@ remote.add_interface("st",
       if confirm then
         global = {}
         initGlob()
+        init_players()
       end
     end,
 
