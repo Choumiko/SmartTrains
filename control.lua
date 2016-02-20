@@ -45,14 +45,6 @@ function util.formattime(ticks, showTicks)
   end
 end
 
-function onplayercreated(event)
-  local player = game.players[event.playerindex]
-  local gui = player.gui
-  if gui[GUI.position].stGui == nil then
-    GUI.buildGui(player)
-  end
-end
-
 function initGlob()
   global.version = global.version or "0.3.7"
   global.trains = global.trains or {}
@@ -79,6 +71,7 @@ function initGlob()
 
   global.settings.stationsPerPage = stationsPerPage
   global.settings.linesPerPage = linesPerPage
+  global.settings.rulesPerPage = rulesPerPage
 
   setMetatables()
 end
@@ -87,6 +80,20 @@ function setMetatables()
   for _, object in pairs(global.trains) do
     resetMetatable(object, Train)
   end
+end
+
+local function init_player(player)
+  global.playerRules[player.index] = global.playerRules[player.index] or {page=1}
+end
+
+local function init_players()
+  for i,player in pairs(game.players) do
+    init_player(player)
+  end
+end
+
+local function on_player_created(event)
+  init_player(game.players[event.player_index])
 end
 
 function oninit()
@@ -111,15 +118,11 @@ function on_configuration_changed(data)
       local old_version = data.mod_changes.SmartTrains.old_version
       local new_version = data.mod_changes.SmartTrains.new_version
       initGlob()
+      init_players()
       if not old_version or old_version < "0.3.2" then
         findStations()
       end
       global.version = new_version
-      if old_version < "0.3.72" then
-        for i,p in pairs(game.players) do
-          global.playerRules[i] = {line = false, page=1}
-        end
-      end
     end
   end)
   if not status then error(err, 2) end
@@ -691,6 +694,7 @@ function on_player_closed(event)
       local name = event.entity.backer_name or event.entity.name
       GUI.destroy(event.player_index)
       global.guiData[event.player_index] = nil
+      global.playerRules[event.player_index].page = 1
       global.openedTrain[event.player_index] = nil
       --set line version to -1, so it gets updated at the next station
       local train = getTrainFromEntity(event.entity)
@@ -700,6 +704,7 @@ function on_player_closed(event)
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)
       global.guiData[event.player_index] = nil
+      global.playerRules[event.player_index].page = 1
       if event.entity.backer_name ~= global.openedName[event.player_index] then
         on_station_rename(event.entity, global.openedName[event.player_index])
       end
@@ -1090,6 +1095,7 @@ end
 script.on_init(oninit)
 script.on_load(onload)
 script.on_configuration_changed(on_configuration_changed)
+script.on_event(defines.events.on_player_created, on_player_created)
 script.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
 script.on_event(defines.events.on_player_mined_item, onplayermineditem)
 script.on_event(defines.events.on_preplayer_mined_item, onpreplayermineditem)
@@ -1098,7 +1104,6 @@ script.on_event(defines.events.on_built_entity, onbuiltentity)
 script.on_event(defines.events.on_gui_click, onguiclick)
 script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
 script.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
---script.on_event(defines.events.on_player_created, onplayercreated)
 script.on_event(defines.events.on_tick, ontick)
 
 remote.add_interface("st",
@@ -1177,6 +1182,11 @@ remote.add_interface("st",
       script.on_event(defines.events.on_tick, ontick)
       script.on_event(events.on_player_opened, on_player_opened)
       script.on_event(events.on_player_closed, on_player_closed)
+    end,
+    
+    init = function()
+      initGlob()
+      init_players()
     end,
     
     set_train_mode = function(lua_train, mode)
