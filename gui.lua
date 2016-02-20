@@ -324,15 +324,15 @@ GUI = {
       local btns = GUI.add(gui, {type="table", name="btns", colspan=6})
       if dirty > spp then
         if page > 1 then
-          GUI.addButton(btns, {name="prevPageLine__"..page, caption="<"})
+          GUI.addButton(btns, {name="prevPageLine__"..page, caption="<", style="st_button_style_bold"})
         else
-          GUI.addLabel(btns, "< ")
+          GUI.addButton(btns, {caption="<", style="st_disabled_button_bold"})
         end
-        GUI.addLabel(btns, page.."/"..math.ceil(dirty/spp))
+        GUI.addButton(btns, {caption=page.."/"..math.ceil(dirty/spp), style="st_disabled_button_bold"})
         if max < c then
-          GUI.addButton(btns, {name="nextPageLine__"..page, caption=">"})
+          GUI.addButton(btns, {name="nextPageLine__"..page, caption=">",style="st_button_style_bold"})
         else
-          GUI.addLabel(btns, " >")
+          GUI.addButton(btns, {caption=">", style="st_disabled_button_bold"})
         end
       else
         GUI.addPlaceHolder(btns)
