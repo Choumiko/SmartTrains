@@ -1222,18 +1222,21 @@ remote.add_interface("st",
     end,
     
     is_waiting_forever = function(lua_train)
-      local trainKey = getTrainKeyByTrain(global.trains, lua_train)
-      local train = global.trains[trainKey]
-      --debugDump(train,true)
-      if train.line then
-        if train.waitForever then
-          return train.train.schedule.records[train.train.schedule.current].station
+      if lua_train.valid then
+        local trainKey = getTrainKeyByTrain(global.trains, lua_train)
+        local train = global.trains[trainKey]
+        --debugDump(train,true)
+        if train and train.line and train.train.valid then
+          if train.waitForever then
+            return train.train.schedule.records[train.train.schedule.current].station
+          else
+            return false
+          end        
         else
           return false
-        end        
-      else
-        return false
+        end
       end
+      return false
     end,
     
     
