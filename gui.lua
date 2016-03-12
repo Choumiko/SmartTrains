@@ -543,7 +543,7 @@ function onguiclick(event)
         global.trainLines[line].rules = table.deepcopy(global.guiData[index].rules)
         global.guiData[index].rules = false
         global.playerRules[player.index].page = 1
-        debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." staitons",true)
+        debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
         GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
         refresh = true
       elseif option1 == "readSchedule" then

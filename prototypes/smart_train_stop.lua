@@ -47,4 +47,9 @@ signalPassenger.icon = "__SmartTrains__/graphics/signal_passenger.png"
 signalPassenger.subgroup = "virtual-signal"
 signalPassenger.order = "e[smarttrains]-d[passenger]"
 
-data:extend({signalStop, signalLoco, signalCargo, signalPassenger})
+local signalFuel = copyPrototype("virtual-signal", "signal-1", "signal-lowest-fuel")
+signalFuel.icon = "__SmartTrains__/graphics/signal_lowest_fuel.png"
+signalFuel.subgroup = "virtual-signal"
+signalFuel.order = "e[smarttrains]-e[lowestfuel]"
+
+data:extend({signalStop, signalLoco, signalCargo, signalPassenger, signalFuel})

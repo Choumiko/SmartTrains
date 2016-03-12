@@ -207,7 +207,8 @@ Train = {
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
         output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = passenger, index = 4}
-        local i=5
+        output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = self:lowestFuel(), index = 5}
+        local i=6
         for name, count in pairs(cargoCount) do
           local type = "item"
           if game.fluid_prototypes[name] then
@@ -234,7 +235,8 @@ Train = {
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = 0, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 3}
         output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = 0, index = 4}
-        for i=5,50 do
+        output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = 0, index = 5}
+        for i=6,50 do
           output.parameters[i]={signal={type = "item", name = nil}, count = 1, index = i}
         end
         cargoProxy.set_circuit_condition(1,output)
