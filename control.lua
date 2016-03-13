@@ -46,7 +46,8 @@ function util.formattime(ticks, showTicks)
 end
 
 function initGlob()
-  global.version = global.version or "0.3.7"
+  global = global or {}
+  global.version = global.version or "0.3.75"
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
   global.ticks = global.ticks or {}
@@ -169,8 +170,12 @@ function createProxy(trainstop)
   else
     ent = ent[1]
   end
+  local key = stationKey(trainstop)
+  if not global.smartTrainstops[key] then
+    global.smartTrainstops[key] = {entity = trainstop}
+  end
   if ent.valid then
-    global.smartTrainstops[stationKey(trainstop)] = {entity = trainstop, proxy=ent}
+    global.smartTrainstops[key] = {entity = trainstop, proxy=ent}
     ent.minable = false
     ent.destructible = false
   end
@@ -347,6 +352,7 @@ end
 
 function ontrainchangedstate(event)
   --debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
+  --log("state change : "..event.train.state)
   local status, err = pcall(function()
     local train = event.train
     local trainKey = getTrainKeyByTrain(global.trains, train)
@@ -369,8 +375,19 @@ function ontrainchangedstate(event)
       return
     end
     t:updateState()
+    if t.advancedState == defines.trainstate.left_station then
+      t:resetCircuitSignal()
+      t.waitingStation = false
+      t.waiting = false
+      t.refueling = false
+      t.departAt = false
+      return
+    end
+    if train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then
+      return
+    end
     local settings = global.trains[trainKey].settings
-    local fuel = t:lowestFuel()
+    local lowest_fuel = t:lowestFuel()
     local schedule = train.schedule
     if train.state == defines.trainstate.manual_control_stop or train.state == defines.trainstate.manual_control then
       local done = false
@@ -400,8 +417,7 @@ function ontrainchangedstate(event)
           end
         end
       end
-    end
-    if train.state == defines.trainstate.wait_station then
+    elseif train.state == defines.trainstate.wait_station then
       t:updateLine()
       local smartStop = t:setWaitingStation()
       if smartStop then
@@ -411,7 +427,7 @@ function ontrainchangedstate(event)
       end
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then
-        if t:lowestFuel() >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
+        if lowest_fuel >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
         end
         if t:currentStation() == t:refuelStation() then
@@ -429,34 +445,21 @@ function ontrainchangedstate(event)
       if t:isWaiting() then
       --debugDump("waiting",true)
       end
-    elseif train.state == defines.trainstate.arrive_station or train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then
+    elseif train.state == defines.trainstate.arrive_station then --or train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then
       if t.settings.autoRefuel then
-        if t:lowestFuel() < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
+        if lowest_fuel < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
           train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
           t:flyingText("Refuel station added", YELLOW)
         end
       end
-    end
-    if train.state == defines.trainstate.arrive_station then
       t.direction = t.train.speed < 0 and 1 or 0
-    end
-    if t.advancedState == defines.trainstate.left_station then
-      t:resetCircuitSignal()
-      t.waitingStation = false
-      t.waiting = false
-      t.refueling = false
-      t.departAt = false
-      --    if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[train.schedule.current] then
-      --      --Handle line rules here
-      --      --t:flyingText("checking line rules", GREEN, {offset=-1})
-      --      t:nextValidStation()
-      --    end
     end
   end
   )
   if not status then
     pauseError(err, "train_changed_state")
   end
+  --log("state change e")
 end
 
 function insertInTable(tableA, key, value)
@@ -656,13 +659,15 @@ function ontick(event)
     local status,err = pcall(
       function()
         for pi, player in pairs(game.players) do
-          if player.opened ~= nil and not global.player_opened[player.name] then
-            game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
-            global.player_opened[player.name] = player.opened
-          end
-          if global.player_opened[player.name] and player.opened == nil then
-            game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
-            global.player_opened[player.name] = nil
+          if player.connected then 
+            if player.opened ~= nil and not global.player_opened[player.name] then
+              game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
+              global.player_opened[player.name] = player.opened
+            end
+            if global.player_opened[player.name] and player.opened == nil then
+              game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
+              global.player_opened[player.name] = nil
+            end
           end
         end
       end
@@ -757,7 +762,7 @@ end
 
 function renameStation(newName, oldName)
   --update global.trainLines with new name
-  debugDump("Updating lines",true)
+  --debugDump("Updating lines",true)
   for line, data in pairs(global.trainLines) do
     for i, record in pairs(data.records) do
       if record.station == oldName then
@@ -824,7 +829,7 @@ function onbuiltentity(event)
       local area = expandPos(ent.position, 0.2)
       ent.revive()
       local ent = surface.find_entities_filtered{area=area, name = name}
-      debugDump({ent[1].name},true)
+      --debugDump({ent[1].name},true)
       ent[1].destructible = false
       ent[1].minable = false
       if ent[1].name == "smart-train-stop-proxy-cargo" then 
@@ -1089,6 +1094,10 @@ function findStations()
   local bounds = {{min_x*32,min_y*32},{max_x*32,max_y*32}}
   for _, station in pairs(surface.find_entities_filtered{area=bounds, type="train-stop"}) do
     local key = stationKey(station)
+    if station.name == "smart-train-stop" then
+      debugDump("SmartStop: "..station.backer_name,true)
+      createProxy(station)
+    end
     if not global.stationCount[station.backer_name] then
       global.stationCount[station.backer_name] = 0
     end
@@ -1135,10 +1144,17 @@ remote.add_interface("st",
 
     hardReset = function(confirm)
       if confirm then
-        global = {}
+        global = nil
         initGlob()
         init_players()
+        findStations()
       end
+    end,
+    
+    findStations = function()
+      global.smartTrainstops = {}
+      global.stationCount = {}
+      findStations()
     end,
 
     toggleFlyingText = function()
@@ -1244,6 +1260,12 @@ remote.add_interface("st",
         return false
       else
         return err
+      end
+    end,
+    
+    smart_stops = function(player)
+      for i,s in pairs(global.smartTrainstops) do
+        player.print(s.entity.backer_name)
       end
     end,
     

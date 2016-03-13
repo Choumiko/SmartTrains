@@ -18,11 +18,13 @@ st_proxy.light = {intensity = 0.5, size = 5, color={1,1,0,0}}
 st_proxy.collision_mask = {"resource-layer"}
 
 local st_proxy_i = copyPrototype("item","small-lamp","smart-train-stop-proxy")
+table.insert(st_proxy_i.flags, "hidden")
 
 local st_proxyc = copyPrototype("constant-combinator","constant-combinator","smart-train-stop-proxy-cargo")
 st_proxyc.collision_mask = {"resource-layer"}
 st_proxyc.item_slot_count = 50
 local st_proxyc_i = copyPrototype("item","constant-combinator","smart-train-stop-proxy-cargo")
+table.insert(st_proxyc_i.flags, "hidden")
 
 data:extend({smart_train_stop,item,recipe, st_proxy, st_proxy_i,})
 data:extend({st_proxyc,st_proxyc_i})

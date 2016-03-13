@@ -10,6 +10,7 @@ if data.raw["item"]["small-lamp-green"] then
   st_proxy.collision_mask = {"resource-layer"}
 
   local st_proxy_i = copyPrototype("item","small-lamp-green","smart-train-stop-proxy")
+  table.insert(st_proxy_i.flags, "hidden")
   data.raw["lamp"]["smart-train-stop-proxy"] = st_proxy
   data.raw["item"]["smart-train-stop-proxy"] = st_proxy_i
 end
