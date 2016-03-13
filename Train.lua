@@ -190,11 +190,8 @@ Train = {
     setCircuitSignal = function(self)
       if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
         local cargoProxy = self.waitingStation.cargoProxy
-        local output = cargoProxy.get_circuit_condition(1)
-        local cargoCount = self:cargoCount()
-        for c=1,50 do
-          output.parameters[c]={signal={type = "item", name = nil}, count = 1, index = c}
-        end
+        --local output = cargoProxy.get_circuit_condition(1)
+        local output = {parameters={}}
         local passenger = 0
         for j, carriage in pairs(self.train.carriages) do
           if carriage.passenger and carriage.passenger.name ~= "fatcontroller" then
@@ -208,7 +205,9 @@ Train = {
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
         output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = passenger, index = 4}
         output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = self:lowestFuel(), index = 5}
+
         local i=6
+        local cargoCount = self:cargoCount()
         for name, count in pairs(cargoCount) do
           local type = "item"
           if game.fluid_prototypes[name] then
@@ -219,9 +218,6 @@ Train = {
           i=i+1
           if i>50 then break end
         end
-        for c=i,50 do
-          output.parameters[i]={signal={type = "item", name = nil}, count = 1, index = c}
-        end
         cargoProxy.set_circuit_condition(1,output)
       end
     end,
@@ -229,16 +225,12 @@ Train = {
     resetCircuitSignal = function(self)
       if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
         local cargoProxy = self.waitingStation.cargoProxy
-        local output=cargoProxy.get_circuit_condition(1)
-
-        output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 0, index = 1}
-        output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = 0, index = 2}
-        output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 3}
-        output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = 0, index = 4}
-        output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = 0, index = 5}
-        for i=6,50 do
-          output.parameters[i]={signal={type = "item", name = nil}, count = 1, index = i}
-        end
+        local output = {parameters={}}
+        output.parameters[1]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 1}
+        --game.write_file("st/debugOutput.lua", serpent.block(output, {name="output"}))
+        --local v = cargoProxy.valid and "valid" or "invalid"
+        --debugDump("CargoProxy: "..cargoProxy.name.." "..v,true)
+        debugDump(output.parameters,true)
         cargoProxy.set_circuit_condition(1,output)
       end
     end,
