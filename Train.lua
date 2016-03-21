@@ -241,7 +241,7 @@ Train = {
         --game.write_file("st/debugOutput.lua", serpent.block(output, {name="output"}))
         --local v = cargoProxy.valid and "valid" or "invalid"
         --debugDump("CargoProxy: "..cargoProxy.name.." "..v,true)
-        debugDump(output.parameters,true)
+        --debugDump(output.parameters,true)
         cargoProxy.set_circuit_condition(1,output)
       end
     end,
