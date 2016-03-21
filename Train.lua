@@ -204,7 +204,7 @@ Train = {
           end
         end
         --debugLog("getFuel s")
-        local min_fuel = self.min_fuel or self:lowestFuel()
+        local min_fuel = self:lowestFuel()
         --debugLog("getFuel e")
         output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
