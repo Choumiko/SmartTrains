@@ -18,7 +18,7 @@ defaultTrainSettings = {autoRefuel = false, autoDepart = false}
 defaultSettings =
   { refuel={station="Refuel", rangeMin = 25*8, rangeMax = 50*8, time = 600},
     depart={minWait = 240, interval = 120, minFlow = 1},
-    circuit={interval = 2},
+    circuit={interval = 12},
     lines={forever=false}
   }
 stationsPerPage = 5
@@ -31,6 +31,21 @@ GREEN = {g = 0.7}
 YELLOW = {r = 0.8, g = 0.8}
 
 defines.trainstate.left_station = 11
+
+function debugLog(var, prepend)
+  if not global.debug_log then return end
+  local str = prepend or ""
+  for i,player in ipairs(game.players) do
+    local msg
+    if type(var) == "string" then
+      msg = var
+    else
+      msg = serpent.dump(var, {name="var", comment=false, sparse=false, sortkeys=true})
+    end
+    --player.print(str..msg)
+    log(str..msg)
+  end
+end
 
 function util.formattime(ticks, showTicks)
   if ticks then
@@ -73,6 +88,9 @@ function initGlob()
   global.settings.stationsPerPage = stationsPerPage
   global.settings.linesPerPage = linesPerPage
   global.settings.rulesPerPage = rulesPerPage
+
+  global.fuel_values = global.fuel_values or {}
+  global.fuel_values["coal"] = game.item_prototypes["coal"].fuel_value/1000000
 
   if not global.settings.circuit then
     global.settings.circuit = table.deepcopy(defaultSettings.circuit)
@@ -129,6 +147,10 @@ function on_configuration_changed(data)
       end
       global.version = new_version
     end
+    --update fuelvalue cache, in case the values changed
+    for item, v in pairs(global.fuel_values) do
+      global.fuel_values[item] = game.item_prototypes[item].fuel_value/1000000
+    end    
   end)
   if not status then error(err, 2) end
 end
@@ -320,11 +342,16 @@ function addStation(station, schedule, wait, after)
 end
 
 function fuelvalue(item)
-  return game.item_prototypes[item].fuel_value/1000000
+  if not global.fuel_values[item] then
+    global.fuel_values[item] = game.item_prototypes[item].fuel_value/1000000
+  end
+  --return game.item_prototypes[item].fuel_value/1000000
+  return global.fuel_values[item]
 end
 
 function fuel_value_to_coal(value)
-  return math.ceil(value/(game.item_prototypes["coal"].fuel_value/1000000))
+  return math.ceil(value/global.fuel_values["coal"])
+  --return math.ceil(value/game.item_prototypes["coal"].fuel_value/1000000)
 end
 
 function addInventoryContents(invA, invB)
@@ -353,6 +380,7 @@ end
 function ontrainchangedstate(event)
   --debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
   --log("state change : "..event.train.state)
+  --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
     local trainKey = getTrainKeyByTrain(global.trains, train)
@@ -388,6 +416,7 @@ function ontrainchangedstate(event)
     end
     local settings = global.trains[trainKey].settings
     local lowest_fuel = t:lowestFuel()
+    t.min_fuel = lowest_fuel
     local schedule = train.schedule
     if train.state == defines.trainstate.manual_control_stop or train.state == defines.trainstate.manual_control then
       local done = false
@@ -459,6 +488,7 @@ function ontrainchangedstate(event)
   if not status then
     pauseError(err, "train_changed_state")
   end
+  --debugLog("train changed state to "..event.train.state.. " e")
   --log("state change e")
 end
 
@@ -546,8 +576,13 @@ function ontick(event)
         end
         global.stopTick[event.tick] = nil
       end)
+      if not status then
+        pauseError(err, "on_tick: stopTick")
+      end
   end
+  
   if global.ticks[event.tick] then
+    --debugLog(" tick s", game.tick)
     local status,err = pcall(
       function()
         for i,train in pairs(global.ticks[event.tick]) do
@@ -587,7 +622,12 @@ function ontick(event)
                   --debugDump(rules,true)
                   local full = train:isCargoFull()
                   local empty = train:isCargoEmpty()
-                  local signal, signalValue = train:getCircuitSignal()
+                  local needs_value = rules.jumpToCircuit
+                  --local str = needs_value and "value" or "no value"
+                  --debugLog("Line: "..train.line)
+                  --debugLog("get signal s "..str)
+                  local signal, signalValue = train:getCircuitSignal(needs_value)
+                  --debugLog("get signal e")
                   if  (rules.full and full and not rules.waitForCircuit) or  -- only full set
                     (rules.empty and empty and not rules.waitForCircuit) or --only empty set
                     (rules.waitForCircuit and signal and not (rules.empty or rules.full)) or --circuit and empty/full NOT set
@@ -654,6 +694,7 @@ function ontick(event)
     if not status then
       pauseError(err, "on_tick_trains")
     end
+    --debugLog(" tick e", game.tick)
   end
   if event.tick%10==9  then
     local status,err = pcall(
@@ -1269,6 +1310,11 @@ remote.add_interface("st",
       end
     end,
     
+    debuglog = function()
+      global.debug_log = not global.debug_log
+      local state = global.debug_log and "on" or "off"
+      debugDump("Debug: "..state,true)
+    end,
     
   }
 )
