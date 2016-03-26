@@ -284,21 +284,28 @@ Train = {
         local sum = {}
         local train = self.train
         --sum = train.get_contents()
-        for i, wagon in pairs(train.carriages) do
-          if wagon.type == "cargo-wagon" then
-            if wagon.name ~= "rail-tanker" then
-              --sum = sum + wagon.getcontents()
-              sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
-            else
-              if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
-                local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-                if d.type ~= nil then
-                  sum[d.type] = sum[d.type] or 0
-                  sum[d.type] = sum[d.type] + d.amount
-                  --self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+        for i, wagon in pairs(train.cargo_wagons) do
+          if not self.proxy_chests or not self.proxy_chests[i] then
+            if wagon.type == "cargo-wagon" then
+              if wagon.name ~= "rail-tanker" then
+                --sum = sum + wagon.getcontents()
+                sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
+              else
+                if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+                  local d = remote.call("railtanker", "getLiquidByWagon", wagon)
+                  if d.type ~= nil then
+                    sum[d.type] = sum[d.type] or 0
+                    sum[d.type] = sum[d.type] + d.amount
+                    --self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+                  end
                 end
               end
             end
+          else
+            --wagon is used by logistics railway
+            local inventory = self.proxy_chests[i].get_inventory(defines.inventory.chest)
+            local contents = inventory.get_contents()
+            sum = addInventoryContents(sum, contents)
           end
         end
         self.cargo = sum
@@ -334,9 +341,18 @@ Train = {
 
     isCargoEmpty = function(self)
       local train = self.train
-      for i, wagon in pairs(train.carriages) do
-        if wagon.type == "cargo-wagon" then
+      for i, wagon in pairs(train.cargo_wagons) do
+        if self.proxy_chests and self.proxy_chests[i] then
+          --wagon is used by logistics railway
+          local chest = self.proxy_chests[i]
+          local inventory = chest.get_inventory(defines.inventory.chest)
+          debugDump({i=i, empty=inventory.is_empty()},true)
+          if not inventory.is_empty() then
+            return false
+          end
+        else
           if wagon.name ~= "rail-tanker" then
+            debugDump("Shouldn't see this",true)
             if not wagon.get_inventory(1).is_empty() then
               return false
             end
@@ -357,26 +373,35 @@ Train = {
 
     isCargoFull = function(self)
       local train = self.train
-      for i, wagon in pairs(train.carriages) do
-        if wagon.type == "cargo-wagon" then
+      local inv_full = function(inv)
+        --check if all slots are blocked
+        if inv.hasbar() and inv.getbar() == 0 then
+          return false
+        end
+        if inv.can_insert{name="railgun", count=1} then
+          --inserted railgun -> at least 1 slot is free
+          return false
+        end
+        -- check if all stacks are full
+        local contents = inv.get_contents()
+        for item, count in pairs(contents) do
+          if inv.can_insert{name=item, count=1} then
+            return false
+          end
+        end
+        -- all stacks are full,
+      end
+       
+      for i, wagon in pairs(train.cargo_wagons) do
+        if self.proxy_chests and self.proxy_chests[i] then
+          --wagon is used by logistics railway
+          local chest = self.proxy_chests[i]
+          local inventory = chest.get_inventory(defines.inventory.chest)
+          if not inv_full(inventory) then return false end
+        else
           if wagon.name ~= "rail-tanker" then
             local inv = wagon.get_inventory(1)
-            --check if all slots are blocked
-            if inv.hasbar() and inv.getbar() == 0 then
-              return false
-            end
-            if inv.can_insert{name="railgun", count=1} then
-              --inserted railgun -> at least 1 slot is free
-              return false
-            end
-            -- check if all stacks are full
-            local contents = inv.get_contents()
-            for item, count in pairs(contents) do
-              if inv.can_insert{name=item, count=1} then
-                return false
-              end
-            end
-            -- all stacks are full,
+            if not inv_full(inv) then return false end
           else
             if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
               local d = remote.call("railtanker", "getLiquidByWagon", wagon)

@@ -142,6 +142,13 @@ function on_configuration_changed(data)
       local new_version = data.mod_changes.SmartTrains.new_version
       initGlob()
       init_players()
+      if old_version and old_version < "0.3.2" then
+        for i,train in pairs(global.trains) do
+          if not train.cargoUpdated then
+            train.cargoUpdated = 0
+          end
+        end
+      end
       if not old_version or old_version < "0.3.2" then
         findStations()
       end
@@ -1159,6 +1166,37 @@ script.on_event(defines.events.on_gui_click, onguiclick)
 script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
 script.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
 script.on_event(defines.events.on_tick, ontick)
+
+if remote.interfaces.logistics_railway then
+  script.on_event(remote.call("logistics_railway", "get_chest_created_event"), function(event)
+    local chest = event.chest
+    local wagon_index = event.wagon_index
+    local train = event.train
+    debugDump("Chest: "..util.positiontostr(chest.position),true)
+    debugDump("Train: "..train.carriages[1].backer_name,true)
+    local trainKey = getTrainKeyByTrain(global.trains, train)
+    if trainKey then
+      local t = global.trains[trainKey]
+      if not t.proxy_chests then t.proxy_chests = {} end
+        t.proxy_chests[wagon_index] = chest
+      end  
+  end)
+  
+  script.on_event(remote.call("logistics_railway", "get_chest_destroyed_event"), function(event)
+    local chest = event.chest
+    local wagon_index = event.wagon_index
+    local train = event.train
+    debugDump("Train: "..train.carriages[1].backer_name,true)
+    debugDump("destroyed",true)
+    local trainKey = getTrainKeyByTrain(global.trains, train)
+    if trainKey then
+      local t = global.trains[trainKey]
+      if not t.proxy_chests then return end
+      t.proxy_chests[wagon_index] = nil
+      if #t.proxy_chests == 0 then t.proxy_chests = nil end
+    end
+  end)
+end
 
 remote.add_interface("st",
   {
