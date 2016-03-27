@@ -466,21 +466,6 @@ Train = {
             schedule.records[i] = record
           end
           
---          local old_schedule = self.train.schedule
---          local changed = false
---          if #schedule.records ~= #old_schedule.records then
---            changed = true
---            debugDump("Different #",true)
---          else
---            for i, record in pairs(old_schedule.records) do
---              if record.station ~= schedule.records[i].station or record.time_to_wait ~= schedule.records[i].time_to_wait then
---                debugDump("Different station/time",true)
---                changed = true
---                break
---              end
---            end
---          end
-          
           local inLine = inSchedule(waitingAt.station,schedule)
           if inLine then
             schedule.current = inLine
@@ -490,11 +475,11 @@ Train = {
           self.settings.autoRefuel = trainLine.settings.autoRefuel
           self.settings.autoDepart = trainLine.settings.autoDepart
           self.lineVersion = trainLine.changed
---          if changed then
-            self.train.manual_mode = true
-            self.train.schedule = schedule
-            self.train.manual_mode = oldmode
---          end
+
+          self.train.manual_mode = true
+          self.train.schedule = schedule
+          self.train.manual_mode = oldmode
+
         end
       elseif (self.line and not global.trainLines[self.line]) then
         self:flyingText("Dettached from line", RED)

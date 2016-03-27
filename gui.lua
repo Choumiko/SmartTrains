@@ -202,7 +202,7 @@ GUI = {
       GUI.addLabel(tbl, {"lbl-station"})
       GUI.addLabel(tbl, {"lbl-time"})
       if line and rules then
-        GUI.addLabel(tbl, {"lbl-rules"})
+        GUI.addLabel(tbl, {"lbl-leave-when"})
       else
         GUI.addPlaceHolder(tbl)
       end
@@ -213,22 +213,34 @@ GUI = {
       for i=start, max do
         local s = records[i]
         GUI.addLabel(tbl, i.." "..s.station)
-        GUI.addLabel(tbl, s.time_to_wait/60)
+        local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or s.time_to_wait/60
+        GUI.addLabel(tbl, time)
         local inf = ""
-        if line and rules and rules[i] and (rules[i].full or rules[i].empty) then
-          local condition = rules[i].full and {"lbl-full"} or {"lbl-empty"}
-          if rules[i].keepWaiting then inf = {"", ", ", {"lbl-wait"}, " ", {"lbl-forever"}} end
-          GUI.addLabel(tbl, {"",{"lbl-leave-when"}," ",condition, inf})
-          GUI.addPlaceHolder(tbl)
-        elseif line and rules and rules[i] and rules[i].waitForCircuit then
-          local jmp = ""
-          if rules[i].keepWaiting then inf = {"", ", ", {"lbl-wait"}, " ", {"lbl-forever"}} end
-          if rules[i].jumpTo and rules[i].jumpTo <= #records then
-            GUI.addLabel(tbl, {"", {"lbl-jump-to"},"", rules[i].jumpTo, inf})
+        local text = {""}
+        if line and rules and rules[i] then
+          if (rules[i].full or rules[i].empty) then
+            local condition = rules[i].full and {"lbl-full"} or {"lbl-empty"}
+            table.insert(text, condition)
+            table.insert(text, " ")
+          --GUI.addLabel(tbl, {"", condition})
+          --GUI.addPlaceHolder(tbl)
           end
-          if not rules[i].jumpTo then
-            GUI.addLabel(tbl, {"lbl-wait-for-circuit"})
+          if rules[i].waitForCircuit then
+            if rules[i].empty or rules[i].full then
+              table.insert(text, "& ")
+            end
+            if rules[i].jumpTo and rules[i].jumpTo <= #records then
+              table.insert(text, {"lbl-jump-to"})
+              table.insert(text, "")
+              table.insert(text, rules[i].jumpTo)
+              --GUI.addLabel(tbl, {"", {"lbl-jump-to"},"", rules[i].jumpTo})
+            end
+            if not rules[i].jumpTo then
+              table.insert(text, {"lbl-wait-for-circuit"})
+              --GUI.addLabel(tbl, {"lbl-wait-for-circuit"})
+            end
           end
+          GUI.addLabel(tbl, text)
           GUI.addPlaceHolder(tbl)
         else
           GUI.addPlaceHolder(tbl,2)
