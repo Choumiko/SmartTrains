@@ -120,29 +120,29 @@ GUI = {
       local coal_max = fuel_value_to_coal(global.settings.refuel.rangeMax)
 
       GUI.addLabel(tbl, {"stg-refuel-below1"})
-      GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield"})
+      GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield", text = global.settings.refuel.rangeMin})
       GUI.addLabel(tbl, {"", {"stg-MJ"}, " ("..coal_min.." ", game.item_prototypes["coal"].localised_name, ")",{"stg-refuel-below2"}})
       local r = GUI.add(tbl, {type="flow", name="row1", direction="horizontal"})
-      GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield"})
+      GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield", text = global.settings.refuel.rangeMax})
       GUI.addLabel(r, {"", {"stg-MJ"}, " ("..coal_max.." ", game.item_prototypes["coal"].localised_name,")"})
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"stg-max-refuel-time"})
-      GUI.addTextfield(tbl, {name="refuelTime", style="st_textfield_small"})
+      GUI.addTextfield(tbl, {name="refuelTime", style="st_textfield_small", text = global.settings.refuel.time / 60})
       GUI.addLabel(tbl,  {"stg-refuel-station"})
-      GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_big"})
+      GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_big", text = global.settings.refuel.station})
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"stg-min-wait-time"})
-      GUI.addTextfield(tbl, {name="minWait", style="st_textfield_small"})
+      GUI.addTextfield(tbl, {name="minWait", style="st_textfield_small", text = global.settings.depart.minWait / 60})
       GUI.addLabel(tbl, {"stg-autodepart-interval"})
-      GUI.addTextfield(tbl, {name="departInterval", style="st_textfield_small"})
+      GUI.addTextfield(tbl, {name="departInterval", style="st_textfield_small", text = global.settings.depart.interval / 60})
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"stg-min-flow-rate"})
-      GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small"})
+      GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small", text = global.settings.depart.minFlow})
       GUI.addLabel(tbl, {"stg-circuit-interval"})
-      GUI.addTextfield(tbl, {name="circuitInterval", style="st_textfield_small"})
+      GUI.addTextfield(tbl, {name="circuitInterval", style="st_textfield_small", text = global.settings.circuit.interval})
       GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
@@ -157,15 +157,6 @@ GUI = {
       GUI.addLabel(tbl,{"", {"lbl-stations"}, ": ", uniqueStations, "/", noStations})
 
       GUI.addButton(tbl, {name="globalSettingsSave", caption="Save"})
-
-      tbl.refuelRangeMin.text = global.settings.refuel.rangeMin
-      tbl.row1.refuelRangeMax.text = global.settings.refuel.rangeMax
-      tbl.refuelStation.text = global.settings.refuel.station
-      tbl.refuelTime.text = global.settings.refuel.time / 60
-      tbl.departInterval.text = global.settings.depart.interval / 60
-      tbl.minWait.text = global.settings.depart.minWait / 60
-      tbl.minFlow.text = global.settings.depart.minFlow
-      tbl.circuitInterval.text = global.settings.circuit.interval
     end
   end,
 
@@ -561,11 +552,27 @@ function onguiclick(event)
           local t = global.trains[option2]
           local is_copy = t.line and t.line ~= name
           if name ~= "" and t and #t.train.schedule.records > 0 then
-            if not global.trainLines[name] then global.trainLines[name] = {name=name, rules=false} end
+            if not global.trainLines[name] then 
+              global.trainLines[name] = {name=name, rules={}}
+              local rules = global.trainLines[name].rules
+              for s_index, record in pairs(t.train.schedule.records) do
+                local rule = {}
+                rule.empty = false
+                rule.full = false
+                rule.jumpTo = false
+                rule.jumpToCircuit = false
+                rule.keepWaiting = false
+                rule.original_time = record.time_to_wait                
+                rule.station = record.station
+                rule.waitForCircuit = false
+                rules[s_index] = rule
+              end
+            end
             local changed = game.tick
             global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
             global.trainLines[name].records = t.train.schedule.records
             global.trainLines[name].changed = changed
+
             if type(global.trainLines[name].rules) == "table" then
                 local delete = {}
                 local insert = {}
@@ -668,6 +675,17 @@ function onguiclick(event)
           end
         else
           t.line = false
+          local schedule = t.train.schedule
+          local rules = global.trainLines[li].rules
+          for i, record in pairs(schedule.records) do
+            if record.time_to_wait == 2^32-1 then
+              record.time_to_wait = 200*60
+              if rules and rules[i] then
+                record.time_to_wait = rules[i].original_time or record.time_to_wait
+              end
+            end
+          end
+          t.train.schedule = schedule
         end
         t.lineVersion = -1
         --refresh = true

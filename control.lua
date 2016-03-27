@@ -66,7 +66,6 @@ function initGlob()
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
   global.ticks = global.ticks or {}
-  global.stopTick = global.stopTick or {}
   global.updateTick = global.updateTick or {}
 
   global.player_opened = global.player_opened or {}
@@ -142,14 +141,54 @@ function on_configuration_changed(data)
       local new_version = data.mod_changes.SmartTrains.new_version
       initGlob()
       init_players()
-      if old_version and old_version < "0.3.2" then
-        for i,train in pairs(global.trains) do
-          if not train.cargoUpdated then
-            train.cargoUpdated = 0
+      if old_version then
+        debugDump("SmartTrains version changed from "..old_version.." to "..new_version,true)
+        if old_version < "0.3.2" then
+          findStations()
+          for i,train in pairs(global.trains) do
+            if not train.cargoUpdated then
+              train.cargoUpdated = 0
+            end
           end
         end
+        if old_version < "0.3.77" then
+          global.settings.lines = nil
+          global.stopTick = nil
+          for name, line in pairs(global.trainLines) do
+            for i,record in pairs(line.records) do
+              if not line.rules[i] then
+                local rule = {}
+                rule.empty = false
+                rule.full = false
+                rule.jumpTo = false
+                rule.jumpToCircuit = false
+                rule.keepWaiting = false
+                rule.original_time = record.time_to_wait                
+                rule.station = record.station
+                rule.waitForCircuit = false
+                line.rules[i] = rule
+              else
+                if not line.rules[i].original_time then
+                  line.rules[i].original_time = record.time_to_wait
+                end
+                if line.rules[i].keepWaiting then
+                  record.time_to_wait = 2^32-1
+                end
+              end
+            end
+            if line.rules[false] then line.rules[false] = nil end
+            line.changed = game.tick
+          end
+          for i, train in pairs(global.trains) do
+            if train.waitForever then 
+              train.train.manual_mode = false
+              train.waitForever = false
+            end
+          end
+        end
+        
       end
-      if not old_version or old_version < "0.3.2" then
+      if not old_version then
         findStations()
       end
       global.version = new_version
@@ -385,7 +424,7 @@ function getKeyByValue(tableA, value)
 end
 
 function ontrainchangedstate(event)
-  --debugDump(getKeyByValue(defines.trainstate, event.train.state),true)
+  debugDump(game.tick.." "..getKeyByValue(defines.trainstate, event.train.state),true)
   --log("state change : "..event.train.state)
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
@@ -428,28 +467,24 @@ function ontrainchangedstate(event)
     if train.state == defines.trainstate.manual_control_stop or train.state == defines.trainstate.manual_control then
       local done = false
       for tick, trains in pairs(global.ticks) do
-        for i, train in pairs(trains) do
-          if train == t then
-            if not train.waitForever then
-              train:resetCircuitSignal()
-              t.waitingStation = false
-              train.waiting = false
-              train.refueling = false
-              trains[i] = nil
-              done = true
-            end
+        for i, trainData in pairs(trains) do
+          if trainData == t then
+            trainData:resetCircuitSignal()
+            trainData.waitingStation = false
+            trainData.waiting = false
+            trainData.refueling = false
+            trains[i] = nil
+            done = true
           end
         end
       end
       if not done then
         for i, train in pairs(global.trains) do
           if train == t then
-            if not train.waitForever then
-              train:resetCircuitSignal()
-              t.waitingStation = false
-              train.waiting = false
-              train.refueling = false
-            end
+            train:resetCircuitSignal()
+            train.waitingStation = false
+            train.waiting = false
+            train.refueling = false
           end
         end
       end
@@ -473,13 +508,14 @@ function ontrainchangedstate(event)
       end
       if t.line and global.trainLines[t.line] and global.trainLines[t.line].rules and global.trainLines[t.line].rules[schedule.current] then
         t:startWaitingForRules()
+        t:flyingText("waiting for rules", YELLOW)
       end
       if settings.autoDepart and t:currentStation() ~= t:refuelStation() and #schedule.records > 1 then
         t:startWaitingForAutoDepart()
         t:flyingText("waiting", YELLOW)
       end
       if t:isWaiting() then
-      --debugDump("waiting",true)
+        debugDump(game.tick.." waiting",true)
       end
     elseif train.state == defines.trainstate.arrive_station then --or train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then
       if t.settings.autoRefuel then
@@ -538,6 +574,7 @@ function ontick(event)
       local status,err = pcall(
         function()
           if train.train and train.train.valid and train.waitingStation then
+          --debugDump("set signal",true)
             train:setCircuitSignal()
             insertInTable(global.updateTick,event.tick+global.settings.circuit.interval,train)
           else
@@ -556,7 +593,7 @@ function ontick(event)
       function()
         for i,train in pairs(global.trains) do
           if train.train and train.train.valid then
-            if train.line and train.train.speed == 0 then
+            if train.line and train.train.state ~= defines.trainstate.wait_station and train.train.speed == 0 then
               train:updateLine()
             end
           else
@@ -569,25 +606,6 @@ function ontick(event)
     end
   end
 
-
-  if global.stopTick[event.tick] then
-    local status,err = pcall(
-      function()
-        for i,train in pairs(global.stopTick[event.tick]) do
-          if train.train and train.train.valid then
-            train.train.manual_mode = true
-            --debugDump("manual mode set",true)
-          else
-            removeInvalidTrains(true)
-          end
-        end
-        global.stopTick[event.tick] = nil
-      end)
-      if not status then
-        pauseError(err, "on_tick: stopTick")
-      end
-  end
-  
   if global.ticks[event.tick] then
     --debugLog(" tick s", game.tick)
     local status,err = pcall(
@@ -624,7 +642,7 @@ function ontick(event)
                 local rules
                 if  train:isWaitingForRules() then
                   --Handle leave when full/empty rules here
-                  --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
+                  train:flyingText("checking full/empty rules", GREEN, {offset=-1})
                   rules = global.trainLines[train.line].rules[train.train.schedule.current]
                   --debugDump(rules,true)
                   local full = train:isCargoFull()
@@ -1172,8 +1190,7 @@ if remote.interfaces.logistics_railway then
     local chest = event.chest
     local wagon_index = event.wagon_index
     local train = event.train
-    debugDump("Chest: "..util.positiontostr(chest.position),true)
-    debugDump("Train: "..train.carriages[1].backer_name,true)
+    --debugDump("Chest: "..util.positiontostr(chest.position),true)
     local trainKey = getTrainKeyByTrain(global.trains, train)
     if trainKey then
       local t = global.trains[trainKey]
@@ -1186,8 +1203,7 @@ if remote.interfaces.logistics_railway then
     local chest = event.chest
     local wagon_index = event.wagon_index
     local train = event.train
-    debugDump("Train: "..train.carriages[1].backer_name,true)
-    debugDump("destroyed",true)
+    --debugDump("destroyed a chest",true)
     local trainKey = getTrainKeyByTrain(global.trains, train)
     if trainKey then
       local t = global.trains[trainKey]
@@ -1262,7 +1278,6 @@ remote.add_interface("st",
       script.on_event(events.on_player_opened, nil)
       script.on_event(events.on_player_closed, nil)
       global.ticks = {}
-      global.stopTick = {}
       global.updateTick = {}
       for i, t in pairs(global.trains) do
         if t:isWaiting() then

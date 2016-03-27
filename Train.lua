@@ -54,6 +54,7 @@ Train = {
           tmp = index
           self:flyingText("Going to "..schedule.records[index].station, YELLOW, {offset = -1})
         end
+        --all below is needed to make a train go to another station, don't change!
         train.manual_mode = true
         schedule.current = tmp
         train.schedule = schedule
@@ -132,17 +133,16 @@ Train = {
 
     startWaitingForRules = function(self)
       if not self.waiting then
-        self.waiting = {lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait, signalProxy = false}
+        self.waiting = {lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
         local rules = (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
         self.waitForever = false
         if rules then
           if rules.keepWaiting then
             --debugDump(util.formattime(game.tick,true).." waitForever set",true)
             self.waitForever = true
-            insertInTable(global.stopTick, game.tick+5, self)
           end
           if rules.waitForCircuit then
-            self.waiting.nextCheck = game.tick + 5 + global.settings.circuit.interval
+            self.waiting.nextCheck = game.tick + global.settings.circuit.interval
           end
         end
         local tick = self.waiting.nextCheck
@@ -346,13 +346,12 @@ Train = {
           --wagon is used by logistics railway
           local chest = self.proxy_chests[i]
           local inventory = chest.get_inventory(defines.inventory.chest)
-          debugDump({i=i, empty=inventory.is_empty()},true)
+          --debugDump({i=i, empty=inventory.is_empty()},true)
           if not inventory.is_empty() then
             return false
           end
         else
           if wagon.name ~= "rail-tanker" then
-            debugDump("Shouldn't see this",true)
             if not wagon.get_inventory(1).is_empty() then
               return false
             end
@@ -423,6 +422,7 @@ Train = {
       self.state = self.train.state
       if self.previousState == defines.trainstate.wait_station and self.state == defines.trainstate.on_the_path then
         self.advancedState = defines.trainstate.left_station
+        debugDump(game.tick.." left_station",true)
       else
         self.advancedState = false
       end
@@ -432,6 +432,7 @@ Train = {
       if self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
         return
       end
+      local oldmode = self.train.manual_mode
       if self.line and global.trainLines[self.line] then
         if self.settings.autoRefuel and self.train.schedule.current == inSchedule(self:refuelStation(), self.train.schedule) then
           --self:flyingText("Skipping line update", YELLOW)
@@ -439,14 +440,21 @@ Train = {
         end
         local trainLine = global.trainLines[self.line]
         if self.line and trainLine.changed > self.lineVersion then
+          debugDump("updating line "..self.line.." train: "..self.train.carriages[1].backer_name,true)
+          local rules = trainLine.rules
           if self.lineVersion >= 0 then
             self:flyingText("updating schedule", YELLOW)
           end
           local waitingAt = self.train.schedule.records[self.train.schedule.current] or {station="", time_to_wait=0}
-          local oldmode = self.train.manual_mode
-          self.train.manual_mode = true
           local schedule = {records={}}
           for i, record in pairs(trainLine.records) do
+            if rules then
+              if rules[i].keepWaiting then
+                record.time_to_wait = 2^32-1
+              else
+                record.time_to_wait = rules[i].original_time
+              end
+            end
             schedule.records[i] = record
           end
           local inLine = inSchedule(waitingAt.station,schedule)
@@ -455,86 +463,29 @@ Train = {
           else
             schedule.current = 1
           end
-          self.train.schedule = schedule
           self.settings.autoRefuel = trainLine.settings.autoRefuel
           self.settings.autoDepart = trainLine.settings.autoDepart
-          self.train.manual_mode = oldmode
           self.lineVersion = trainLine.changed
+
+          self.train.manual_mode = true
+          self.train.schedule = schedule
+          self.train.manual_mode = oldmode
         end
-      elseif self.line and not global.trainLines[self.line] then
+      elseif (self.line and not global.trainLines[self.line]) then
         self:flyingText("Dettached from line", RED)
+        local schedule = self.train.schedule
+        for i, record in pairs(schedule.records) do
+          if record.time_to_wait == 2^32-1 then
+            record.time_to_wait = 200*60
+          end
+        end
         self.waitForever = false
         self.line = false
         self.lineVersion = false
-      end
-    end,
-
-    nextValidStation = function(self)
-      local schedule = self.train.schedule
-      local train = self.train
-      local old = schedule.current
-      local tmp = schedule.current
-      local rules = global.trainLines[self.line].rules
-      local skipped, c = "", 0
-      if self.line and rules[tmp] and not (inSchedule(global.settings.refuel.station, schedule) and self.settings.autoRefuel) then
-        local cargo = self:cargoCount()
-        local filter = rules[tmp].filter
-        local filter = filter:match("st%-fluidItem%-(.+)") or rules[tmp].filter
-        local item = cargo[filter] or 0
-        local compare = rules[tmp].condition
-        if compare == "=" then compare = "==" end
-        local cond = string.format("return %f %s %f", item, compare, rules[tmp].count)
-        local f = assert(loadstring(cond))()
-        --debugDump({cond, f},true)
-        if not f then
-          skipped = schedule.records[tmp].station
-          c = c+1
-          for i=1,#schedule.records do
-            local k = math.abs(i + tmp - 1) % (#schedule.records)+1
-            if not rules[k] then
-              tmp = k
-              break
-            else
-              local cargo = self:cargoCount()
-              local filter = rules[k].filter
-              local filter = filter:match("st%-fluidItem%-(.+)") or rules[k].filter
-              local item = cargo[filter] or 0
-              local item = cargo[rules[k].filter] or 0
-              local compare = rules[k].condition
-              if compare == "=" then compare = "==" end
-              local cond = string.format("return %f %s %f", item, compare, rules[k].count)
-              local f = assert(loadstring(cond))()
-              --debugDump({cond, f},true)
-              if f then
-                tmp = k
-                break
-              end
-              skipped = skipped..", "..schedule.records[k].station
-              c=c+1
-            end
-          end
-        end
-        if #schedule.records <= c+1 then
-          if global.settings.lines.forever then
-            self:flyingText("Invalid rules", RED, {offset=1, show=true})
-            local prevStation = (schedule.current-2) % #schedule.records + 1
-            train.manual_mode = true
-            schedule.current = prevStation
-            train.schedule = schedule
-            train.manual_mode = false
-            return
-          else
-
-          end
-        elseif skipped ~= "" then
-          self:flyingText("Skipped stations: "..skipped, YELLOW, {offset=1})
-        end
-        assert(tmp <= #schedule.records)
-        --debugDump("going to "..schedule.records[tmp].station, true)
-        train.manual_mode = true
-        schedule.current = tmp
-        train.schedule = schedule
-        train.manual_mode = false
+        
+        self.train.manual_mode = true
+        self.train.schedule = schedule
+        self.train.manual_mode = oldmode
       end
     end,
 
