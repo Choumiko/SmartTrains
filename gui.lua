@@ -395,12 +395,12 @@ GUI = {
       end
       local maxPage = page_count(#records, global.settings.rulesPerPage)
       GUI.addButton(pageButtons,{name="rule_page_number", caption=page.."/"..maxPage, style="st_disabled_button_bold"})
-      
+
       local nextPage = GUI.addButton(pageButtons,{name="nextPageRule", caption=">", style="st_button_style_bold"})
       if page == maxPage then
         nextPage.style = "st_disabled_button_bold"
-      end 
-      
+      end
+
       GUI.addButton(buttonFlow, {name="saveRules__"..line, caption="Save", style="st_button_style_bold"})
     end
   end,
@@ -457,7 +457,7 @@ on_gui_click = {
       local refresh = false
       local element = event.element
       local trainInfo = global.trains[getTrainKeyFromUI(event.player_index)]
-  
+
       if on_gui_click[element.name] then
         refresh = on_gui_click[element.name](player)
       else
@@ -488,7 +488,7 @@ on_gui_click = {
       return true
     end
   end,
-  
+
   globalSettingsSave = function(player)
     local settings = player.gui[GUI.position].stGui.rows.globalSettings.tbl
     local time = sanitizeNumber(settings.refuelTime.text, global.settings.refuel.time/60)*60
@@ -496,7 +496,7 @@ on_gui_click = {
     local max = sanitizeNumber(settings.row1.refuelRangeMax.text, global.settings.refuel.rangeMax)
     local station = settings.refuelStation.text
     global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
-    
+
     local interval = sanitizeNumber(settings.departInterval.text, global.settings.depart.interval/60)*60
     local minWait = sanitizeNumber(settings.minWait.text, global.settings.depart.minWait/60)*60
     local minFlow = sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
@@ -509,7 +509,7 @@ on_gui_click = {
 
     return true
   end,
-  
+
   deleteLines = function(player)
     local group = player.gui[GUI.position].stGui.rows.trainLines.tbl1
     local trainKey
@@ -531,10 +531,10 @@ on_gui_click = {
     global.playerPage[player.index].line = 1
     return true
   end,
-  
+
   nextPageRule = function(player)
     local line = global.guiData[player.index].line
-    local maxPage = page_count(#global.trainLines[line].records, global.settings.rulesPerPage) 
+    local maxPage = page_count(#global.trainLines[line].records, global.settings.rulesPerPage)
     local page = global.playerRules[player.index].page
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, page)
     page = page < maxPage and page + 1 or page
@@ -542,7 +542,7 @@ on_gui_click = {
     GUI.showDynamicRules(player.index,line)
     return false
   end,
-  
+
   prevPageRule = function(player)
     local line = global.guiData[player.index].line
     local page = global.playerRules[player.index].page
@@ -552,7 +552,7 @@ on_gui_click = {
     GUI.showDynamicRules(player.index,line)
     return false
   end,
-  
+
   renameLine = function(player)
     local group = player.gui[GUI.position].stGui.rows.trainLines.tbl1
     local trainKey, rename
@@ -586,17 +586,17 @@ on_gui_click = {
     end
     return false
   end,
-  
+
   refuel = function(option2)
     option2 = tonumber(option2)
     global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
   end,
-  
+
   depart = function(player, option2)
     option2 = tonumber(option2)
     global.trains[option2].settings.autoDepart = not global.trains[option2].settings.autoDepart
   end,
-  
+
   editRules = function(player, option2)
     --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
     GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
@@ -604,7 +604,7 @@ on_gui_click = {
     global.playerRules[player.index].page = 1
     GUI.showDynamicRules(player.index,option2)
   end,
-  
+
   saveRules = function(player, option2)
     local line = option2
     local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
@@ -617,7 +617,7 @@ on_gui_click = {
     GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
     return true
   end,
-  
+
   readSchedule = function(player, option2)
     option2 = tonumber(option2)
     if global.trains[option2] ~= nil and global.trains[option2].train.valid then
@@ -626,7 +626,7 @@ on_gui_click = {
     end
     return true
   end,
-  
+
   saveAsLine = function(player, option2)
     local name = player.gui[GUI.position].stGui.rows.trainSettings.rows.btns.saveAslineName.text
     name = sanitizeName(name)
@@ -635,7 +635,8 @@ on_gui_click = {
       local t = global.trains[option2]
       local is_copy = t.line and t.line ~= name
       if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
-        if not global.trainLines[name] then 
+        --new train line
+        if not global.trainLines[name] then
           global.trainLines[name] = {name=name, rules={}}
           local rules = global.trainLines[name].rules
           for s_index, record in pairs(t.train.schedule.records) do
@@ -645,41 +646,51 @@ on_gui_click = {
             rule.jumpTo = false
             rule.jumpToCircuit = false
             rule.keepWaiting = false
-            rule.original_time = record.time_to_wait                
+            rule.original_time = record.time_to_wait
             rule.station = record.station
             rule.waitForCircuit = false
             rules[s_index] = rule
           end
         end
+        
         local changed = game.tick
         global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
         global.trainLines[name].records = t.train.schedule.records
         global.trainLines[name].changed = changed
 
         if type(global.trainLines[name].rules) == "table" then
-            local delete = {}
-            local insert = {}
-            for j, rule in pairs(global.trainLines[name].rules) do
-              local i = inSchedule(rule.station, global.trainLines[name])
-              if not i then
-                table.insert(delete, i)
-              end
-              if i ~= j then
-                table.insert(delete, j)
-                table.insert(insert, {index=i, rule=util.table.deepcopy(rule)})
-              end
+          local delete = {}
+          local insert = {}
+          for j, rule in pairs(global.trainLines[name].rules) do
+            local i = inSchedule(rule.station, global.trainLines[name])
+            if not i then
+              table.insert(delete, i)
             end
-            for _, i in pairs(delete) do
-              global.trainLines[name].rules[i] = nil
+            if i ~= j then
+              table.insert(delete, j)
+              table.insert(insert, {index=i, rule=util.table.deepcopy(rule)})
             end
-            for _, i in pairs(insert) do
-              global.trainLines[name].rules[i.index] = i.rule
-            end
+          end
+          for _, i in pairs(delete) do
+            global.trainLines[name].rules[i] = nil
+          end
+          for _, i in pairs(insert) do
+            global.trainLines[name].rules[i.index] = i.rule
+          end
         end
+        
         if is_copy then
           global.trainLines[name].rules = table.deepcopy(global.trainLines[t.line].rules)
         end
         
+        -- update original_time if time ~= 2^32-1
+        local records = global.trainLines[name].records
+        for r_index, rule in pairs(global.trainLines[name].rules) do
+          if records[r_index] and records[r_index].time_to_wait ~= 2^32-1 then
+            rule.original_time = records[r_index].time_to_wait
+          end
+        end
+
         t.line = name
         t.lineVersion = changed
       end
@@ -688,7 +699,7 @@ on_gui_click = {
     end
     return true
   end,
-  
+
   lineRefuel = function(player, option2)
     local line = option2
     local trainKey = tonumber(option3)
@@ -704,7 +715,7 @@ on_gui_click = {
     end
     return true
   end,
-  
+
   lineDepart = function(player, option2, option3)
     local line = option2
     local trainKey = tonumber(option3)
@@ -720,7 +731,7 @@ on_gui_click = {
     end
     return true
   end,
-  
+
   activeLine = function(player, option2, option3)
     local trainKey = tonumber(option3)
     local li = option2
@@ -748,33 +759,33 @@ on_gui_click = {
     t.lineVersion = -1
     GUI.create_or_update(t,player.index)
   end,
-  
+
   prevPageTrain = function(player,option2, option3)
     local page = tonumber(option2)
     page = (page > 1) and page - 1 or 1
     global.playerPage[player.index].schedule = page
     return true
   end,
-  
+
   nextPageTrain = function(player,option2, option3)
     local page = tonumber(option2)
     global.playerPage[player.index].schedule = page + 1
     return true
   end,
-  
+
   prevPageLine = function(player,option2, option3)
     local page = tonumber(option2)
     page = (page > 1) and page - 1 or 1
     global.playerPage[player.index].line = page
     return true
   end,
-  
+
   nextPageLine = function(player,option2, option3)
     local page = tonumber(option2)
     global.playerPage[player.index].line = page + 1
     return true
   end,
-  
+
   leaveFull = function(player, option2, option3, element)
     if element.state == true then
       if element.parent["leaveEmpty__"..option2].state == true then
@@ -795,7 +806,7 @@ on_gui_click = {
     rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
     global.guiData[player.index].rules[tonumber(option2)] = rules
   end,
-  
+
   leaveEmpty = function(player, option2, option3, element)
     if element.state == true then
       if element.parent["leaveFull__"..option2].state == true then
@@ -815,7 +826,7 @@ on_gui_click = {
     rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
     global.guiData[player.index].rules[tonumber(option2)] = rules
   end,
-  
+
   keepWaiting = function(player, option2, option3, element)
     local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
     rules.empty = element.parent["leaveEmpty__"..option2].state
@@ -828,7 +839,7 @@ on_gui_click = {
     rules.keepWaiting = element.state
     global.guiData[player.index].rules[tonumber(option2)] = rules
   end,
-  
+
   waitForCircuit = function(player, option2, option3, element)
     if element.state == false then
       element.parent["jumpTo__"..option2].text = ""
@@ -846,7 +857,7 @@ on_gui_click = {
     rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
     global.guiData[player.index].rules[tonumber(option2)] = rules
   end,
-  
+
   jumpToCircuit = function(player, option2, option3, element)
     if not element.parent["waitForCircuit__"..option2].state then
       element.state = false

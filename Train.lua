@@ -422,14 +422,14 @@ Train = {
       self.state = self.train.state
       if self.previousState == defines.trainstate.wait_station and self.state == defines.trainstate.on_the_path then
         self.advancedState = defines.trainstate.left_station
-        debugDump(game.tick.." left_station",true)
+        --debugDump(game.tick.." left_station",true)
       else
         self.advancedState = false
       end
     end,
 
     updateLine = function(self)
-      if self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
+      if self.opened or self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
         return
       end
       local oldmode = self.train.manual_mode
@@ -439,8 +439,11 @@ Train = {
           return
         end
         local trainLine = global.trainLines[self.line]
-        if self.line and trainLine.changed > self.lineVersion then
-          debugDump("updating line "..self.line.." train: "..self.train.carriages[1].backer_name,true)
+        if self.line and trainLine.changed <= self.lineVersion then
+          return
+        end
+        if self.line then
+          --debugDump("updating line "..self.line.." train: "..self.train.carriages[1].backer_name,true)
           local rules = trainLine.rules
           if self.lineVersion >= 0 then
             self:flyingText("updating schedule", YELLOW)
@@ -457,6 +460,22 @@ Train = {
             end
             schedule.records[i] = record
           end
+          
+--          local old_schedule = self.train.schedule
+--          local changed = false
+--          if #schedule.records ~= #old_schedule.records then
+--            changed = true
+--            debugDump("Different #",true)
+--          else
+--            for i, record in pairs(old_schedule.records) do
+--              if record.station ~= schedule.records[i].station or record.time_to_wait ~= schedule.records[i].time_to_wait then
+--                debugDump("Different station/time",true)
+--                changed = true
+--                break
+--              end
+--            end
+--          end
+          
           local inLine = inSchedule(waitingAt.station,schedule)
           if inLine then
             schedule.current = inLine
@@ -466,10 +485,11 @@ Train = {
           self.settings.autoRefuel = trainLine.settings.autoRefuel
           self.settings.autoDepart = trainLine.settings.autoDepart
           self.lineVersion = trainLine.changed
-
-          self.train.manual_mode = true
-          self.train.schedule = schedule
-          self.train.manual_mode = oldmode
+--          if changed then
+            self.train.manual_mode = true
+            self.train.schedule = schedule
+            self.train.manual_mode = oldmode
+--          end
         end
       elseif (self.line and not global.trainLines[self.line]) then
         self:flyingText("Dettached from line", RED)
