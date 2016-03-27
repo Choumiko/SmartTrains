@@ -1,3 +1,7 @@
+function page_count(item_count, items_per_page)
+  return math.floor((item_count - 1) / (items_per_page)) + 1
+end
+
 GUI = {
   styleprefix = "st_",
 
@@ -400,410 +404,24 @@ GUI = {
       GUI.addButton(buttonFlow, {name="saveRules__"..line, caption="Save", style="st_button_style_bold"})
     end
   end,
-
-  sanitizeName = function(name)
-    local name = string.gsub(name, "_", " ")
-    name = string.gsub(name, "^%s", "")
-    name = string.gsub(name, "%s$", "")
-    local pattern = "(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)"
-    local element = "activeLine__"..name.."__".."something"
-    local t1,t2,t3,t4 = element:match(pattern)
-    if t1 == "activeLine" and t2 == name and t3 == "something" then
-      return name
-    else
-      return false
-    end
-  end,
-
-  sanitizeNumber = function(number, default)
-    return tonumber(number) or default
-  end
 }
 
-function onguiclick(event)
-  local elementName = event.element.name
-  local fullName = ""
-  local e = event.element
-  while e.parent do
-    fullName = e.parent.name .. "."..fullName
-    e = e.parent.name
-  end
-  local status, err = pcall(function()
-    local index = event.player_index
-    local player = game.players[index]
-    local refresh = false
-    local element = event.element
-    local trainInfo = global.trains[getTrainKeyFromUI(index)]
-
-    --ST-Settings
-    if element.name == "toggleSTSettings" then
-      if player.gui[GUI.position].stGui.rows.globalSettings == nil then
-        GUI.globalSettingsWindow(index)
-        GUI.destroyGui(player.gui[GUI.position].stGui.rows.toggleSTSettings)
-        GUI.destroyGui(player.gui[GUI.position].stGui.rows.dynamicRules)
-        GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
-        GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainLines)
-      else
-        player.gui[GUI.position].stGui.rows.toggleSTSettings.destroy()
-        refresh = true
-      end
-      --save settings, return to normal view
-    elseif element.name == "globalSettingsSave" then
-      local settings = player.gui[GUI.position].stGui.rows.globalSettings.tbl
-      local time = GUI.sanitizeNumber(settings.refuelTime.text, global.settings.refuel.time/60)*60
-      local min = GUI.sanitizeNumber(settings.refuelRangeMin.text, global.settings.refuel.rangeMin)
-      local max = GUI.sanitizeNumber(settings.row1.refuelRangeMax.text, global.settings.refuel.rangeMax)
-      local station = settings.refuelStation.text
-
-      global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
-      local interval = GUI.sanitizeNumber(settings.departInterval.text, global.settings.depart.interval/60)*60
-      local minWait = GUI.sanitizeNumber(settings.minWait.text, global.settings.depart.minWait/60)*60
-      local minFlow = GUI.sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
-      local circuitInterval = GUI.sanitizeNumber(settings.circuitInterval.text,global.settings.circuit.interval)
-      if circuitInterval < 1 then circuitInterval = 1 end
-
-      global.settings.depart = {interval = interval, minWait = minWait}
-      global.settings.depart.minFlow = minFlow
-      global.settings.circuit.interval = circuitInterval
-      --global.settings.lines.forever = settings.forever.state
-
-      refresh = true
-    elseif element.name == "deleteLines" then
-      local group = player.gui[GUI.position].stGui.rows.trainLines.tbl1
-      local trainKey
-      for i, child in pairs(group.children_names) do
-        --local pattern = "(%w+)__([%w%s]*)_*([%w%s]*)_*(%w*)"
-        local pattern = "(markedDelete)__([%w%s%-%#%!%$]*)_*(%d*)"
-        local del, line, trainkey = child:match(pattern)
-        if del and group[child].state == true then
-          trainKey = tonumber(trainkey)
-          if trainKey > 0 then
-            if global.trains[trainKey] and global.trains[trainKey].line == line then
-              global.trains[trainKey].line = false
-            end
-          end
-          if global.trainLines[line] then
-            global.trainLines[line] = nil
-          end
-        end
-      end
-      global.playerPage[index].line = 1
-      refresh = true
-    elseif element.name == "nextPageRule" then
-      local line = global.guiData[player.index].line
-      local maxPage = page_count(#global.trainLines[line].records, global.settings.rulesPerPage) 
-      local page = global.playerRules[player.index].page
-      global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, page)
-      page = page < maxPage and page + 1 or page
-      global.playerRules[index].page = page
-      GUI.showDynamicRules(player.index,line)
-    elseif element.name == "prevPageRule" then
-      local line = global.guiData[player.index].line
-      local page = global.playerRules[player.index].page
-      global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, page)
-      page =  page > 1 and page - 1 or 1
-      global.playerRules[index].page = page
-      GUI.showDynamicRules(player.index,line)
-    else
-      local option1, option2, option3, option4 = event.element.name:match("(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)")
-      do
-        local option1 = option1 or ""
-        local option2 = option2 or ""
-        local option3 = option3 or ""
-        local option4 = option4 or ""
-        --debugDump("e: "..event.element.name.." o1: "..option1.." o2: "..option2.." o3: "..option3,true)
-        --debugDump(option4,true)
-      end
-      if option1 == "refuel" then
-        option2 = tonumber(option2)
-        global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
-      elseif option1 == "depart" then
-        option2 = tonumber(option2)
-        global.trains[option2].settings.autoDepart = not global.trains[option2].settings.autoDepart
-      elseif option1 == "editRules" then
-        --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
-        GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
-        global.guiData[index].rules = false
-        global.playerRules[player.index].page = 1
-        GUI.showDynamicRules(index,option2)
-      elseif option1 == "saveRules" then
-        local line = option2
-        local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
-        local tmp = {}
-        global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
-        global.trainLines[line].rules = table.deepcopy(global.guiData[index].rules)
-        global.guiData[index].rules = false
-        global.playerRules[player.index].page = 1
-        debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
-        GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
-        refresh = true
-      elseif option1 == "readSchedule" then
-        option2 = tonumber(option2)
-        if global.trains[option2] ~= nil and global.trains[option2].train.valid then
-          global.trains[option2].line = false
-          global.trains[option2].lineVersion = false
-        end
-        refresh = true
-      elseif option1 == "saveAsLine" then
-        local name = player.gui[GUI.position].stGui.rows.trainSettings.rows.btns.saveAslineName.text
-        name = GUI.sanitizeName(name)
-        if name ~= false then
-          option2 = tonumber(option2)
-          local t = global.trains[option2]
-          local is_copy = t.line and t.line ~= name
-          if name ~= "" and t and #t.train.schedule.records > 0 then
-            if not global.trainLines[name] then 
-              global.trainLines[name] = {name=name, rules={}}
-              local rules = global.trainLines[name].rules
-              for s_index, record in pairs(t.train.schedule.records) do
-                local rule = {}
-                rule.empty = false
-                rule.full = false
-                rule.jumpTo = false
-                rule.jumpToCircuit = false
-                rule.keepWaiting = false
-                rule.original_time = record.time_to_wait                
-                rule.station = record.station
-                rule.waitForCircuit = false
-                rules[s_index] = rule
-              end
-            end
-            local changed = game.tick
-            global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
-            global.trainLines[name].records = t.train.schedule.records
-            global.trainLines[name].changed = changed
-
-            if type(global.trainLines[name].rules) == "table" then
-                local delete = {}
-                local insert = {}
-                for j, rule in pairs(global.trainLines[name].rules) do
-                  local i = inSchedule(rule.station, global.trainLines[name])
-                  if not i then
-                    table.insert(delete, i)
-                  end
-                  if i ~= j then
-                    table.insert(delete, j)
-                    table.insert(insert, {index=i, rule=util.table.deepcopy(rule)})
-                  end
-                end
-                for _, i in pairs(delete) do
-                  global.trainLines[name].rules[i] = nil
-                end
-                for _, i in pairs(insert) do
-                  global.trainLines[name].rules[i.index] = i.rule
-                end
-            end
-            if is_copy then
-              global.trainLines[name].rules = table.deepcopy(global.trainLines[t.line].rules)
-            end
-            
-            t.line = name
-            t.lineVersion = changed
-          end
-        else
-          debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true)
-        end
-        refresh = true
-      elseif option1 == "lineRefuel" then
-        local line = option2
-        local trainKey = tonumber(option3)
-        local t = global.trains[trainKey]
-        if line and global.trainLines[line] then
-          line = global.trainLines[line]
-          line.settings.autoRefuel = not line.settings.autoRefuel
-          line.changed = game.tick
-          if t and t.line and t.line == line.name then
-            t.settings.autoRefuel = line.settings.autoRefuel
-            t.lineVersion = line.changed
-          end
-        end
-        refresh = true
-      elseif option1 == "lineDepart" then
-        local line = option2
-        local trainKey = tonumber(option3)
-        local t = global.trains[trainKey]
-        if line and global.trainLines[line] then
-          line = global.trainLines[line]
-          line.settings.autoDepart = not line.settings.autoDepart
-          line.changed = game.tick
-          if t and t.line and t.line == line.name then
-            t.settings.autoDepart = line.settings.autoDepart
-            t.lineVersion = line.changed
-          end
-        end
-        refresh = true
-      elseif element.name == "renameLine" then
-        local group = player.gui[GUI.position].stGui.rows.trainLines.tbl1
-        local trainKey, rename
-        local count=0
-        local newName = player.gui[GUI.position].stGui.rows.trainLines.btns.newName.text
-        for i, child in pairs(group.children_names) do
-          local pattern = "(markedDelete)__([%w%s%-%#%!%$]*)_*(%d*)"
-          local del, line, trainkey = child:match(pattern)
-          if del and group[child].state == true then
-            count = count+1
-            rename = line
-          end
-        end
-        if count == 1 then
-          newName = GUI.sanitizeName(newName)
-          if newName ~= false then
-            if newName ~= "" and not global.trainLines[newName] then
-              global.trainLines[newName] = table.deepcopy(global.trainLines[rename])
-              global.trainLines[newName].name = newName
-              global.trainLines[rename] = nil
-              for i,t in pairs(global.trains) do
-                if t.line == rename then
-                  t.line = newName
-                end
-              end
-            end
-          else
-            debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true)
-          end
-          refresh = true
-        end
-      elseif option1 == "activeLine" then
-        local trainKey = tonumber(option3)
-        local li = option2
-        local t = global.trains[trainKey]
-        if t.line ~= li then
-          t.line = li
-          t.lineVersion = -1
-          if t.train.speed == 0 then
-            t:updateLine()
-          end
-        else
-          t.line = false
-          local schedule = t.train.schedule
-          local rules = global.trainLines[li].rules
-          for i, record in pairs(schedule.records) do
-            if record.time_to_wait == 2^32-1 then
-              record.time_to_wait = 200*60
-              if rules and rules[i] then
-                record.time_to_wait = rules[i].original_time or record.time_to_wait
-              end
-            end
-          end
-          t.train.schedule = schedule
-        end
-        t.lineVersion = -1
-        --refresh = true
-        GUI.create_or_update(t,index)
-      elseif option1 == "prevPageTrain" then
-        local page = tonumber(option2)
-        page = (page > 1) and page - 1 or 1
-        global.playerPage[index].schedule = page
-        refresh = true
-      elseif option1 == "nextPageTrain" then
-        local page = tonumber(option2)
-        global.playerPage[index].schedule = page + 1
-        refresh = true
-      elseif option1 == "prevPageLine" then
-        local page = tonumber(option2)
-        page = (page > 1) and page - 1 or 1
-        global.playerPage[index].line = page
-        refresh = true
-      elseif option1 == "nextPageLine" then
-        local page = tonumber(option2)
-        global.playerPage[index].line = page + 1
-        refresh = true
-      elseif option1 == "leaveFull" then
-        if element.state == true then
-          if element.parent["leaveEmpty__"..option2].state == true then
-            element.parent["leaveEmpty__"..option2].state = false
-          end
-        end
-        if element.parent["leaveFull__"..option2].state == false and
-          element.parent["leaveEmpty__"..option2].state == false and
-          element.parent["waitForCircuit__"..option2].state == false then
-          element.parent["keepWaiting__"..option2].state = false
-        end
-        local rules = global.guiData[index].rules[tonumber(option2)] or {}
-        rules.full = element.state
-        rules.empty = element.parent["leaveEmpty__"..option2].state
-        rules.keepWaiting = element.parent["keepWaiting__"..option2].state
-        rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
-        rules.jumpTo = element.parent["jumpTo__"..option2].text
-        rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-        global.guiData[index].rules[tonumber(option2)] = rules
-      elseif option1 == "leaveEmpty" then
-        if element.state == true then
-          if element.parent["leaveFull__"..option2].state == true then
-            element.parent["leaveFull__"..option2].state = false
-          end
-        end
-        if element.parent["leaveFull__"..option2].state == false and
-          element.parent["leaveEmpty__"..option2].state == false and
-          element.parent["waitForCircuit__"..option2].state == false then
-          element.parent["keepWaiting__"..option2].state = false
-        end
-        local rules = global.guiData[index].rules[tonumber(option2)] or {}
-        rules.empty = element.state
-        rules.full = element.parent["leaveFull__"..option2].state
-        rules.keepWaiting = element.parent["keepWaiting__"..option2].state
-        rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
-        rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-        global.guiData[index].rules[tonumber(option2)] = rules
-      elseif option1 == "keepWaiting" then
-        local rules = global.guiData[index].rules[tonumber(option2)] or {}
-        rules.empty = element.parent["leaveEmpty__"..option2].state
-        rules.full = element.parent["leaveFull__"..option2].state
-        rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
-        rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-        if not (rules.empty or rules.full or rules.waitForCircuit) then
-          element.state = false
-        end
-        rules.keepWaiting = element.state
-        global.guiData[index].rules[tonumber(option2)] = rules
-      elseif option1 == "waitForCircuit" then
-        if element.state == false then
-          element.parent["jumpTo__"..option2].text = ""
-        end
-        if element.parent["leaveFull__"..option2].state == false and
-          element.parent["leaveEmpty__"..option2].state == false and
-          element.parent["waitForCircuit__"..option2].state == false then
-          element.parent["keepWaiting__"..option2].state = false
-        end
-        local rules = global.guiData[index].rules[tonumber(option2)] or {}
-        rules.waitForCircuit = element.state
-        rules.empty = element.parent["leaveEmpty__"..option2].state
-        rules.full = element.parent["leaveFull__"..option2].state
-        rules.keepWaiting = element.parent["keepWaiting__"..option2].state
-        rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-        global.guiData[index].rules[tonumber(option2)] = rules
-      elseif option1 == "jumpToCircuit" then
-        if not element.parent["waitForCircuit__"..option2].state then
-          element.state = false
-        end
-        if element.state == true then
-          element.parent["jumpTo__"..option2].text = ""
-        end
-        if element.parent["leaveFull__"..option2].state == false and
-          element.parent["leaveEmpty__"..option2].state == false and
-          element.parent["waitForCircuit__"..option2].state == false then
-          element.parent["keepWaiting__"..option2].state = false
-        end
-        local rules = global.guiData[index].rules[tonumber(option2)] or {}
-        rules.empty = element.parent["leaveEmpty__"..option2].state
-        rules.full = element.parent["leaveFull__"..option2].state
-        rules.keepWaiting = element.parent["keepWaiting__"..option2].state
-        rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
-        rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-        global.guiData[index].rules[tonumber(option2)] = rules
-      end
-    end
-    if refresh then
-      GUI.create_or_update(trainInfo,index)
-    end
-  end)
-  if not status then
-    pauseError(err, {"on_gui_click", fullName})
+function sanitizeName(name)
+  local name = string.gsub(name, "_", " ")
+  name = string.gsub(name, "^%s", "")
+  name = string.gsub(name, "%s$", "")
+  local pattern = "(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)"
+  local element = "activeLine__"..name.."__".."something"
+  local t1,t2,t3,t4 = element:match(pattern)
+  if t1 == "activeLine" and t2 == name and t3 == "something" then
+    return name
+  else
+    return false
   end
 end
 
-function page_count(item_count, items_per_page)
-  return math.floor((item_count - 1) / (items_per_page)) + 1
+function sanitizeNumber(number, default)
+  return tonumber(number) or default
 end
 
 function sanitize_rules(player, line, rules, page)
@@ -817,7 +435,7 @@ function sanitize_rules(player, line, rules, page)
     if global.guiData[player.index].rules[i] then
       tmp[i] = global.guiData[player.index].rules[i]
       if i>lower and i<=upper then
-        local jump = GUI.sanitizeNumber(gui["jumpTo__"..i].text, false)
+        local jump = sanitizeNumber(gui["jumpTo__"..i].text, false)
         tmp[i].jumpTo = (tmp[i].waitForCircuit and not tmp[i].jumpToCircuit) and jump or false
         if not (tmp[i].empty or tmp[i].full or tmp[i].waitForCircuit) then
           tmp[i].keepWaiting = false
@@ -830,3 +448,423 @@ function sanitize_rules(player, line, rules, page)
   end
   return tmp
 end
+
+on_gui_click = {
+  on_gui_click = function(event)
+    local elementName = event.element.name
+    local status, err = pcall(function()
+      local player = game.players[event.player_index]
+      local refresh = false
+      local element = event.element
+      local trainInfo = global.trains[getTrainKeyFromUI(event.player_index)]
+  
+      if on_gui_click[element.name] then
+        refresh = on_gui_click[element.name](player)
+      else
+        local option1, option2, option3, option4 = event.element.name:match("(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)")
+        if on_gui_click[option1] then
+          refresh = on_gui_click[option1](player, option2, option3, element)
+        end
+      end
+      if refresh then
+        GUI.create_or_update(trainInfo,event.player_index)
+      end
+    end)
+    if not status then
+      pauseError(err, {"on_gui_click", elementName})
+    end
+  end,
+
+  toggleSTSettings = function(player)
+    if player.gui[GUI.position].stGui.rows.globalSettings == nil then
+      GUI.globalSettingsWindow(player.index)
+      GUI.destroyGui(player.gui[GUI.position].stGui.rows.toggleSTSettings)
+      GUI.destroyGui(player.gui[GUI.position].stGui.rows.dynamicRules)
+      GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
+      GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainLines)
+      return false
+    else
+      player.gui[GUI.position].stGui.rows.toggleSTSettings.destroy()
+      return true
+    end
+  end,
+  
+  globalSettingsSave = function(player)
+    local settings = player.gui[GUI.position].stGui.rows.globalSettings.tbl
+    local time = sanitizeNumber(settings.refuelTime.text, global.settings.refuel.time/60)*60
+    local min = sanitizeNumber(settings.refuelRangeMin.text, global.settings.refuel.rangeMin)
+    local max = sanitizeNumber(settings.row1.refuelRangeMax.text, global.settings.refuel.rangeMax)
+    local station = settings.refuelStation.text
+    global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
+    
+    local interval = sanitizeNumber(settings.departInterval.text, global.settings.depart.interval/60)*60
+    local minWait = sanitizeNumber(settings.minWait.text, global.settings.depart.minWait/60)*60
+    local minFlow = sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
+    local circuitInterval = sanitizeNumber(settings.circuitInterval.text,global.settings.circuit.interval)
+    if circuitInterval < 1 then circuitInterval = 1 end
+
+    global.settings.depart = {interval = interval, minWait = minWait}
+    global.settings.depart.minFlow = minFlow
+    global.settings.circuit.interval = circuitInterval
+
+    return true
+  end,
+  
+  deleteLines = function(player)
+    local group = player.gui[GUI.position].stGui.rows.trainLines.tbl1
+    local trainKey
+    for i, child in pairs(group.children_names) do
+      local pattern = "(markedDelete)__([%w%s%-%#%!%$]*)_*(%d*)"
+      local del, line, trainkey = child:match(pattern)
+      if del and group[child].state == true then
+        trainKey = tonumber(trainkey)
+        if trainKey > 0 then
+          if global.trains[trainKey] and global.trains[trainKey].line == line then
+            global.trains[trainKey].line = false
+          end
+        end
+        if global.trainLines[line] then
+          global.trainLines[line] = nil
+        end
+      end
+    end
+    global.playerPage[player.index].line = 1
+    return true
+  end,
+  
+  nextPageRule = function(player)
+    local line = global.guiData[player.index].line
+    local maxPage = page_count(#global.trainLines[line].records, global.settings.rulesPerPage) 
+    local page = global.playerRules[player.index].page
+    global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, page)
+    page = page < maxPage and page + 1 or page
+    global.playerRules[player.index].page = page
+    GUI.showDynamicRules(player.index,line)
+    return false
+  end,
+  
+  prevPageRule = function(player)
+    local line = global.guiData[player.index].line
+    local page = global.playerRules[player.index].page
+    global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, page)
+    page =  page > 1 and page - 1 or 1
+    global.playerRules[player.index].page = page
+    GUI.showDynamicRules(player.index,line)
+    return false
+  end,
+  
+  renameLine = function(player)
+    local group = player.gui[GUI.position].stGui.rows.trainLines.tbl1
+    local trainKey, rename
+    local count=0
+    local newName = player.gui[GUI.position].stGui.rows.trainLines.btns.newName.text
+    for i, child in pairs(group.children_names) do
+      local pattern = "(markedDelete)__([%w%s%-%#%!%$]*)_*(%d*)"
+      local del, line, trainkey = child:match(pattern)
+      if del and group[child].state == true then
+        count = count+1
+        rename = line
+      end
+    end
+    if count == 1 then
+      newName = sanitizeName(newName)
+      if newName ~= false then
+        if newName ~= "" and not global.trainLines[newName] then
+          global.trainLines[newName] = table.deepcopy(global.trainLines[rename])
+          global.trainLines[newName].name = newName
+          global.trainLines[rename] = nil
+          for i,t in pairs(global.trains) do
+            if t.line == rename then
+              t.line = newName
+            end
+          end
+        end
+      else
+        debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true)
+      end
+      return true
+    end
+    return false
+  end,
+  
+  refuel = function(option2)
+    option2 = tonumber(option2)
+    global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
+  end,
+  
+  depart = function(player, option2)
+    option2 = tonumber(option2)
+    global.trains[option2].settings.autoDepart = not global.trains[option2].settings.autoDepart
+  end,
+  
+  editRules = function(player, option2)
+    --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
+    GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
+    global.guiData[player.index].rules = false
+    global.playerRules[player.index].page = 1
+    GUI.showDynamicRules(player.index,option2)
+  end,
+  
+  saveRules = function(player, option2)
+    local line = option2
+    local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
+    local tmp = {}
+    global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
+    global.trainLines[line].rules = table.deepcopy(global.guiData[player.index].rules)
+    global.guiData[player.index].rules = false
+    global.playerRules[player.index].page = 1
+    debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
+    GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
+    return true
+  end,
+  
+  readSchedule = function(player, option2)
+    option2 = tonumber(option2)
+    if global.trains[option2] ~= nil and global.trains[option2].train.valid then
+      global.trains[option2].line = false
+      global.trains[option2].lineVersion = false
+    end
+    return true
+  end,
+  
+  saveAsLine = function(player, option2)
+    local name = player.gui[GUI.position].stGui.rows.trainSettings.rows.btns.saveAslineName.text
+    name = sanitizeName(name)
+    if name ~= false then
+      option2 = tonumber(option2)
+      local t = global.trains[option2]
+      local is_copy = t.line and t.line ~= name
+      if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
+        if not global.trainLines[name] then 
+          global.trainLines[name] = {name=name, rules={}}
+          local rules = global.trainLines[name].rules
+          for s_index, record in pairs(t.train.schedule.records) do
+            local rule = {}
+            rule.empty = false
+            rule.full = false
+            rule.jumpTo = false
+            rule.jumpToCircuit = false
+            rule.keepWaiting = false
+            rule.original_time = record.time_to_wait                
+            rule.station = record.station
+            rule.waitForCircuit = false
+            rules[s_index] = rule
+          end
+        end
+        local changed = game.tick
+        global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
+        global.trainLines[name].records = t.train.schedule.records
+        global.trainLines[name].changed = changed
+
+        if type(global.trainLines[name].rules) == "table" then
+            local delete = {}
+            local insert = {}
+            for j, rule in pairs(global.trainLines[name].rules) do
+              local i = inSchedule(rule.station, global.trainLines[name])
+              if not i then
+                table.insert(delete, i)
+              end
+              if i ~= j then
+                table.insert(delete, j)
+                table.insert(insert, {index=i, rule=util.table.deepcopy(rule)})
+              end
+            end
+            for _, i in pairs(delete) do
+              global.trainLines[name].rules[i] = nil
+            end
+            for _, i in pairs(insert) do
+              global.trainLines[name].rules[i.index] = i.rule
+            end
+        end
+        if is_copy then
+          global.trainLines[name].rules = table.deepcopy(global.trainLines[t.line].rules)
+        end
+        
+        t.line = name
+        t.lineVersion = changed
+      end
+    else
+      debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true)
+    end
+    return true
+  end,
+  
+  lineRefuel = function(player, option2)
+    local line = option2
+    local trainKey = tonumber(option3)
+    local t = global.trains[trainKey]
+    if line and global.trainLines[line] then
+      line = global.trainLines[line]
+      line.settings.autoRefuel = not line.settings.autoRefuel
+      line.changed = game.tick
+      if t and t.line and t.line == line.name then
+        t.settings.autoRefuel = line.settings.autoRefuel
+        t.lineVersion = line.changed
+      end
+    end
+    return true
+  end,
+  
+  lineDepart = function(player, option2, option3)
+    local line = option2
+    local trainKey = tonumber(option3)
+    local t = global.trains[trainKey]
+    if line and global.trainLines[line] then
+      line = global.trainLines[line]
+      line.settings.autoDepart = not line.settings.autoDepart
+      line.changed = game.tick
+      if t and t.line and t.line == line.name then
+        t.settings.autoDepart = line.settings.autoDepart
+        t.lineVersion = line.changed
+      end
+    end
+    return true
+  end,
+  
+  activeLine = function(player, option2, option3)
+    local trainKey = tonumber(option3)
+    local li = option2
+    local t = global.trains[trainKey]
+    if t.line ~= li then
+      t.line = li
+      t.lineVersion = -1
+      if t.train.speed == 0 then
+        t:updateLine()
+      end
+    else
+      t.line = false
+      local schedule = t.train.schedule
+      local rules = global.trainLines[li].rules
+      for i, record in pairs(schedule.records) do
+        if record.time_to_wait == 2^32-1 then
+          record.time_to_wait = 200*60
+          if rules and rules[i] then
+            record.time_to_wait = rules[i].original_time or record.time_to_wait
+          end
+        end
+      end
+      t.train.schedule = schedule
+    end
+    t.lineVersion = -1
+    GUI.create_or_update(t,player.index)
+  end,
+  
+  prevPageTrain = function(player,option2, option3)
+    local page = tonumber(option2)
+    page = (page > 1) and page - 1 or 1
+    global.playerPage[player.index].schedule = page
+    return true
+  end,
+  
+  nextPageTrain = function(player,option2, option3)
+    local page = tonumber(option2)
+    global.playerPage[player.index].schedule = page + 1
+    return true
+  end,
+  
+  prevPageLine = function(player,option2, option3)
+    local page = tonumber(option2)
+    page = (page > 1) and page - 1 or 1
+    global.playerPage[player.index].line = page
+    return true
+  end,
+  
+  nextPageLine = function(player,option2, option3)
+    local page = tonumber(option2)
+    global.playerPage[player.index].line = page + 1
+    return true
+  end,
+  
+  leaveFull = function(player, option2, option3, element)
+    if element.state == true then
+      if element.parent["leaveEmpty__"..option2].state == true then
+        element.parent["leaveEmpty__"..option2].state = false
+      end
+    end
+    if element.parent["leaveFull__"..option2].state == false and
+      element.parent["leaveEmpty__"..option2].state == false and
+      element.parent["waitForCircuit__"..option2].state == false then
+      element.parent["keepWaiting__"..option2].state = false
+    end
+    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
+    rules.full = element.state
+    rules.empty = element.parent["leaveEmpty__"..option2].state
+    rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+    rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+    rules.jumpTo = element.parent["jumpTo__"..option2].text
+    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
+    global.guiData[player.index].rules[tonumber(option2)] = rules
+  end,
+  
+  leaveEmpty = function(player, option2, option3, element)
+    if element.state == true then
+      if element.parent["leaveFull__"..option2].state == true then
+        element.parent["leaveFull__"..option2].state = false
+      end
+    end
+    if element.parent["leaveFull__"..option2].state == false and
+      element.parent["leaveEmpty__"..option2].state == false and
+      element.parent["waitForCircuit__"..option2].state == false then
+      element.parent["keepWaiting__"..option2].state = false
+    end
+    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
+    rules.empty = element.state
+    rules.full = element.parent["leaveFull__"..option2].state
+    rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+    rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
+    global.guiData[player.index].rules[tonumber(option2)] = rules
+  end,
+  
+  keepWaiting = function(player, option2, option3, element)
+    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
+    rules.empty = element.parent["leaveEmpty__"..option2].state
+    rules.full = element.parent["leaveFull__"..option2].state
+    rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
+    if not (rules.empty or rules.full or rules.waitForCircuit) then
+      element.state = false
+    end
+    rules.keepWaiting = element.state
+    global.guiData[player.index].rules[tonumber(option2)] = rules
+  end,
+  
+  waitForCircuit = function(player, option2, option3, element)
+    if element.state == false then
+      element.parent["jumpTo__"..option2].text = ""
+    end
+    if element.parent["leaveFull__"..option2].state == false and
+      element.parent["leaveEmpty__"..option2].state == false and
+      element.parent["waitForCircuit__"..option2].state == false then
+      element.parent["keepWaiting__"..option2].state = false
+    end
+    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
+    rules.waitForCircuit = element.state
+    rules.empty = element.parent["leaveEmpty__"..option2].state
+    rules.full = element.parent["leaveFull__"..option2].state
+    rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
+    global.guiData[player.index].rules[tonumber(option2)] = rules
+  end,
+  
+  jumpToCircuit = function(player, option2, option3, element)
+    if not element.parent["waitForCircuit__"..option2].state then
+      element.state = false
+    end
+    if element.state == true then
+      element.parent["jumpTo__"..option2].text = ""
+    end
+    if element.parent["leaveFull__"..option2].state == false and
+      element.parent["leaveEmpty__"..option2].state == false and
+      element.parent["waitForCircuit__"..option2].state == false then
+      element.parent["keepWaiting__"..option2].state = false
+    end
+    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
+    rules.empty = element.parent["leaveEmpty__"..option2].state
+    rules.full = element.parent["leaveFull__"..option2].state
+    rules.keepWaiting = element.parent["keepWaiting__"..option2].state
+    rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
+    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
+    global.guiData[player.index].rules[tonumber(option2)] = rules
+  end,
+}

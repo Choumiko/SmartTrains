@@ -642,11 +642,17 @@ function ontick(event)
                 local rules
                 if  train:isWaitingForRules() then
                   --Handle leave when full/empty rules here
-                  train:flyingText("checking full/empty rules", GREEN, {offset=-1})
+                  --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
                   rules = global.trainLines[train.line].rules[train.train.schedule.current]
                   --debugDump(rules,true)
-                  local full = train:isCargoFull()
-                  local empty = train:isCargoEmpty()
+                  local full = false
+                  local empty = false
+                  if rules.full then
+                    full = train:isCargoFull()
+                  end
+                  if rules.empty then
+                    empty = train:isCargoEmpty()
+                  end
                   local needs_value = rules.jumpToCircuit
                   --local str = needs_value and "value" or "no value"
                   --debugLog("Line: "..train.line)
@@ -666,7 +672,7 @@ function ontick(event)
                     end
                     keepWaiting = false
                   else
-                    local txt = (rules.full and not train:isCargoFull()) and "not full" or "not empty"
+                    local txt = (rules.full and not full) and "not full" or "not empty"
                     txt = rules.waitForCircuit and "waiting for circuit" or txt
                     if rules.full or rules.empty or rules.waitForCircuit then
                       if not rules.waitForCircuit or (rules.waitForCircuit and event.tick - train.lastMessage >= 120) then
