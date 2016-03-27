@@ -54,4 +54,9 @@ signalFuel.icon = "__SmartTrains__/graphics/signal_lowest_fuel.png"
 signalFuel.subgroup = "virtual-signal"
 signalFuel.order = "e[smarttrains]-e[lowestfuel]"
 
-data:extend({signalStop, signalLoco, signalCargo, signalPassenger, signalFuel})
+local signalLine = copyPrototype("virtual-signal", "signal-1", "signal-line")
+signalLine.icon = "__SmartTrains__/graphics/signal_line.png"
+signalLine.subgroup = "virtual-signal"
+signalLine.order = "e[smarttrains]-f[line]"
+
+data:extend({signalStop, signalLoco, signalCargo, signalPassenger, signalFuel, signalLine})

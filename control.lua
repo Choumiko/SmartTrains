@@ -177,6 +177,7 @@ function on_configuration_changed(data)
               end
             end
             if line.rules[false] then line.rules[false] = nil end
+            line.number = 0
             line.changed = game.tick
           end
           for i, train in pairs(global.trains) do

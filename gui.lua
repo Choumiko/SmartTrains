@@ -350,10 +350,14 @@ GUI = {
       local lineName = global.trainLines[line].name
       local records = global.trainLines[line].records
       local rules = global.trainLines[line].rules or {}
+      local line_number = global.trainLines[line].number
       global.guiData[index].rules = global.guiData[index].rules or table.deepcopy(rules)
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
-      GUI.addLabel(gui, {name="line", caption="Line: "..lineName})
+      local flow = GUI.add(gui, {type="flow", name="rulesFlow", direction="horizontal"})
+      GUI.addLabel(flow, {name="line", caption="Line: "..lineName})
+      GUI.addLabel(flow, {name="line_number", caption="#: "})
+      GUI.addTextfield(flow,{name="lineNumber__"..line, style="st_textfield_small", text=line_number})
       local tbl = GUI.add(gui, {type="table", name="tbl", colspan=7, style="st_table"})
       GUI.addLabel(tbl, {"lbl-station"})
       GUI.addPlaceHolder(tbl)
@@ -607,7 +611,9 @@ on_gui_click = {
 
   saveRules = function(player, option2)
     local line = option2
-    local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
+    --local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
+    local textfield = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow["lineNumber__"..line]
+    global.trainLines[line].number = math.floor(sanitizeNumber(textfield.text,0))
     local tmp = {}
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
     global.trainLines[line].rules = table.deepcopy(global.guiData[player.index].rules)
@@ -637,7 +643,7 @@ on_gui_click = {
       if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
         --new train line
         if not global.trainLines[name] then
-          global.trainLines[name] = {name=name, rules={}}
+          global.trainLines[name] = {name=name, number=0, rules={}}
           local rules = global.trainLines[name].rules
           for s_index, record in pairs(t.train.schedule.records) do
             local rule = {}

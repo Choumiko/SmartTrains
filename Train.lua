@@ -212,7 +212,12 @@ Train = {
         output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = passenger, index = 4}
         output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = 5}
 
-        local i=6
+        local i=6        
+        if self.line and global.trainLines[self.line] and global.trainLines[self.line].number ~= 0 then
+          output.parameters[6]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].number, index = 6}
+          i=7
+        end
+        
         --debugLog("getCargo s")
         local cargoCount = self:cargoCount()
         for name, count in pairs(cargoCount) do
