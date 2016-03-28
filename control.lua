@@ -156,6 +156,7 @@ function on_configuration_changed(data)
           global.stopTick = nil
           for name, line in pairs(global.trainLines) do
             for i,record in pairs(line.records) do
+              if not line.rules then line.rules = {} end
               if not line.rules[i] then
                 local rule = {}
                 rule.empty = false
