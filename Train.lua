@@ -394,6 +394,7 @@ Train = {
           end
         end
         -- all stacks are full,
+        return true
       end
        
       for i, wagon in pairs(train.cargo_wagons) do
