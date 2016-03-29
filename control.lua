@@ -188,7 +188,34 @@ function on_configuration_changed(data)
             end
           end
         end
-
+        if old_version < "0.3.80" then
+          for name, line in pairs(global.trainLines) do
+            for i,record in pairs(line.records) do
+              if not line.rules then line.rules = {} end
+              if not line.rules[i] then
+                local rule = {}
+                rule.empty = false
+                rule.full = false
+                rule.jumpTo = false
+                rule.jumpToCircuit = false
+                rule.keepWaiting = false
+                rule.original_time = record.time_to_wait
+                rule.station = record.station
+                rule.waitForCircuit = false
+                line.rules[i] = rule
+              else
+                if not line.rules[i].original_time then
+                  line.rules[i].original_time = record.time_to_wait
+                end
+                if line.rules[i].keepWaiting then
+                  record.time_to_wait = 2^32-1
+                end
+              end
+            end
+            if line.rules[false] then line.rules[false] = nil end
+            line.changed = game.tick
+          end
+        end
       end
       if not old_version then
         findStations()
@@ -1377,6 +1404,5 @@ remote.add_interface("st",
       local state = global.debug_log and "on" or "off"
       debugDump("Debug: "..state,true)
     end,
-
   }
 )

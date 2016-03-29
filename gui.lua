@@ -676,27 +676,6 @@ on_gui_click = {
         global.trainLines[name].records = t.train.schedule.records
         global.trainLines[name].changed = changed
 
-        if type(global.trainLines[name].rules) == "table" then
-          local delete = {}
-          local insert = {}
-          for j, rule in pairs(global.trainLines[name].rules) do
-            local i = inSchedule(rule.station, global.trainLines[name])
-            if not i then
-              table.insert(delete, i)
-            end
-            if i ~= j then
-              table.insert(delete, j)
-              table.insert(insert, {index=i, rule=util.table.deepcopy(rule)})
-            end
-          end
-          for _, i in pairs(delete) do
-            global.trainLines[name].rules[i] = nil
-          end
-          for _, i in pairs(insert) do
-            global.trainLines[name].rules[i.index] = i.rule
-          end
-        end
-        
         if is_copy then
           global.trainLines[name].rules = table.deepcopy(global.trainLines[t.line].rules)
         end
