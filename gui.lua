@@ -652,21 +652,26 @@ on_gui_click = {
       option2 = tonumber(option2)
       local t = global.trains[option2]
       local is_copy = t.line and t.line ~= name
+      local empty_rule = {
+        empty = false,
+        full = false,
+        jumpTo = false,
+        jumpToCircuit = false,
+        keepWaiting = false,
+        original_time = 30*60,
+        station = "",
+        waitForCircuit = false,
+      }
+      
       if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
         --new train line
         if not global.trainLines[name] then
           global.trainLines[name] = {name=name, number=0, rules={}}
           local rules = global.trainLines[name].rules
           for s_index, record in pairs(t.train.schedule.records) do
-            local rule = {}
-            rule.empty = false
-            rule.full = false
-            rule.jumpTo = false
-            rule.jumpToCircuit = false
-            rule.keepWaiting = false
+            local rule = table.deepcopy(empty_rule)
             rule.original_time = record.time_to_wait
             rule.station = record.station
-            rule.waitForCircuit = false
             rules[s_index] = rule
           end
         end
@@ -680,11 +685,29 @@ on_gui_click = {
           global.trainLines[name].rules = table.deepcopy(global.trainLines[t.line].rules)
         end
         
+        --remove/add rules if needed        
         -- update original_time if time ~= 2^32-1
         local records = global.trainLines[name].records
+        local remove_rule = {}
         for r_index, rule in pairs(global.trainLines[name].rules) do
           if records[r_index] and records[r_index].time_to_wait ~= 2^32-1 then
             rule.original_time = records[r_index].time_to_wait
+          end
+        end
+        local max_record = #global.trainLines[name].records+1
+        local max_rules = #global.trainLines[name].rules+1
+        for i=max_rules,max_record,-1 do
+          if global.trainLines[name].rules[i] and not global.trainLines[name].records[i] then
+            global.trainLines[name].rules[i] = nil
+          end
+        end        
+        --add missing rules
+        for i, record in pairs(records) do
+          if not global.trainLines[name].rules[i] then
+            local rule = table.deepcopy(empty_rule)
+            rule.original_time = record.time_to_wait
+            rule.station = record.station
+            global.trainLines[name].rules[i] = rule
           end
         end
 
