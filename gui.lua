@@ -603,7 +603,7 @@ on_gui_click = {
     return false
   end,
 
-  refuel = function(option2)
+  refuel = function(player, option2)
     option2 = tonumber(option2)
     global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
   end,
