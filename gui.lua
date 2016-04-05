@@ -235,39 +235,64 @@ GUI = {
         GUI.addLabel(tbl, i.." "..s.station)
         local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (s.time_to_wait > 12010 and {"lbl-forever"}) or s.time_to_wait/60
         GUI.addLabel(tbl, time)
+        
         local inf = ""
-        local text = {""}
+        local chunks = {}
         if line and rules and rules[i] then
-          if (rules[i].full or rules[i].empty) then
+          local chunk = {} 
+          
+          if rules[i].full or rules[i].empty then
             local condition = rules[i].full and {"lbl-full"} or {"lbl-empty"}
-            table.insert(text, condition)
-            table.insert(text, " ")
-          --GUI.addLabel(tbl, {"", condition})
-          --GUI.addPlaceHolder(tbl)
+            table.insert(chunk, condition)
+            table.insert(chunk, " ")
+
+            if rules[i].waitForCircuit then
+              if rules[i].requireBoth then
+                table.insert(chunk, "& ")
+              else
+                table.insert(chunk, {"lbl-or"})            
+                table.insert(chunk, " ")    
+              end
+            end
           end
+          
           if rules[i].waitForCircuit then
-            if rules[i].empty or rules[i].full then
-              table.insert(text, "& ")
+            table.insert(chunk, {"lbl-wait-for-circuit"})            
+            table.insert(chunk, " ") 
+          end
+            
+          table.insert(chunks, chunk)
+          
+          if rules[i].jumpToCircuit then
+            table.insert(chunks, {{"lbl-jump-to-signal"}})
+          end
+            
+          if rules[i].jumpTo and rules[i].jumpTo <= #records then
+            table.insert(chunks, {{"lbl-jump-to"}, "", text, rules[i].jumpTo})
+          elseif rules[i].jumpTo then
+            table.insert(chunks, {"invalid #"}) --TODO: Localization
+          end
+          
+          local text = {""}
+          local chunk_count = #chunks
+          for i, chunk in pairs(chunks) do
+            for _, bit in pairs(chunk) do
+              table.insert(text, bit)
             end
-            if rules[i].jumpTo and rules[i].jumpTo <= #records then
-              table.insert(text, {"lbl-jump-to"})
-              table.insert(text, "")
-              table.insert(text, rules[i].jumpTo)
-              --GUI.addLabel(tbl, {"", {"lbl-jump-to"},"", rules[i].jumpTo})
-              
-            elseif rules[i].jumpTo then
-              --TODO: Tell the user the destination # is invalid
-            end
-            if not rules[i].jumpTo then
-              table.insert(text, {"lbl-wait-for-circuit"})
-              --GUI.addLabel(tbl, {"lbl-wait-for-circuit"})
+            
+            if i < chunk_count then
+              table.insert(text, ", ")
             end
           end
+          
           GUI.addLabel(tbl, text)
           GUI.addPlaceHolder(tbl)
+          
         else
           GUI.addPlaceHolder(tbl,2)
         end
+        
+        
       end
     end
     local btns = GUI.add(tableRows,{type="table", name="btns", colspan=2})
@@ -392,17 +417,24 @@ GUI = {
       local flow = GUI.add(gui, {type="flow", name="rulesFlow", direction="horizontal"})
       GUI.addLabel(flow, {name="line", caption="Line: "..lineName})
       GUI.addLabel(flow, {name="line_number", caption="#: "})
-      GUI.addTextfield(flow,{name="lineNumber__"..line, style="st_textfield_small", text=line_number})
+      GUI.addTextfield(flow, {name="lineNumber__"..line, style="st_textfield_small", text=line_number})
 
-      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=14, style="st_table"})
-	  
+      
+      local tbl = GUI.add(gui, {type="table", name="tbltophdr", colspan=14, style="st_table"})
+      GUI.addLabel(tbl, {caption="                               "})
+      GUI.addLabel(tbl, {caption={"lbl-wait-for-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="                   "})
+      GUI.addLabel(tbl, {caption={"lbl-go-to-header"}, style="st_label_bold"})
+      
+      tbl = GUI.add(gui, {type="table", name="tbl", colspan=14, style="st_table"})
+      
       --1
-      GUI.addLabel(tbl, {caption={"lbl-station"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption={"lbl-station"}, colspan=2, style="st_label_bold"})
 
       --2
       GUI.addLabel(tbl, {caption={"lbl-empty-header"}, style="st_label_bold"})
       GUI.addLabel(tbl, {caption="   "})
-
+      
       --3 
       GUI.addLabel(tbl, {caption={"lbl-full-header"}, style="st_label_bold"})
       GUI.addLabel(tbl, {caption="   "})
@@ -413,19 +445,19 @@ GUI = {
 
       --5
       GUI.addLabel(tbl, {caption={"lbl-wait-for-circuit-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="   •   "})
+      
+      --8
+      GUI.addLabel(tbl, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
       GUI.addLabel(tbl, {caption="   "})
-
-      --6
-      GUI.addLabel(tbl, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption="   "})
-
+      
       --7
       GUI.addLabel(tbl, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
       GUI.addLabel(tbl, {caption="   "})
-
-      --8
-      GUI.addLabel(tbl, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
       
+      --6
+      GUI.addLabel(tbl, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
+  
 
       local page = global.playerRules[index].page or 1
       local upper = page*global.settings.rulesPerPage
@@ -451,28 +483,27 @@ GUI = {
           GUI.addLabel(tbl, {caption="   "})
 
           --3
-          --GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"",{"lbl-full"}," (AND OR)"}, style="st_radio_left_10", state=states.full})
-          GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, style="st_radio", left_padding=7, top_padding=true, state=states.full}) --4
+          GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, style="st_radio", left_padding=7, top_padding=true, state=states.full})
           GUI.addLabel(tbl, {caption="   "})
 
           --4
-          GUI.add(tbl, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", left_padding=7, state=states.requireBoth}) --4
+          GUI.add(tbl, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", left_padding=7, state=states.requireBoth})
           GUI.addLabel(tbl, {caption="   "})
 
           --5
-          GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", left_padding=11, state=states.waitForCircuit}) --6
-          GUI.addLabel(tbl, {caption="   "})
-
+          GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", left_padding=11, state=states.waitForCircuit})
+          GUI.addLabel(tbl, {caption="   •   "})
+          
           --6
-          GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, style="st_checkbox", left_padding=9, state=states.keepWaiting}) --5
+          GUI.add(tbl,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", left_padding=15, state=states.jumpToCircuit})
           GUI.addLabel(tbl, {caption="   "})
-
+          
           --7
           GUI.addTextfield(tbl, {name="jumpTo__"..i, text=states.jumpTo, style="st_textfield_small", left_padding=8})
           GUI.addLabel(tbl, {caption="   "})
 
           --8
-          GUI.add(tbl,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", left_padding=22, state=states.jumpToCircuit}) --12
+          GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, style="st_checkbox", left_padding=9, state=states.keepWaiting})
         end
       end
       
@@ -969,7 +1000,9 @@ on_gui_click = {
   requireBoth = function(player, option2, option3, element)
     local opts = GUI.get_station_options(element, option2)
   
-    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
+    if opts.leaveEmpty.state or opts.leaveFull.state then
+      opts.waitForCircuit.state = true
+    elseif not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
 			opts.requireBoth.state = false
 		end
   
