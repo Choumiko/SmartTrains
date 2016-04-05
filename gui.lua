@@ -233,7 +233,7 @@ GUI = {
       for i=start, max do
         local s = records[i]
         GUI.addLabel(tbl, i.." "..s.station)
-        local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or s.time_to_wait/60
+        local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (s.time_to_wait > 12010 and {"lbl-forever"}) or s.time_to_wait/60
         GUI.addLabel(tbl, time)
         local inf = ""
         local text = {""}
@@ -937,6 +937,7 @@ on_gui_click = {
         opts.leaveFull.state = false
       end
     end
+    
     if opts.leaveFull.state == false and
       opts.leaveEmpty.state == false and
       opts.waitForCircuit.state == false then
@@ -979,6 +980,7 @@ on_gui_click = {
       opts.jumpTo.text = ""
       opts.jumpToCircuit.state = false
     end
+    
     if opts.leaveFull.state == false and
       opts.leaveEmpty.state == false and
       opts.waitForCircuit.state == false then
