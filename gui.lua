@@ -81,6 +81,26 @@ GUI = {
     if type == "checkbox" and not (e.state == true or e.state == false) then
       e.state = false
     end
+    
+    --insert this element into a frame for padding purposes
+    if e.left_padding then
+      local name = nil
+      if e.name then
+        name = "padding_frame__"..e.name
+      end
+    
+      local top = ""
+      if e.top_padding then
+        top ="top_"
+      end
+      
+      local frame = parent.add({type="frame", name=name, style="st_frame_padding_"..top.."left_"..e.left_padding})
+      e.left_padding = nil
+      e.top_padding = nil
+      
+      return frame.add(e)
+    end
+    
     return parent.add(e)
   end,
 
@@ -370,14 +390,39 @@ GUI = {
       GUI.addLabel(flow, {name="line", caption="Line: "..lineName})
       GUI.addLabel(flow, {name="line_number", caption="#: "})
       GUI.addTextfield(flow,{name="lineNumber__"..line, style="st_textfield_small", text=line_number})
-      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=7, style="st_table"})
-      GUI.addLabel(tbl, {"lbl-station"})
-      GUI.addPlaceHolder(tbl)
-      GUI.addLabel(tbl, {"lbl-leave-when"})
-      GUI.addPlaceHolder(tbl)
-      GUI.addLabel(tbl, {"lbl-keepWaiting"})
-      GUI.addLabel(tbl, {"lbl-jump-to"})
-      GUI.addPlaceHolder(tbl)
+
+      local tbl = GUI.add(gui, {type="table", name="tbl", colspan=14, style="st_table"})
+	  
+      --1
+      GUI.addLabel(tbl, {caption={"lbl-station"}, style="st_label_bold"})
+
+      --2
+      GUI.addLabel(tbl, {caption={"lbl-empty-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="   "})
+
+      --3 
+      GUI.addLabel(tbl, {caption={"lbl-full-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="   "})
+
+      --4
+      GUI.addLabel(tbl, {caption={"lbl-and-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="   "})
+
+      --5
+      GUI.addLabel(tbl, {caption={"lbl-wait-for-circuit-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="   "})
+
+      --6
+      GUI.addLabel(tbl, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="   "})
+
+      --7
+      GUI.addLabel(tbl, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="   "})
+
+      --8
+      GUI.addLabel(tbl, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
+      
 
       local page = global.playerRules[index].page or 1
       local upper = page*global.settings.rulesPerPage
@@ -385,23 +430,49 @@ GUI = {
 
       for i,s in pairs(records) do
         if i>lower and i<=upper then
-          GUI.addLabel(tbl, {caption=i.." "..s.station})
-          local states = {full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
+          local states = {
+            full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
             empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false,
-            keepWaiting = false, waitForCircuit = false}
-          states.keepWaiting = rules[i] and rules[i].keepWaiting or false
-          states.waitForCircuit = rules[i] and rules[i].waitForCircuit or false
-          states.jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false
-          GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, caption={"lbl-empty"}, style="st_checkbox", state=states.empty})
-          GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"",{"lbl-full"}," (AND)"}, style="st_checkbox", state=states.full})
-          GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, caption={"lbl-wait-for-circuit"}, state=states.waitForCircuit})
-          GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, state=states.keepWaiting})
-          GUI.addTextfield(tbl, {name="jumpTo__"..i, text="", style="st_textfield_small"})
-          GUI.add(tbl,{type="checkbox", name="jumpToCircuit__"..i, caption={"lbl-jump-to-signal"}, state=states.jumpToCircuit})
-          --GUI.addPlaceHolder(tbl)
-          tbl["jumpTo__"..i].text = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
+            keepWaiting = rules[i] and rules[i].keepWaiting or false, 
+            waitForCircuit = rules[i] and rules[i].waitForCircuit or false,
+            requireBoth = rules[i] and rules[i].requireBoth or false,
+            jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false,
+            jumpTo = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
+          }
+          
+          --1
+          GUI.addLabel(tbl, {caption="#"..i.." "..s.station, style="st_label_bold"})
+
+          --2
+          GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", left_padding=14, top_padding=true, state=states.empty})
+          GUI.addLabel(tbl, {caption="   "})
+
+          --3
+          --GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, caption={"",{"lbl-full"}," (AND OR)"}, style="st_radio_left_10", state=states.full})
+          GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, style="st_radio", left_padding=7, top_padding=true, state=states.full}) --4
+          GUI.addLabel(tbl, {caption="   "})
+
+          --4
+          GUI.add(tbl, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", left_padding=7, state=states.requireBoth}) --4
+          GUI.addLabel(tbl, {caption="   "})
+
+          --5
+          GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", left_padding=11, state=states.waitForCircuit}) --6
+          GUI.addLabel(tbl, {caption="   "})
+
+          --6
+          GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, style="st_checkbox", left_padding=9, state=states.keepWaiting}) --5
+          GUI.addLabel(tbl, {caption="   "})
+
+          --7
+          GUI.addTextfield(tbl, {name="jumpTo__"..i, text=states.jumpTo, style="st_textfield_small", left_padding=8})
+          GUI.addLabel(tbl, {caption="   "})
+
+          --8
+          GUI.add(tbl,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", left_padding=22, state=states.jumpToCircuit}) --12
         end
       end
+      
       local buttonFlow = GUI.add(gui,{name="buttonFlow", type="flow"})
       local pageButtons = GUI.add(buttonFlow, {name="pageButtons", type="flow"})
 
@@ -419,6 +490,37 @@ GUI = {
 
       GUI.addButton(buttonFlow, {name="saveRules__"..line, caption="Save", style="st_button_style_bold"})
     end
+  end,
+  
+  find_relative = function(e, name)
+    return e.parent.parent["padding_frame__"..name][name]
+  end,
+
+  get_station_options = function(e, option2)
+    return {
+      leaveEmpty = GUI.find_relative(e, "leaveEmpty__"..option2),
+      leaveFull = GUI.find_relative(e, "leaveFull__"..option2),
+      requireBoth = GUI.find_relative(e, "requireBoth__"..option2),
+      waitForCircuit = GUI.find_relative(e, "waitForCircuit__"..option2),
+      keepWaiting = GUI.find_relative(e, "keepWaiting__"..option2),
+      jumpTo = GUI.find_relative(e, "jumpTo__"..option2),
+      jumpToCircuit = GUI.find_relative(e, "jumpToCircuit__"..option2),
+    }
+  end,
+
+  save_station_options = function(opts, index, option2)
+    local rules = global.guiData[index].rules[tonumber(option2)] or {}
+
+    rules.empty = opts.leaveEmpty.state
+    rules.full = opts.leaveFull.state
+    rules.requireBoth = opts.requireBoth.state
+    rules.waitForCircuit = opts.waitForCircuit.state
+    rules.keepWaiting = opts.keepWaiting.state
+    rules.jumpToCircuit = opts.jumpToCircuit.state
+
+    rules.jumpTo = opts.jumpTo.text
+
+    global.guiData[index].rules[tonumber(option2)] = rules
   end,
 }
 
@@ -451,7 +553,7 @@ function sanitize_rules(player, line, rules, page)
     if global.guiData[player.index].rules[i] then
       tmp[i] = global.guiData[player.index].rules[i]
       if i>lower and i<=upper then
-        local jump = sanitizeNumber(gui["jumpTo__"..i].text, false)
+        local jump = sanitizeNumber(gui["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false)
         tmp[i].jumpTo = (tmp[i].waitForCircuit and not tmp[i].jumpToCircuit) and jump or false
         if not (tmp[i].empty or tmp[i].full or tmp[i].waitForCircuit) then
           tmp[i].keepWaiting = false
@@ -807,95 +909,104 @@ on_gui_click = {
   end,
 
   leaveFull = function(player, option2, option3, element)
+    local opts = GUI.get_station_options(element, option2)
+    
     if element.state == true then
-      if element.parent["leaveEmpty__"..option2].state == true then
-        element.parent["leaveEmpty__"..option2].state = false
+      if opts.leaveEmpty.state == true then
+        opts.leaveEmpty.state = false
       end
     end
-    if element.parent["leaveFull__"..option2].state == false and
-      element.parent["leaveEmpty__"..option2].state == false and
-      element.parent["waitForCircuit__"..option2].state == false then
-      element.parent["keepWaiting__"..option2].state = false
+    if opts.leaveFull.state == false and
+      opts.leaveEmpty.state == false and
+      opts.waitForCircuit.state == false then
+      opts.keepWaiting.state = false
     end
-    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
-    rules.full = element.state
-    rules.empty = element.parent["leaveEmpty__"..option2].state
-    rules.keepWaiting = element.parent["keepWaiting__"..option2].state
-    rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
-    rules.jumpTo = element.parent["jumpTo__"..option2].text
-    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-    global.guiData[player.index].rules[tonumber(option2)] = rules
+    
+    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
+			opts.requireBoth.state = false
+		end
+    
+    GUI.save_station_options(opts, player.index, option2)
   end,
 
   leaveEmpty = function(player, option2, option3, element)
+    local opts = GUI.get_station_options(element, option2)
+    
     if element.state == true then
-      if element.parent["leaveFull__"..option2].state == true then
-        element.parent["leaveFull__"..option2].state = false
+      if opts.leaveFull.state == true then
+        opts.leaveFull.state = false
       end
     end
-    if element.parent["leaveFull__"..option2].state == false and
-      element.parent["leaveEmpty__"..option2].state == false and
-      element.parent["waitForCircuit__"..option2].state == false then
-      element.parent["keepWaiting__"..option2].state = false
+    if opts.leaveFull.state == false and
+      opts.leaveEmpty.state == false and
+      opts.waitForCircuit.state == false then
+      opts.keepWaiting.state = false
     end
-    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
-    rules.empty = element.state
-    rules.full = element.parent["leaveFull__"..option2].state
-    rules.keepWaiting = element.parent["keepWaiting__"..option2].state
-    rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
-    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-    global.guiData[player.index].rules[tonumber(option2)] = rules
+    
+    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
+			opts.requireBoth.state = false
+		end
+    
+    GUI.save_station_options(opts, player.index, option2)
   end,
 
   keepWaiting = function(player, option2, option3, element)
-    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
-    rules.empty = element.parent["leaveEmpty__"..option2].state
-    rules.full = element.parent["leaveFull__"..option2].state
-    rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
-    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-    if not (rules.empty or rules.full or rules.waitForCircuit) then
-      element.state = false
+    local opts = GUI.get_station_options(element, option2)
+  
+    if opts.leaveFull.state == false and
+      opts.leaveEmpty.state == false and
+      opts.waitForCircuit.state == false then
+        opts.keepWaiting.state = false
     end
-    rules.keepWaiting = element.state
-    global.guiData[player.index].rules[tonumber(option2)] = rules
+  
+    GUI.save_station_options(opts, player.index, option2)
+  end,  
+  
+  requireBoth = function(player, option2, option3, element)
+    local opts = GUI.get_station_options(element, option2)
+  
+    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
+			opts.requireBoth.state = false
+		end
+  
+    GUI.save_station_options(opts, player.index, option2)
   end,
 
   waitForCircuit = function(player, option2, option3, element)
+    local opts = GUI.get_station_options(element, option2)
+  
     if element.state == false then
-      element.parent["jumpTo__"..option2].text = ""
+      opts.jumpTo.text = ""
+      opts.jumpToCircuit.state = false
     end
-    if element.parent["leaveFull__"..option2].state == false and
-      element.parent["leaveEmpty__"..option2].state == false and
-      element.parent["waitForCircuit__"..option2].state == false then
-      element.parent["keepWaiting__"..option2].state = false
+    if opts.leaveFull.state == false and
+      opts.leaveEmpty.state == false and
+      opts.waitForCircuit.state == false then
+        opts.keepWaiting.state = false
     end
-    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
-    rules.waitForCircuit = element.state
-    rules.empty = element.parent["leaveEmpty__"..option2].state
-    rules.full = element.parent["leaveFull__"..option2].state
-    rules.keepWaiting = element.parent["keepWaiting__"..option2].state
-    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-    global.guiData[player.index].rules[tonumber(option2)] = rules
+    
+    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
+			opts.requireBoth.state = false
+		end
+    
+    GUI.save_station_options(opts, player.index, option2)
   end,
 
   jumpToCircuit = function(player, option2, option3, element)
-    if not element.parent["waitForCircuit__"..option2].state then
+    local opts = GUI.get_station_options(element, option2)
+  
+    if not opts.waitForCircuit.state then
       element.state = false
     end
     if element.state == true then
-      element.parent["jumpTo__"..option2].text = ""
+      opts.jumpTo.text = ""
     end
-    if element.parent["leaveFull__"..option2].state == false and
-      element.parent["leaveEmpty__"..option2].state == false and
-      element.parent["waitForCircuit__"..option2].state == false then
-      element.parent["keepWaiting__"..option2].state = false
+    if opts.leaveFull.state == false and
+      opts.leaveEmpty.state == false and
+      opts.waitForCircuit.state == false then
+      opts.keepWaiting.state = false
     end
-    local rules = global.guiData[player.index].rules[tonumber(option2)] or {}
-    rules.empty = element.parent["leaveEmpty__"..option2].state
-    rules.full = element.parent["leaveFull__"..option2].state
-    rules.keepWaiting = element.parent["keepWaiting__"..option2].state
-    rules.waitForCircuit = element.parent["waitForCircuit__"..option2].state
-    rules.jumpToCircuit = element.parent["jumpToCircuit__"..option2].state
-    global.guiData[player.index].rules[tonumber(option2)] = rules
+    
+    GUI.save_station_options(opts, player.index, option2)
   end,
 }
