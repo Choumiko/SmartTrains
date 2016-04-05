@@ -254,6 +254,9 @@ GUI = {
               table.insert(text, "")
               table.insert(text, rules[i].jumpTo)
               --GUI.addLabel(tbl, {"", {"lbl-jump-to"},"", rules[i].jumpTo})
+              
+            elseif rules[i].jumpTo then
+              --TODO: Tell the user the destination # is invalid
             end
             if not rules[i].jumpTo then
               table.insert(text, {"lbl-wait-for-circuit"})
@@ -553,8 +556,8 @@ function sanitize_rules(player, line, rules, page)
     if global.guiData[player.index].rules[i] then
       tmp[i] = global.guiData[player.index].rules[i]
       if i>lower and i<=upper then
-        local jump = sanitizeNumber(gui["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false)
-        tmp[i].jumpTo = (tmp[i].waitForCircuit and not tmp[i].jumpToCircuit) and jump or false
+        tmp[i].jumpTo = sanitizeNumber(gui["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false) or false
+        
         if not (tmp[i].empty or tmp[i].full or tmp[i].waitForCircuit) then
           tmp[i].keepWaiting = false
         end
@@ -975,12 +978,7 @@ on_gui_click = {
 
   waitForCircuit = function(player, option2, option3, element)
     local opts = GUI.get_station_options(element, option2)
-  
-    if element.state == false then
-      opts.jumpTo.text = ""
-      opts.jumpToCircuit.state = false
-    end
-    
+
     if opts.leaveFull.state == false and
       opts.leaveEmpty.state == false and
       opts.waitForCircuit.state == false then
@@ -996,13 +994,7 @@ on_gui_click = {
 
   jumpToCircuit = function(player, option2, option3, element)
     local opts = GUI.get_station_options(element, option2)
-  
-    if not opts.waitForCircuit.state then
-      element.state = false
-    end
-    if element.state == true then
-      opts.jumpTo.text = ""
-    end
+    
     if opts.leaveFull.state == false and
       opts.leaveEmpty.state == false and
       opts.waitForCircuit.state == false then
