@@ -519,6 +519,7 @@ function ontrainchangedstate(event)
         end
       end
     elseif train.state == defines.trainstate.wait_station then
+    
       t:updateLine()
       local smartStop = t:setWaitingStation()
       if smartStop then
@@ -526,7 +527,7 @@ function ontrainchangedstate(event)
         local tick = event.tick + global.settings.circuit.interval
         insertInTable(global.updateTick,tick,t)
       end
-      t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
+      t.departAt = event.tick + (schedule.records[schedule.current].time_to_wait or 10)
       if settings.autoRefuel then
         if lowest_fuel >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
@@ -556,6 +557,8 @@ function ontrainchangedstate(event)
       end
       t.direction = t.train.speed < 0 and 1 or 0
     end
+    
+    
   end
   )
   if not status then
