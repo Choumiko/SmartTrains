@@ -19,7 +19,14 @@ Train = {
         new.settings.autoDepart = defaultTrainSettings.autoDepart
         new.settings.autoRefuel = defaultTrainSettings.autoRefuel
         if train.locomotives ~= nil and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
-          new.name = train.locomotives.front_movers[1].backer_name or train.locomotives.back_movers[1].backer_name
+          if train.locomotives.front_movers[1] then
+            new.name = train.locomotives.front_movers[1].backer_name
+          elseif train.locomotives.back_movers[1] then
+            new.name = train.locomotives.back_movers[1].backer_name
+          else
+            new.name = "Some Loco"
+            debugDump("Some loco",true)
+          end
         else
           new.name = "cargoOnly"
         end
