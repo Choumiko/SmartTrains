@@ -39,6 +39,16 @@ data.raw["gui-style"].default["st_label"] =
     top_padding = 0,
     bottom_padding = 0
   }
+  
+data.raw["gui-style"].default["st_label_bold"] =
+  {
+    type = "label_style",
+    font = "st-small-bold",
+    font_color = {r=1, g=1, b=1},
+    top_padding = 0,
+    --right_padding = 25,
+    bottom_padding = 0
+  }
 
 data.raw["gui-style"].default["st_textfield"] =
   {
@@ -129,7 +139,14 @@ data.raw["gui-style"].default["st_table"] =
     type = "table_style",
     parent = "table_style",
   }
+  
 data.raw["gui-style"].default["st_checkbox"] =
+  {
+    type = "checkbox_style",
+    parent = "checkbox_style",
+  }
+  
+data.raw["gui-style"].default["st_radio"] =
   {
     type = "checkbox_style",
     parent = "checkbox_style",
@@ -268,3 +285,21 @@ data.raw["gui-style"].default["st_selected_button"] =
       position = {0, 0}
     },
   }
+  
+  
+for left = 1,60 do
+	data.raw["gui-style"].default["st_frame_padding_left_"..left] =
+	  {
+      type = "frame_style",
+      parent = "inner_frame_style",
+      left_padding = left
+	  }	
+	  
+	data.raw["gui-style"].default["st_frame_padding_top_left_"..left] =
+	  {
+      type = "frame_style",
+      parent = "inner_frame_style",
+      left_padding = left,
+      top_padding = 8
+	  }
+end

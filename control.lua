@@ -167,6 +167,7 @@ function on_configuration_changed(data)
                 rule.original_time = record.time_to_wait
                 rule.station = record.station
                 rule.waitForCircuit = false
+                rule.requireBoth = false
                 line.rules[i] = rule
               else
                 if not line.rules[i].original_time then
@@ -202,6 +203,7 @@ function on_configuration_changed(data)
                 rule.original_time = record.time_to_wait
                 rule.station = record.station
                 rule.waitForCircuit = false
+                rule.requireBoth = false
                 line.rules[i] = rule
               else
                 if not line.rules[i].original_time then
@@ -687,11 +689,13 @@ function ontick(event)
                   --debugLog("get signal s "..str)
                   local signal, signalValue = train:getCircuitSignal(needs_value)
                   --debugLog("get signal e")
-                  if  (rules.full and full and not rules.waitForCircuit) or  -- only full set
-                    (rules.empty and empty and not rules.waitForCircuit) or --only empty set
-                    (rules.waitForCircuit and signal and not (rules.empty or rules.full)) or --circuit and empty/full NOT set
-                    (rules.waitForCircuit and signal and ((rules.empty and empty) or (rules.full and full))) then
-
+            		
+                  local cargo_requirement = (rules.full and full) or (rules.empty and empty)
+                  
+                  if (rules.requireBoth and cargo_requirement and signal)
+                    or (not rules.requireBoth and cargo_requirement)
+                    or (not rules.requireBoth and rules.waitForCircuit and signal) then
+                    
                     local jump = rules.waitForCircuit and rules.jumpTo or false
                     jump = rules.jumpToCircuit and signalValue or jump
                     train:waitingDone(true, jump)
