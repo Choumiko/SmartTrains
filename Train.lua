@@ -69,6 +69,14 @@ Train = {
       end
     end,
 
+    isValidScheduleIndex = function(self, index)
+      if index and index > 0 and index <= #self.train.schedule.records then
+        return index
+      end
+      
+      return false
+    end,
+    
     refuelStation = function(self)
       local station = global.settings.refuel.station
       local refuelStation = station.." "..self:getType()

@@ -647,6 +647,7 @@ function ontick(event)
               local text = train.waitForever and "waiting forever" or "Leaving in "..util.formattime(train.departAt-event.tick)
               train:flyingText(text, RED,{offset=-2})
             end
+            
             --for i,train in pairs(global.trains) do
             if train:isRefueling() then
               if event.tick >= train.refueling.nextCheck then
@@ -664,6 +665,7 @@ function ontick(event)
                 end
               end
             end
+            
             if train:isWaiting() then
               --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + global.settings.depart.minWait or train.waiting.lastCheck + global.settings.depart.interval
               if event.tick >= train.waiting.nextCheck then
@@ -695,14 +697,19 @@ function ontick(event)
                   if (rules.requireBoth and cargo_requirement and signal)
                     or (not rules.requireBoth and cargo_requirement)
                     or (not rules.requireBoth and rules.waitForCircuit and signal) then
-                    
-                    local jump = rules.waitForCircuit and rules.jumpTo or false
-                    jump = rules.jumpToCircuit and signalValue or jump
+ 
+                    local jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
+   
+                    --debugDump("LEAVING "..(jump or "default"), true)
+   
                     train:waitingDone(true, jump)
+                    
                     if not (rules.jumpTo or rules.jumpToCircuit) then
                       train:flyingText("leave station", YELLOW, {offset=-1})
                     end
+                    
                     keepWaiting = false
+                    
                   else
                     local txt = (rules.full and not full) and "not full" or "not empty"
                     txt = rules.waitForCircuit and "waiting for circuit" or txt
@@ -714,6 +721,7 @@ function ontick(event)
                     end
                     keepWaiting = true
                   end
+                  
                 elseif train:isWaitingForAutoDepart() and (keepWaiting == nil or keepWaiting) then
                   cargo = train:cargoCount()
                   local last = train.waiting.lastCheck
@@ -726,6 +734,7 @@ function ontick(event)
                     keepWaiting = true
                   end
                 end
+                
                 if keepWaiting and train.train.speed == 0 then
                   train.waiting.lastCheck = event.tick
                   train.waiting.cargo = cargo
@@ -746,6 +755,7 @@ function ontick(event)
                   train.waitForever = false
                 end
               end
+              
             end
           else
             removeInvalidTrains(true)
