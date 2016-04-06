@@ -17,7 +17,7 @@ Todo.
    - **Signal:** The train will depart the station when the circuit condition of the Smart Train Stop's signal lamp evaluates as true.
      - To set a condition on the lamp, attach a red or green wire to the lamp and then click the lamp.
    - **(And):** If checked, the train will be required to fillfil both the Signal and Empty or Full conditions.
-- Go To Station...
+- **Go To Station**
    - **Signal #:** The train will ignore the normal order of station on the line and travel to the station specified to the signal lamp.
    - **Station #:** The train will go to the station # specified in the text box.
    - The station the train will choose to depart to is determined in this order:
