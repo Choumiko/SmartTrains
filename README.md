@@ -11,6 +11,8 @@ Todo.
 Todo.
 
 ### Line Rules
+![Line Rules UI](/readme_content/line_rules.png?raw=true "Line Rules UI")
+- **Line #**: Todo.
 - **Departure Conditions**
    - **Empty:** The train will depart the station when all cargo\tanker wagons are empty.
    - **Full:** The train will depart the station when all cargo\tanker wagons are full.
