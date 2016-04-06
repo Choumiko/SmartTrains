@@ -21,6 +21,18 @@ defaultSettings =
     circuit={interval = 12},
     lines={forever=false}
   }
+defaultRule = {
+  empty = false,
+  full = false,
+  jumpTo = false,
+  jumpToCircuit = false,
+  keepWaiting = false,
+  original_time = 60*30,
+  station = "",
+  waitForCircuit = false,
+  requireBoth = false
+}
+
 stationsPerPage = 5
 linesPerPage = 5
 rulesPerPage = 5
@@ -92,7 +104,7 @@ function initGlob()
   global.fuel_values["coal"] = game.item_prototypes["coal"].fuel_value/1000000
 
   if not global.settings.circuit then
-    global.settings.circuit = table.deepcopy(defaultSettings.circuit)
+    global.settings.circuit = util.table.deepcopy(defaultSettings.circuit)
   end
 
   setMetatables()
@@ -151,23 +163,16 @@ function on_configuration_changed(data)
             end
           end
         end
-        if old_version < "0.3.77" then
+        if old_version < "0.3.82" then
           global.settings.lines = nil
           global.stopTick = nil
           for name, line in pairs(global.trainLines) do
             for i,record in pairs(line.records) do
               if not line.rules then line.rules = {} end
               if not line.rules[i] then
-                local rule = {}
-                rule.empty = false
-                rule.full = false
-                rule.jumpTo = false
-                rule.jumpToCircuit = false
-                rule.keepWaiting = false
+                local rule = util.table.deepcopy(defaultRule)
                 rule.original_time = record.time_to_wait
                 rule.station = record.station
-                rule.waitForCircuit = false
-                rule.requireBoth = false
                 line.rules[i] = rule
               else
                 if not line.rules[i].original_time then
@@ -176,46 +181,20 @@ function on_configuration_changed(data)
                 if line.rules[i].keepWaiting then
                   record.time_to_wait = 2^32-1
                 end
+                line.rules[i].requireBoth = line.rules[i].waitForCircuit and (line.rules[i].full or line.rules[i].empty)
               end
             end
             if line.rules[false] then line.rules[false] = nil end
-            line.number = 0
+            line.number = line.number or 0
             line.changed = game.tick
           end
+        end
+        if old_version < "0.3.77" then
           for i, train in pairs(global.trains) do
             if train.waitForever then
               train.train.manual_mode = false
               train.waitForever = false
             end
-          end
-        end
-        if old_version < "0.3.80" then
-          for name, line in pairs(global.trainLines) do
-            for i,record in pairs(line.records) do
-              if not line.rules then line.rules = {} end
-              if not line.rules[i] then
-                local rule = {}
-                rule.empty = false
-                rule.full = false
-                rule.jumpTo = false
-                rule.jumpToCircuit = false
-                rule.keepWaiting = false
-                rule.original_time = record.time_to_wait
-                rule.station = record.station
-                rule.waitForCircuit = false
-                rule.requireBoth = false
-                line.rules[i] = rule
-              else
-                if not line.rules[i].original_time then
-                  line.rules[i].original_time = record.time_to_wait
-                end
-                if line.rules[i].keepWaiting then
-                  record.time_to_wait = 2^32-1
-                end
-              end
-            end
-            if line.rules[false] then line.rules[false] = nil end
-            line.changed = game.tick
           end
         end
       end
@@ -519,7 +498,7 @@ function ontrainchangedstate(event)
         end
       end
     elseif train.state == defines.trainstate.wait_station then
-    
+
       t:updateLine()
       local smartStop = t:setWaitingStation()
       if smartStop then
@@ -546,7 +525,7 @@ function ontrainchangedstate(event)
         t:flyingText("waiting", YELLOW)
       end
       if t:isWaiting() then
-        --debugDump(game.tick.." waiting",true)
+      --debugDump(game.tick.." waiting",true)
       end
     elseif train.state == defines.trainstate.arrive_station then --or train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then
       if t.settings.autoRefuel then
@@ -554,11 +533,11 @@ function ontrainchangedstate(event)
           train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
           t:flyingText("Refuel station added", YELLOW)
         end
-      end
-      t.direction = t.train.speed < 0 and 1 or 0
     end
-    
-    
+    t.direction = t.train.speed < 0 and 1 or 0
+    end
+
+
   end
   )
   if not status then
@@ -650,7 +629,7 @@ function ontick(event)
               local text = train.waitForever and "waiting forever" or "Leaving in "..util.formattime(train.departAt-event.tick)
               train:flyingText(text, RED,{offset=-2})
             end
-            
+
             --for i,train in pairs(global.trains) do
             if train:isRefueling() then
               if event.tick >= train.refueling.nextCheck then
@@ -668,7 +647,7 @@ function ontick(event)
                 end
               end
             end
-            
+
             if train:isWaiting() then
               --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + global.settings.depart.minWait or train.waiting.lastCheck + global.settings.depart.interval
               if event.tick >= train.waiting.nextCheck then
@@ -694,25 +673,25 @@ function ontick(event)
                   --debugLog("get signal s "..str)
                   local signal, signalValue = train:getCircuitSignal(needs_value)
                   --debugLog("get signal e")
-            		
+
                   local cargo_requirement = (rules.full and full) or (rules.empty and empty)
-                  
+
                   if (rules.requireBoth and cargo_requirement and signal)
                     or (not rules.requireBoth and cargo_requirement)
                     or (not rules.requireBoth and rules.waitForCircuit and signal) then
- 
+
                     local jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
-   
+
                     --debugDump("LEAVING "..(jump or "default"), true)
-   
+
                     train:waitingDone(true, jump)
-                    
+
                     if not (rules.jumpTo or rules.jumpToCircuit) then
                       train:flyingText("leave station", YELLOW, {offset=-1})
                     end
-                    
+
                     keepWaiting = false
-                    
+
                   else
                     local txt = (rules.full and not full) and "not full" or "not empty"
                     txt = rules.waitForCircuit and "waiting for circuit" or txt
@@ -724,7 +703,7 @@ function ontick(event)
                     end
                     keepWaiting = true
                   end
-                  
+
                 elseif train:isWaitingForAutoDepart() and (keepWaiting == nil or keepWaiting) then
                   cargo = train:cargoCount()
                   local last = train.waiting.lastCheck
@@ -737,7 +716,7 @@ function ontick(event)
                     keepWaiting = true
                   end
                 end
-                
+
                 if keepWaiting and train.train.speed == 0 then
                   train.waiting.lastCheck = event.tick
                   train.waiting.cargo = cargo
@@ -758,7 +737,7 @@ function ontick(event)
                   train.waitForever = false
                 end
               end
-              
+
             end
           else
             removeInvalidTrains(true)

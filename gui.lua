@@ -788,16 +788,6 @@ on_gui_click = {
       option2 = tonumber(option2)
       local t = global.trains[option2]
       local is_copy = t.line and t.line ~= name
-      local empty_rule = {
-        empty = false,
-        full = false,
-        jumpTo = false,
-        jumpToCircuit = false,
-        keepWaiting = false,
-        original_time = 30*60,
-        station = "",
-        waitForCircuit = false,
-      }
       
       if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
         --new train line
@@ -805,7 +795,7 @@ on_gui_click = {
           global.trainLines[name] = {name=name, number=0, rules={}}
           local rules = global.trainLines[name].rules
           for s_index, record in pairs(t.train.schedule.records) do
-            local rule = table.deepcopy(empty_rule)
+            local rule = table.deepcopy(defaultRule)
             rule.original_time = record.time_to_wait
             rule.station = record.station
             rules[s_index] = rule
@@ -840,7 +830,7 @@ on_gui_click = {
         --add missing rules
         for i, record in pairs(records) do
           if not global.trainLines[name].rules[i] then
-            local rule = table.deepcopy(empty_rule)
+            local rule = table.deepcopy(defaultRule)
             rule.original_time = record.time_to_wait
             rule.station = record.station
             global.trainLines[name].rules[i] = rule
