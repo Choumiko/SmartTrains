@@ -1,7 +1,16 @@
 SmartTrains
 ===========
 
-# Rules
+## Creating Your First Smart Train Line
+Todo.
+
+## Train UI
+Todo.
+
+## Trainlines UI
+Todo.
+
+## Line Rules
 - Departure Conditions...
   - Empty: The train will depart the station when all cargo\tanker wagons are empty.
   - Full: The train will depart the station when all cargo\tanker wagons are full.
@@ -15,3 +24,12 @@ SmartTrains
   - 2nd, if Station # is set to a valid station #, the train will choose this station.
   - Last, if neiter of the previous are true, the train will proceed to the next station in the line.
 - Wait ∞: The train will ignore the normal departure time and wait indefinintly until the departure conditions are met.
+
+## Global Settings UI
+Todo.
+
+## Using train circuit output
+Todo.
+
+## Using train signal lamp
+Todo.
