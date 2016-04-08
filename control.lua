@@ -188,6 +188,7 @@ function on_configuration_changed(data)
             line.number = line.number or 0
             line.changed = game.tick
           end
+          findStations()
         end
         if old_version < "0.3.77" then
           for i, train in pairs(global.trains) do
@@ -1187,6 +1188,8 @@ function findStations()
 
   -- create bounding box covering entire generated map
   local bounds = {{min_x*32,min_y*32},{max_x*32,max_y*32}}
+  global.smartTrainstops = {}
+  global.stationCount = {}
   for _, station in pairs(surface.find_entities_filtered{area=bounds, type="train-stop"}) do
     local key = stationKey(station)
     if station.name == "smart-train-stop" then

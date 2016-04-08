@@ -408,10 +408,8 @@ GUI = {
     if line and global.trainLines[line] then
       global.guiData[index].line = line
       local lineName = global.trainLines[line].name
-      local records = global.trainLines[line].records
-      local rules = global.trainLines[line].rules or {}
       local line_number = global.trainLines[line].number
-      global.guiData[index].rules = global.guiData[index].rules or table.deepcopy(rules)
+
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
       local flow = GUI.add(gui, {type="flow", name="rulesFlow", direction="horizontal"})
@@ -419,50 +417,51 @@ GUI = {
       GUI.addLabel(flow, {name="line_number", caption="#: "})
       GUI.addTextfield(flow, {name="lineNumber__"..line, style="st_textfield_small", text=line_number})
 
+      local tbl = GUI.add(gui,{type="table", name="tbltophdr", colspan=4, style="st_table"})
       
-      local tbl = GUI.add(gui, {type="table", name="tbltophdr", colspan=14, style="st_table"})
-      local tophdr_spacing = GUI.addLabel(tbl, {caption="                               "})
-      GUI.addLabel(tbl, {caption={"lbl-wait-for-header"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption="                   "})
-      GUI.addLabel(tbl, {caption={"lbl-go-to-header"}, style="st_label_bold"})
+      GUI.addPlaceHolder(tbl,1)
+      local top_hdr = GUI.add(tbl, {name="tophdr_flow1", type="flow", direction="horizontal"})
+        GUI.addLabel(top_hdr, {caption="        "})
+        GUI.addLabel(top_hdr, {caption={"lbl-wait-for-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption="   •       "})
+      local top_hdr = GUI.add(tbl, {name="tophdr_flow2", type="flow", direction="horizontal"})
+        GUI.addLabel(top_hdr, {caption="    "})
+        GUI.addLabel(top_hdr, {caption={"lbl-go-to-header"}, style="st_label_bold"})
       
-      tbl = GUI.add(gui, {type="table", name="tbl", colspan=14, style="st_table"})
       
-      --1
-      local stationhdr_spacing = GUI.addLabel(tbl, {caption={"lbl-station"}, colspan=2, style="st_label_bold"})
-
-      --2
-      GUI.addLabel(tbl, {caption={"lbl-empty-header"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption="   "})
+      GUI.addPlaceHolder(tbl,1)
+      local test_table = GUI.add(tbl, {name="tophdr_flow3", type="flow", direction="horizontal"})
+        
+        GUI.addLabel(test_table, {caption={"lbl-empty-header"}, style="st_label_bold"})
+        GUI.addLabel(test_table, {caption="   "})
+         
+        GUI.addLabel(test_table, {caption={"lbl-full-header"}, style="st_label_bold"})
+        GUI.addLabel(test_table, {caption="   "})
+        
+        GUI.addLabel(test_table, {caption={"lbl-and-header"}, style="st_label_bold"})
+        GUI.addLabel(test_table, {caption="   "})
+        
+        GUI.addLabel(test_table, {caption={"lbl-wait-for-circuit-header"}, style="st_label_bold"})
       
-      --3 
-      GUI.addLabel(tbl, {caption={"lbl-full-header"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption="   "})
-
-      --4
-      GUI.addLabel(tbl, {caption={"lbl-and-header"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption="   "})
-
-      --5
-      GUI.addLabel(tbl, {caption={"lbl-wait-for-circuit-header"}, style="st_label_bold"})
       GUI.addLabel(tbl, {caption="   •   "})
-      
-      --8
-      GUI.addLabel(tbl, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption="   "})
-      
-      --7
-      GUI.addLabel(tbl, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption="   "})
-      
-      --6
-      GUI.addLabel(tbl, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
-  
+      local test_table = GUI.add(tbl, {name="tophdr_flow4", type="flow", direction="horizontal"})      
+        
+        GUI.addLabel(test_table, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
+        GUI.addLabel(test_table, {caption="   "})
+        
+        GUI.addLabel(test_table, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
+        GUI.addLabel(test_table, {caption="   "})
+        
+        GUI.addLabel(test_table, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
+
+
+      local records = global.trainLines[line].records
+      local rules = global.trainLines[line].rules or {}
+      global.guiData[index].rules = global.guiData[index].rules or table.deepcopy(rules)
 
       local page = global.playerRules[index].page or 1
       local upper = page*global.settings.rulesPerPage
       local lower = page*global.settings.rulesPerPage-global.settings.rulesPerPage
-      local longest_name = 0
       for i,s in pairs(records) do
         if i>lower and i<=upper then
           local states = {
@@ -474,43 +473,34 @@ GUI = {
             jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false,
             jumpTo = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
           }
-          local length = string.len(s.station)
-          longest_name = length > longest_name and length or longest_name
-          --1
-          GUI.addLabel(tbl, {caption="#"..i.." "..s.station, style="st_label_bold"})
 
-          --2
-          GUI.add(tbl, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", left_padding=14, top_padding=true, state=states.empty})
-          GUI.addLabel(tbl, {caption="   "})
+          GUI.addLabel(tbl, {caption="#"..i..s.station, style="st_label_bold"})
+          local record1 = GUI.add(tbl, {name="rules_flow_a"..i, type="flow", direction="horizontal"})
 
-          --3
-          GUI.add(tbl, {type="checkbox", name="leaveFull__"..i, style="st_radio", left_padding=7, top_padding=true, state=states.full})
-          GUI.addLabel(tbl, {caption="   "})
+            GUI.add(record1, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", state=states.empty, left_padding=14, top_padding=true})
+            GUI.addLabel(record1, {caption="     "})
 
-          --4
-          GUI.add(tbl, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", left_padding=7, state=states.requireBoth})
-          GUI.addLabel(tbl, {caption="   "})
+            GUI.add(record1, {type="checkbox", name="leaveFull__"..i, style="st_radio", state=states.full, left_padding=7, top_padding=true})
+            GUI.addLabel(record1, {caption="   "})
 
-          --5
-          GUI.add(tbl, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", left_padding=11, state=states.waitForCircuit})
+            GUI.add(record1, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", state=states.requireBoth, left_padding=7})
+            GUI.addLabel(record1, {caption="    "})
+
+            GUI.add(record1, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", state=states.waitForCircuit, left_padding=11})
+          
           GUI.addLabel(tbl, {caption="   •   "})
           
-          --6
-          GUI.add(tbl,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", left_padding=15, state=states.jumpToCircuit})
-          GUI.addLabel(tbl, {caption="   "})
+          local record1 = GUI.add(tbl, {name="rules_flow_b"..i, type="flow", direction="horizontal"})
+            GUI.add(record1,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", state=states.jumpToCircuit, left_padding=15})
+            GUI.addLabel(record1, {caption="           "})
           
-          --7
-          GUI.addTextfield(tbl, {name="jumpTo__"..i, text=states.jumpTo, style="st_textfield_small", left_padding=8})
-          GUI.addLabel(tbl, {caption="   "})
+            GUI.addTextfield(record1, {name="jumpTo__"..i, text=states.jumpTo, style="st_textfield_small", left_padding=8})
+            GUI.addLabel(record1, {caption="       "})
 
-          --8
-          GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, style="st_checkbox", left_padding=9, state=states.keepWaiting})
+          GUI.add(record1, {type="checkbox", name="keepWaiting__"..i, style="st_checkbox", state=states.keepWaiting, left_padding=9})
         end
       end
-      if longest_name > 7 then
-        longest_name = longest_name + string.len(tophdr_spacing.caption)
-        --tophdr_spacing.caption = string.rep(".", longest_name)
-      end
+      
       local buttonFlow = GUI.add(gui,{name="buttonFlow", type="flow"})
       local pageButtons = GUI.add(buttonFlow, {name="pageButtons", type="flow"})
 
@@ -518,6 +508,7 @@ GUI = {
       if page == 1 then
         prevPage.style = "st_disabled_button_bold"
       end
+
       local maxPage = page_count(#records, global.settings.rulesPerPage)
       GUI.addButton(pageButtons,{name="rule_page_number", caption=page.."/"..maxPage, style="st_disabled_button_bold"})
 
@@ -530,19 +521,20 @@ GUI = {
     end
   end,
   
-  find_relative = function(e, name)
-    return e.parent.parent["padding_frame__"..name][name]
+  find_relative = function(e, name, option2, flow)
+    local name = name..option2
+    return e.parent.parent.parent["rules_flow_"..flow..option2]["padding_frame__"..name][name]
   end,
 
   get_station_options = function(e, option2)
     return {
-      leaveEmpty = GUI.find_relative(e, "leaveEmpty__"..option2),
-      leaveFull = GUI.find_relative(e, "leaveFull__"..option2),
-      requireBoth = GUI.find_relative(e, "requireBoth__"..option2),
-      waitForCircuit = GUI.find_relative(e, "waitForCircuit__"..option2),
-      keepWaiting = GUI.find_relative(e, "keepWaiting__"..option2),
-      jumpTo = GUI.find_relative(e, "jumpTo__"..option2),
-      jumpToCircuit = GUI.find_relative(e, "jumpToCircuit__"..option2),
+      leaveEmpty = GUI.find_relative(e, "leaveEmpty__", option2, "a"),
+      leaveFull = GUI.find_relative(e, "leaveFull__", option2, "a"),
+      requireBoth = GUI.find_relative(e, "requireBoth__", option2, "a"),
+      waitForCircuit = GUI.find_relative(e, "waitForCircuit__", option2, "a"),
+      jumpToCircuit = GUI.find_relative(e, "jumpToCircuit__", option2, "b"),
+      jumpTo = GUI.find_relative(e, "jumpTo__", option2, "b"),
+      keepWaiting = GUI.find_relative(e, "keepWaiting__", option2, "b"),
     }
   end,
 
@@ -585,13 +577,13 @@ function sanitize_rules(player, line, rules, page)
   local upper = page*global.settings.rulesPerPage
   local lower = page*global.settings.rulesPerPage-global.settings.rulesPerPage
 
-  local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
+  local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbltophdr
   local tmp = {}
   for i,rule in pairs(global.trainLines[line].records) do
     if global.guiData[player.index].rules[i] then
       tmp[i] = global.guiData[player.index].rules[i]
       if i>lower and i<=upper then
-        tmp[i].jumpTo = sanitizeNumber(gui["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false) or false
+        tmp[i].jumpTo = sanitizeNumber(gui["rules_flow_b"..i]["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false) or false
         
         if not (tmp[i].empty or tmp[i].full or tmp[i].waitForCircuit) then
           tmp[i].keepWaiting = false
@@ -599,7 +591,7 @@ function sanitize_rules(player, line, rules, page)
         tmp[i].station = rule.station
       end
     else
-      tmp[i] = {jumpTo=false, empty=false,full=false,waitForCircuit=false,keepWaiting=false,station=false}
+      tmp[i] = util.table.deepcopy(defaultRule)
     end
   end
   return tmp
@@ -769,7 +761,7 @@ on_gui_click = {
     local tmp = {}
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
     global.trainLines[line].rules = table.deepcopy(global.guiData[player.index].rules)
-    global.guiData[player.index].rules = false
+    global.guiData[player.index] = {}    
     global.playerRules[player.index].page = 1
     debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
     GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
