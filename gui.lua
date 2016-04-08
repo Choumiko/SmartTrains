@@ -421,7 +421,7 @@ GUI = {
 
       
       local tbl = GUI.add(gui, {type="table", name="tbltophdr", colspan=14, style="st_table"})
-      GUI.addLabel(tbl, {caption="                               "})
+      local tophdr_spacing = GUI.addLabel(tbl, {caption="                               "})
       GUI.addLabel(tbl, {caption={"lbl-wait-for-header"}, style="st_label_bold"})
       GUI.addLabel(tbl, {caption="                   "})
       GUI.addLabel(tbl, {caption={"lbl-go-to-header"}, style="st_label_bold"})
@@ -429,7 +429,7 @@ GUI = {
       tbl = GUI.add(gui, {type="table", name="tbl", colspan=14, style="st_table"})
       
       --1
-      GUI.addLabel(tbl, {caption={"lbl-station"}, colspan=2, style="st_label_bold"})
+      local stationhdr_spacing = GUI.addLabel(tbl, {caption={"lbl-station"}, colspan=2, style="st_label_bold"})
 
       --2
       GUI.addLabel(tbl, {caption={"lbl-empty-header"}, style="st_label_bold"})
@@ -462,7 +462,7 @@ GUI = {
       local page = global.playerRules[index].page or 1
       local upper = page*global.settings.rulesPerPage
       local lower = page*global.settings.rulesPerPage-global.settings.rulesPerPage
-
+      local longest_name = 0
       for i,s in pairs(records) do
         if i>lower and i<=upper then
           local states = {
@@ -474,7 +474,8 @@ GUI = {
             jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false,
             jumpTo = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
           }
-          
+          local length = string.len(s.station)
+          longest_name = length > longest_name and length or longest_name
           --1
           GUI.addLabel(tbl, {caption="#"..i.." "..s.station, style="st_label_bold"})
 
@@ -506,7 +507,10 @@ GUI = {
           GUI.add(tbl, {type="checkbox", name="keepWaiting__"..i, style="st_checkbox", left_padding=9, state=states.keepWaiting})
         end
       end
-      
+      if longest_name > 7 then
+        longest_name = longest_name + string.len(tophdr_spacing.caption)
+        --tophdr_spacing.caption = string.rep(".", longest_name)
+      end
       local buttonFlow = GUI.add(gui,{name="buttonFlow", type="flow"})
       local pageButtons = GUI.add(buttonFlow, {name="pageButtons", type="flow"})
 

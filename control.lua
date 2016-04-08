@@ -536,10 +536,7 @@ function ontrainchangedstate(event)
     end
     t.direction = t.train.speed < 0 and 1 or 0
     end
-
-
-  end
-  )
+  end)
   if not status then
     pauseError(err, "train_changed_state")
   end
