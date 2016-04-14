@@ -1,3 +1,7 @@
+function startsWith(String,Start)
+  return string.sub(String,1,string.len(Start))==Start
+end
+
 Train = {
 
     new = function(train)
@@ -37,7 +41,12 @@ Train = {
     end,
 
     getType = function(self)
-      local type = string.rep("L",#self.train.locomotives.front_movers).."-"..string.rep("C", #self.train.cargo_wagons).."-"..string.rep("L",#self.train.locomotives.back_movers)
+      --local type = string.rep("L",#self.train.locomotives.front_movers).."-"..string.rep("C", #self.train.cargo_wagons).."-"..string.rep("L",#self.train.locomotives.back_movers)
+      local type = ""
+      for i,c in pairs(self.train.carriages) do
+        local str = c.type == "locomotive" and "L" or "C"
+        type = type..str
+      end
       type = string.gsub(type, "L%-%-L", "LL")
       return string.gsub(string.gsub(type, "^-", ""), "-$", "")
     end,
@@ -73,19 +82,33 @@ Train = {
       if index and index > 0 and index <= #self.train.schedule.records then
         return index
       end
-      
+
       return false
     end,
-    
+
     refuelStation = function(self)
       local station = global.settings.refuel.station
-      local refuelStation = station.." "..self:getType()
+      local lType = self:getType()
+      local locos = string.match(lType,"^(L*)-*C*$")
+      local refuelStation = station.." "..lType
+      local match = false
       for name, c in pairs(global.stationCount) do
         if name == refuelStation and c > 0 then
           return refuelStation
         end
+        if locos then
+          --debugDump(name..": "..station.." "..locos,true)
+          --debugDump(startsWith(name,station.." "..locos),true)
+          if startsWith(name,station.." "..locos) and string.match(name,"^"..station.."%s(L*)") == locos then
+            match = name
+          end
+        end
       end
-      return station
+      if match then
+        return match
+      else
+        return station
+      end
     end,
 
     startRefueling = function(self)
@@ -198,7 +221,7 @@ Train = {
         local signalValue =  false
         if needs_value and signal and signal.name then
           local limit = #self.train.schedule.records+2
-          signalValue = deduceSignalValue(self.waitingStation.signalProxy, signal, 1) 
+          signalValue = deduceSignalValue(self.waitingStation.signalProxy, signal, 1)
         end
         return signalTrue, signalValue
       end
@@ -227,12 +250,12 @@ Train = {
         output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = passenger, index = 4}
         output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = 5}
 
-        local i=6        
+        local i=6
         if self.line and global.trainLines[self.line] and global.trainLines[self.line].number ~= 0 then
           output.parameters[6]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].number, index = 6}
           i=7
         end
-        
+
         --debugLog("getCargo s")
         local cargoCount = self:cargoCount()
         for name, count in pairs(cargoCount) do
@@ -411,7 +434,7 @@ Train = {
         -- all stacks are full,
         return true
       end
-       
+
       for i, wagon in pairs(train.cargo_wagons) do
         if self.proxy_chests and self.proxy_chests[i] then
           --wagon is used by logistics railway
@@ -481,7 +504,7 @@ Train = {
             end
             schedule.records[i] = record
           end
-          
+
           local inLine = inSchedule(waitingAt.station,schedule)
           if inLine then
             schedule.current = inLine
@@ -508,7 +531,7 @@ Train = {
         self.waitForever = false
         self.line = false
         self.lineVersion = false
-        
+
         self.train.manual_mode = true
         self.train.schedule = schedule
         self.train.manual_mode = oldmode
