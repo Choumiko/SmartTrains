@@ -81,26 +81,26 @@ GUI = {
     if type == "checkbox" and not (e.state == true or e.state == false) then
       e.state = false
     end
-    
+
     --insert this element into a frame for padding purposes
     if e.left_padding then
       local name = nil
       if e.name then
         name = "padding_frame__"..e.name
       end
-    
+
       local top = ""
       if e.top_padding then
         top ="top_"
       end
-      
+
       local frame = parent.add({type="frame", name=name, style="st_frame_padding_"..top.."left_"..e.left_padding})
       e.left_padding = nil
       e.top_padding = nil
-      
+
       return frame.add(e)
     end
-    
+
     return parent.add(e)
   end,
 
@@ -233,14 +233,14 @@ GUI = {
       for i=start, max do
         local s = records[i]
         GUI.addLabel(tbl, i.." "..s.station)
-        local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (s.time_to_wait > 12010 and {"lbl-forever"}) or s.time_to_wait/60
+        local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (s.time_to_wait > 12010 and {"lbl-forever"}) or math.floor(s.time_to_wait/60)
         GUI.addLabel(tbl, time)
-        
+
         local inf = ""
         local chunks = {}
         if line and rules and rules[i] then
-          local chunk = {} 
-          
+          local chunk = {}
+
           if rules[i].full or rules[i].empty then
             local condition = rules[i].full and {"lbl-full"} or {"lbl-empty"}
             table.insert(chunk, condition)
@@ -250,49 +250,49 @@ GUI = {
               if rules[i].requireBoth then
                 table.insert(chunk, "& ")
               else
-                table.insert(chunk, {"lbl-or"})            
-                table.insert(chunk, " ")    
+                table.insert(chunk, {"lbl-or"})
+                table.insert(chunk, " ")
               end
             end
           end
-          
+
           if rules[i].waitForCircuit then
-            table.insert(chunk, {"lbl-wait-for-circuit"})            
-            table.insert(chunk, " ") 
+            table.insert(chunk, {"lbl-wait-for-circuit"})
+            table.insert(chunk, " ")
           end
-            
+
           table.insert(chunks, chunk)
-          
+
           if rules[i].jumpToCircuit then
             table.insert(chunks, {{"lbl-jump-to-signal"}})
           end
-            
+
           if rules[i].jumpTo and rules[i].jumpTo <= #records then
             table.insert(chunks, {{"lbl-jump-to"}, "", text, rules[i].jumpTo})
           elseif rules[i].jumpTo then
             table.insert(chunks, {"invalid #"}) --TODO: Localization
           end
-          
+
           local text = {""}
           local chunk_count = #chunks
           for i, chunk in pairs(chunks) do
             for _, bit in pairs(chunk) do
               table.insert(text, bit)
             end
-            
+
             if i < chunk_count then
               table.insert(text, ", ")
             end
           end
-          
+
           GUI.addLabel(tbl, text)
           GUI.addPlaceHolder(tbl)
-          
+
         else
           GUI.addPlaceHolder(tbl,2)
         end
-        
-        
+
+
       end
     end
     local btns = GUI.add(tableRows,{type="table", name="btns", colspan=2})
@@ -418,41 +418,41 @@ GUI = {
       GUI.addTextfield(flow, {name="lineNumber__"..line, style="st_textfield_small", text=line_number})
 
       local tbl = GUI.add(gui,{type="table", name="tbltophdr", colspan=4, style="st_table"})
-      
+
       GUI.addPlaceHolder(tbl,1)
       local top_hdr = GUI.add(tbl, {name="tophdr_flow1", type="flow", direction="horizontal"})
-        GUI.addLabel(top_hdr, {caption="        "})
-        GUI.addLabel(top_hdr, {caption={"lbl-wait-for-header"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption="   •       "})
+      GUI.addLabel(top_hdr, {caption="        "})
+      GUI.addLabel(top_hdr, {caption={"lbl-wait-for-header"}, style="st_label_bold"})
+      GUI.addLabel(tbl, {caption={"", "   ", {"lbl-seperator"},"       "}})
       local top_hdr = GUI.add(tbl, {name="tophdr_flow2", type="flow", direction="horizontal"})
-        GUI.addLabel(top_hdr, {caption="    "})
-        GUI.addLabel(top_hdr, {caption={"lbl-go-to-header"}, style="st_label_bold"})
-      
-      
+      GUI.addLabel(top_hdr, {caption="    "})
+      GUI.addLabel(top_hdr, {caption={"lbl-go-to-header"}, style="st_label_bold"})
+
+
       GUI.addPlaceHolder(tbl,1)
       local test_table = GUI.add(tbl, {name="tophdr_flow3", type="flow", direction="horizontal"})
-        
-        GUI.addLabel(test_table, {caption={"lbl-empty-header"}, style="st_label_bold"})
-        GUI.addLabel(test_table, {caption="   "})
-         
-        GUI.addLabel(test_table, {caption={"lbl-full-header"}, style="st_label_bold"})
-        GUI.addLabel(test_table, {caption="   "})
-        
-        GUI.addLabel(test_table, {caption={"lbl-and-header"}, style="st_label_bold"})
-        GUI.addLabel(test_table, {caption="   "})
-        
-        GUI.addLabel(test_table, {caption={"lbl-wait-for-circuit-header"}, style="st_label_bold"})
-      
-      GUI.addLabel(tbl, {caption="   •   "})
-      local test_table = GUI.add(tbl, {name="tophdr_flow4", type="flow", direction="horizontal"})      
-        
-        GUI.addLabel(test_table, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
-        GUI.addLabel(test_table, {caption="   "})
-        
-        GUI.addLabel(test_table, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
-        GUI.addLabel(test_table, {caption="   "})
-        
-        GUI.addLabel(test_table, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
+
+      GUI.addLabel(test_table, {caption={"lbl-empty-header"}, style="st_label_bold"})
+      GUI.addLabel(test_table, {caption="   "})
+
+      GUI.addLabel(test_table, {caption={"lbl-full-header"}, style="st_label_bold"})
+      GUI.addLabel(test_table, {caption="   "})
+
+      GUI.addLabel(test_table, {caption={"lbl-and-header"}, style="st_label_bold"})
+      GUI.addLabel(test_table, {caption="   "})
+
+      GUI.addLabel(test_table, {caption={"lbl-wait-for-circuit-header"}, style="st_label_bold"})
+
+      GUI.addLabel(tbl, {caption={"","   ",{"lbl-seperator"}, "   "}})
+      local test_table = GUI.add(tbl, {name="tophdr_flow4", type="flow", direction="horizontal"})
+
+      GUI.addLabel(test_table, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
+      GUI.addLabel(test_table, {caption="   "})
+
+      GUI.addLabel(test_table, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
+      GUI.addLabel(test_table, {caption="   "})
+
+      GUI.addLabel(test_table, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
 
 
       local records = global.trainLines[line].records
@@ -467,7 +467,7 @@ GUI = {
           local states = {
             full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
             empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false,
-            keepWaiting = rules[i] and rules[i].keepWaiting or false, 
+            keepWaiting = rules[i] and rules[i].keepWaiting or false,
             waitForCircuit = rules[i] and rules[i].waitForCircuit or false,
             requireBoth = rules[i] and rules[i].requireBoth or false,
             jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false,
@@ -477,30 +477,30 @@ GUI = {
           GUI.addLabel(tbl, {caption="#"..i..s.station, style="st_label_bold"})
           local record1 = GUI.add(tbl, {name="rules_flow_a"..i, type="flow", direction="horizontal"})
 
-            GUI.add(record1, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", state=states.empty, left_padding=14, top_padding=true})
-            GUI.addLabel(record1, {caption="     "})
+          GUI.add(record1, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", state=states.empty, left_padding=14, top_padding=true})
+          GUI.addLabel(record1, {caption="     "})
 
-            GUI.add(record1, {type="checkbox", name="leaveFull__"..i, style="st_radio", state=states.full, left_padding=7, top_padding=true})
-            GUI.addLabel(record1, {caption="   "})
+          GUI.add(record1, {type="checkbox", name="leaveFull__"..i, style="st_radio", state=states.full, left_padding=7, top_padding=true})
+          GUI.addLabel(record1, {caption="   "})
 
-            GUI.add(record1, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", state=states.requireBoth, left_padding=7})
-            GUI.addLabel(record1, {caption="    "})
+          GUI.add(record1, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", state=states.requireBoth, left_padding=7})
+          GUI.addLabel(record1, {caption="    "})
 
-            GUI.add(record1, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", state=states.waitForCircuit, left_padding=11})
-          
-          GUI.addLabel(tbl, {caption="   •   "})
-          
+          GUI.add(record1, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", state=states.waitForCircuit, left_padding=11})
+
+          GUI.addLabel(tbl, {caption={"","   ",{"lbl-seperator"},"   "}})
+
           local record1 = GUI.add(tbl, {name="rules_flow_b"..i, type="flow", direction="horizontal"})
-            GUI.add(record1,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", state=states.jumpToCircuit, left_padding=15})
-            GUI.addLabel(record1, {caption="           "})
-          
-            GUI.addTextfield(record1, {name="jumpTo__"..i, text=states.jumpTo, style="st_textfield_small", left_padding=8})
-            GUI.addLabel(record1, {caption="       "})
+          GUI.add(record1,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", state=states.jumpToCircuit, left_padding=15})
+          GUI.addLabel(record1, {caption="           "})
+
+          GUI.addTextfield(record1, {name="jumpTo__"..i, text=states.jumpTo, style="st_textfield_small", left_padding=8})
+          GUI.addLabel(record1, {caption="       "})
 
           GUI.add(record1, {type="checkbox", name="keepWaiting__"..i, style="st_checkbox", state=states.keepWaiting, left_padding=9})
         end
       end
-      
+
       local buttonFlow = GUI.add(gui,{name="buttonFlow", type="flow"})
       local pageButtons = GUI.add(buttonFlow, {name="pageButtons", type="flow"})
 
@@ -520,7 +520,7 @@ GUI = {
       GUI.addButton(buttonFlow, {name="saveRules__"..line, caption="Save", style="st_button_style_bold"})
     end
   end,
-  
+
   find_relative = function(e, name, option2, flow)
     local name = name..option2
     return e.parent.parent.parent["rules_flow_"..flow..option2]["padding_frame__"..name][name]
@@ -584,7 +584,7 @@ function sanitize_rules(player, line, rules, page)
       tmp[i] = global.guiData[player.index].rules[i]
       if i>lower and i<=upper then
         tmp[i].jumpTo = sanitizeNumber(gui["rules_flow_b"..i]["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false) or false
-        
+
         if not (tmp[i].empty or tmp[i].full or tmp[i].waitForCircuit) then
           tmp[i].keepWaiting = false
         end
@@ -761,7 +761,7 @@ on_gui_click = {
     local tmp = {}
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
     global.trainLines[line].rules = table.deepcopy(global.guiData[player.index].rules)
-    global.guiData[player.index] = {}    
+    global.guiData[player.index] = {}
     global.playerRules[player.index].page = 1
     debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
     GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
@@ -784,32 +784,39 @@ on_gui_click = {
       option2 = tonumber(option2)
       local t = global.trains[option2]
       local is_copy = t.line and t.line ~= name
-      
+
       if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
         --new train line
+        local records = util.table.deepcopy(t.train.schedule.records)
         if not global.trainLines[name] then
           global.trainLines[name] = {name=name, number=0, rules={}}
           local rules = global.trainLines[name].rules
-          for s_index, record in pairs(t.train.schedule.records) do
+          for s_index, record in pairs(records) do
             local rule = table.deepcopy(defaultRule)
+            record.time_to_wait = record.time_to_wait == 0 and 10 or record.time_to_wait
             rule.original_time = record.time_to_wait
+
             rule.station = record.station
             rules[s_index] = rule
           end
         end
-        
+
         local changed = game.tick
         global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
-        global.trainLines[name].records = t.train.schedule.records
+        global.trainLines[name].records = records
         global.trainLines[name].changed = changed
 
         if is_copy then
           global.trainLines[name].rules = table.deepcopy(global.trainLines[t.line].rules)
         end
-        
-        --remove/add rules if needed        
+
+        --remove/add rules if needed
         -- update original_time if time ~= 2^32-1
         local records = global.trainLines[name].records
+        for i, record in pairs(records) do
+          record.time_to_wait = record.time_to_wait == 0 and 10 or record.time_to_wait
+        end
+        
         local remove_rule = {}
         for r_index, rule in pairs(global.trainLines[name].rules) do
           if records[r_index] and records[r_index].time_to_wait ~= 2^32-1 then
@@ -822,7 +829,7 @@ on_gui_click = {
           if global.trainLines[name].rules[i] and not global.trainLines[name].records[i] then
             global.trainLines[name].rules[i] = nil
           end
-        end        
+        end
         --add missing rules
         for i, record in pairs(records) do
           if not global.trainLines[name].rules[i] then
@@ -930,7 +937,7 @@ on_gui_click = {
 
   leaveFull = function(player, option2, option3, element)
     local opts = GUI.get_station_options(element, option2)
-    
+
     if element.state == true then
       if opts.leaveEmpty.state == true then
         opts.leaveEmpty.state = false
@@ -941,57 +948,57 @@ on_gui_click = {
       opts.waitForCircuit.state == false then
       opts.keepWaiting.state = false
     end
-    
-    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
-			opts.requireBoth.state = false
-		end
-    
+
+    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then
+      opts.requireBoth.state = false
+    end
+
     GUI.save_station_options(opts, player.index, option2)
   end,
 
   leaveEmpty = function(player, option2, option3, element)
     local opts = GUI.get_station_options(element, option2)
-    
+
     if element.state == true then
       if opts.leaveFull.state == true then
         opts.leaveFull.state = false
       end
     end
-    
+
     if opts.leaveFull.state == false and
       opts.leaveEmpty.state == false and
       opts.waitForCircuit.state == false then
       opts.keepWaiting.state = false
     end
-    
-    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
-			opts.requireBoth.state = false
-		end
-    
+
+    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then
+      opts.requireBoth.state = false
+    end
+
     GUI.save_station_options(opts, player.index, option2)
   end,
 
   keepWaiting = function(player, option2, option3, element)
     local opts = GUI.get_station_options(element, option2)
-  
+
     if opts.leaveFull.state == false and
       opts.leaveEmpty.state == false and
       opts.waitForCircuit.state == false then
-        opts.keepWaiting.state = false
+      opts.keepWaiting.state = false
     end
-  
+
     GUI.save_station_options(opts, player.index, option2)
-  end,  
-  
+  end,
+
   requireBoth = function(player, option2, option3, element)
     local opts = GUI.get_station_options(element, option2)
-  
+
     if opts.leaveEmpty.state or opts.leaveFull.state then
       opts.waitForCircuit.state = true
-    elseif not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
-			opts.requireBoth.state = false
-		end
-  
+    elseif not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then
+      opts.requireBoth.state = false
+    end
+
     GUI.save_station_options(opts, player.index, option2)
   end,
 
@@ -1001,25 +1008,25 @@ on_gui_click = {
     if opts.leaveFull.state == false and
       opts.leaveEmpty.state == false and
       opts.waitForCircuit.state == false then
-        opts.keepWaiting.state = false
+      opts.keepWaiting.state = false
     end
-    
-    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then 
-			opts.requireBoth.state = false
-		end
-    
+
+    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then
+      opts.requireBoth.state = false
+    end
+
     GUI.save_station_options(opts, player.index, option2)
   end,
 
   jumpToCircuit = function(player, option2, option3, element)
     local opts = GUI.get_station_options(element, option2)
-    
+
     if opts.leaveFull.state == false and
       opts.leaveEmpty.state == false and
       opts.waitForCircuit.state == false then
       opts.keepWaiting.state = false
     end
-    
+
     GUI.save_station_options(opts, player.index, option2)
   end,
 }
