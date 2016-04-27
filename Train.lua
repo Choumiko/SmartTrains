@@ -242,7 +242,7 @@ Train = {
       if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
         local cargoProxy = self.waitingStation.cargoProxy
         local output = {parameters={}}
-        output.parameters[1]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 1}
+        --output.parameters[1]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 1}
         --game.write_file("st/debugOutput.lua", serpent.block(output, {name="output"}))
         --local v = cargoProxy.valid and "valid" or "invalid"
         --debugDump("CargoProxy: "..cargoProxy.name.." "..v,true)
