@@ -43,7 +43,7 @@ Train = {
     getType = function(self)
       --local type = string.rep("L",#self.train.locomotives.front_movers).."-"..string.rep("C", #self.train.cargo_wagons).."-"..string.rep("L",#self.train.locomotives.back_movers)
       local type = ""
-      for i,c in pairs(self.train.carriages) do
+      for _,c in pairs(self.train.carriages) do
         local str = c.type == "locomotive" and "L" or "C"
         type = type..str
       end
@@ -170,7 +170,7 @@ Train = {
     end,
 
     has_rules = function(self)
-      local rules = (self.line and global.trainLines[self.line]) and global.trainLines[self.line].rules[self.train.schedule.current]
+      local rules = (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
       if rules then
         return rules.empty or rules.full or rules.waitForCircuit
       end
@@ -181,7 +181,7 @@ Train = {
       if not self.waiting then
         local nextCheck = self.train.schedule.records[self.train.schedule.current].time_to_wait == 10 and game.tick + 9 or game.tick + global.settings.depart.minWait
         self.waiting = {lastCheck = game.tick, nextCheck = nextCheck}
-        local rules = (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
+        local rules = self:has_rules()
         self.waitForever = false
         if rules then
           if rules.keepWaiting then
@@ -198,7 +198,7 @@ Train = {
     end,
 
     isWaitingForRules = function(self)
-      local rules = self.line and global.trainLines[self.line] and global.trainLines[self.line].rules and global.trainLines[self.line].rules[self.train.schedule.current]
+      local rules = self:has_rules()
       return type(self.waiting) == "table" and rules
     end,
 
@@ -222,19 +222,22 @@ Train = {
       return station and proxy and cargoProxy
     end,
 
-    getCircuitSignal = function(self, needs_value)
+    getCircuitSignal = function(self)
+      if self.waitingStation and self.waitingStation.signalProxy and self.waitingStation.signalProxy.valid then
+        return self.waitingStation.signalProxy.get_circuit_condition(1).fulfilled and self.waitingStation.signalProxy.energy > 0
+      end
+      return false
+    end,
+
+    getCircuitValue = function(self)
       if self.waitingStation and self.waitingStation.signalProxy and self.waitingStation.signalProxy.valid then
         local condition = self.waitingStation.signalProxy.get_circuit_condition(1)
         local signal = (condition.condition and condition.condition.first_signal and condition.condition.first_signal.name) and condition.condition.first_signal or false
-        local signalTrue = condition.fulfilled and self.waitingStation.signalProxy.energy > 0
-        local signalValue =  false
-        if needs_value and signal and signal.name then
-          local limit = #self.train.schedule.records+2
-          signalValue = deduceSignalValue(self.waitingStation.signalProxy, signal, 1)
+        if signal and signal.name then
+          return deduceSignalValue(self.waitingStation.signalProxy, signal, 1)
         end
-        return signalTrue, signalValue
       end
-      return false, false
+      return false
     end,
 
     setCircuitSignal = function(self)
@@ -244,7 +247,7 @@ Train = {
         --local output = cargoProxy.get_circuit_condition(1)
         local output = {parameters={}}
         local passenger = 0
-        for j, carriage in pairs(self.train.carriages) do
+        for _, carriage in pairs(self.train.carriages) do
           if carriage.passenger and carriage.passenger.name ~= "fatcontroller" then
             passenger = passenger + 1
             break
@@ -304,13 +307,13 @@ Train = {
       local c
       local locos = self.train.locomotives
       if locos ~= nil then
-        for i,carriage in pairs(locos.front_movers) do
+        for _, carriage in pairs(locos.front_movers) do
           c = self:calcFuel(carriage.get_inventory(1).get_contents())
           if minfuel == nil or c < minfuel then
             minfuel = c
           end
         end
-        for i,carriage in pairs(locos.back_movers) do
+        for _, carriage in pairs(locos.back_movers) do
           c = self:calcFuel(carriage.get_inventory(1).get_contents())
           if minfuel == nil or c < minfuel then
             minfuel = c
@@ -435,7 +438,7 @@ Train = {
         end
         -- check if all stacks are full
         local contents = inv.get_contents()
-        for item, count in pairs(contents) do
+        for item, _ in pairs(contents) do
           if inv.can_insert{name=item, count=1} then
             return false
           end
@@ -532,7 +535,7 @@ Train = {
       elseif (self.line and not global.trainLines[self.line]) then
         self:flyingText("Dettached from line", RED)
         local schedule = self.train.schedule
-        for i, record in pairs(schedule.records) do
+        for _, record in pairs(schedule.records) do
           if record.time_to_wait == 2^32-1 then
             record.time_to_wait = 200*60
           end

@@ -5,9 +5,11 @@ require "util"
 -- the name and tick are filled for the event automatically
 -- this event is raised with extra parameter foo with value "bar"
 --game.raiseevent(myevent, {foo="bar"})
-events = {}
-events["on_player_opened"] = script.generate_event_name()
-events["on_player_closed"] = script.generate_event_name()
+if not remote.interfaces.EventsPlus then
+	events = {}
+	events["on_player_opened"] = script.generate_event_name()
+	events["on_player_closed"] = script.generate_event_name()
+end
 
 debug = false
 
@@ -47,7 +49,7 @@ defines.trainstate.left_station = 11
 function debugLog(var, prepend)
   if not global.debug_log then return end
   local str = prepend or ""
-  for i,player in ipairs(game.players) do
+  for _,_ in pairs(game.players) do
     local msg
     if type(var) == "string" then
       msg = var
@@ -63,12 +65,35 @@ function util.formattime(ticks, showTicks)
   if ticks then
     local seconds = ticks / 60
     local minutes = math.floor((seconds)/60)
-    local seconds = math.floor(seconds - 60*minutes)
+    seconds = math.floor(seconds - 60*minutes)
     local tick = ticks - (minutes*60*60+seconds*60)
     local format = showTicks and "%d:%02d:%02d" or "%d:%02d"
     return string.format(format, minutes, seconds, tick)
   else
     return "-"
+  end
+end
+
+function resetMetatable(o, mt)
+  setmetatable(o,{__index=mt})
+  return o
+end
+
+function setMetatables()
+  for _, object in pairs(global.trains) do
+    resetMetatable(object, Train)
+  end
+
+  for _, tick in pairs(global.updateTick) do
+    for _, object in pairs(tick) do
+      resetMetatable(object, Train)
+    end
+  end
+
+  for _, tick in pairs(global.ticks) do
+    for _, object in pairs(tick) do
+      resetMetatable(object, Train)
+    end
   end
 end
 
@@ -110,18 +135,12 @@ function initGlob()
   setMetatables()
 end
 
-function setMetatables()
-  for _, object in pairs(global.trains) do
-    resetMetatable(object, Train)
-  end
-end
-
 local function init_player(player)
   global.playerRules[player.index] = global.playerRules[player.index] or {page=1}
 end
 
 local function init_players()
-  for i,player in pairs(game.players) do
+  for _,player in pairs(game.players) do
     init_player(player)
   end
 end
@@ -157,7 +176,7 @@ function on_configuration_changed(data)
         debugDump("SmartTrains version changed from "..old_version.." to "..new_version,true)
         if old_version < "0.3.2" then
           findStations()
-          for i,train in pairs(global.trains) do
+          for _,train in pairs(global.trains) do
             if not train.cargoUpdated then
               train.cargoUpdated = 0
             end
@@ -166,7 +185,7 @@ function on_configuration_changed(data)
         if old_version < "0.3.82" then
           global.settings.lines = nil
           global.stopTick = nil
-          for name, line in pairs(global.trainLines) do
+          for _, line in pairs(global.trainLines) do
             for i,record in pairs(line.records) do
               if not line.rules then line.rules = {} end
               if not line.rules[i] then
@@ -191,7 +210,7 @@ function on_configuration_changed(data)
           findStations()
         end
         if old_version < "0.3.77" then
-          for i, train in pairs(global.trains) do
+          for _, train in pairs(global.trains) do
             if train.waitForever then
               train.train.manual_mode = false
               train.waitForever = false
@@ -205,16 +224,11 @@ function on_configuration_changed(data)
       global.version = new_version
     end
     --update fuelvalue cache, in case the values changed
-    for item, v in pairs(global.fuel_values) do
+    for item, _ in pairs(global.fuel_values) do
       global.fuel_values[item] = game.item_prototypes[item].fuel_value/1000000
     end
   end)
   if not status then error(err, 2) end
-end
-
-function resetMetatable(o, mt)
-  setmetatable(o,{__index=mt})
-  return o
 end
 
 function addPos(p1,p2)
@@ -323,7 +337,7 @@ function findSmartTrainStopByTrain(vehicle, stationName)
 
   local area = expandPos(vehicle.position, 3)
   --for _,area in pairs(areas) do
-  for _1, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
+  for _, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
     --flyingText("S", GREEN, station.position, true)
     if station.backer_name == stationName then
       found = station
@@ -388,7 +402,6 @@ end
 
 function addStation(station, schedule, wait, after)
   local wait = wait or 600
-  local count = #schedule.records
   local tmp = {time_to_wait = wait, station = station}
   if after then
     table.insert(schedule.records, after+1, tmp)
@@ -476,7 +489,7 @@ function ontrainchangedstate(event)
     local schedule = train.schedule
     if train.state == defines.trainstate.manual_control_stop or train.state == defines.trainstate.manual_control then
       local done = false
-      for tick, trains in pairs(global.ticks) do
+      for _, trains in pairs(global.ticks) do
         for i, trainData in pairs(trains) do
           if trainData == t then
             trainData:resetCircuitSignal()
@@ -489,7 +502,7 @@ function ontrainchangedstate(event)
         end
       end
       if not done then
-        for i, train in pairs(global.trains) do
+        for _, train in pairs(global.trains) do
           if train == t then
             train:resetCircuitSignal()
             train.waitingStation = false
@@ -516,7 +529,7 @@ function ontrainchangedstate(event)
           t:flyingText("refueling", YELLOW)
         end
       end
-      if t.line and global.trainLines[t.line] and t:has_rules() then
+      if t:has_rules() then
         t:startWaitingForRules()
         t:flyingText("waiting for rules", YELLOW)
       end
@@ -600,7 +613,7 @@ function ontick(event)
   if event.tick % 60 == 0 then
     local status,err = pcall(
       function()
-        for i,train in pairs(global.trains) do
+        for _,train in pairs(global.trains) do
           if train.train and train.train.valid then
             if train.line and train.train.state ~= defines.trainstate.wait_station and train.train.speed == 0 then
               train:updateLine()
@@ -619,7 +632,7 @@ function ontick(event)
     --debugLog(" tick s", game.tick)
     local status,err = pcall(
       function()
-        for i,train in pairs(global.ticks[event.tick]) do
+        for _,train in pairs(global.ticks[event.tick]) do
           if train.train.valid then
             train.lastMessage = train.lastMessage or 0
             if train.departAt  and event.tick - train.lastMessage >= 120 then
@@ -664,19 +677,15 @@ function ontick(event)
                   if rules.empty then
                     empty = train:isCargoEmpty()
                   end
-                  local needs_value = rules.jumpToCircuit
-                  --local str = needs_value and "value" or "no value"
-                  --debugLog("Line: "..train.line)
-                  --debugLog("get signal s "..str)
-                  local signal, signalValue = train:getCircuitSignal(needs_value)
-                  --debugLog("get signal e")
+
+                  local signal = train:getCircuitSignal()
 
                   local cargo_requirement = (rules.full and full) or (rules.empty and empty)
 
                   if (rules.requireBoth and cargo_requirement and signal)
                     or (not rules.requireBoth and cargo_requirement)
                     or (not rules.requireBoth and rules.waitForCircuit and signal) then
-
+                    local signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
                     local jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
 
                     --debugDump("LEAVING "..(jump or "default"), true)
@@ -748,7 +757,7 @@ function ontick(event)
     end
     --debugLog(" tick e", game.tick)
   end
-  if event.tick%10==9  then
+  if not remote.interfaces.EventsPlus and event.tick%10==9  then
     local status,err = pcall(
       function()
         for pi, player in pairs(game.players) do
@@ -772,10 +781,10 @@ function ontick(event)
 end
 
 function on_player_opened(event)
+  log("st opened "..event.name)
   if event.entity.valid and game.players[event.player_index].valid then
     if event.entity.type == "locomotive" and event.entity.train then
       global.playerPage[event.player_index] = {schedule=1,lines=1}
-      local name = event.entity.backer_name or event.entity.name
       local trainInfo = getTrainFromEntity(event.entity)
       removeInvalidTrains(true)
       GUI.create_or_update(trainInfo, event.player_index)
@@ -793,9 +802,9 @@ function on_player_opened(event)
 end
 
 function on_player_closed(event)
+  log("st closed")
   if event.entity.valid and game.players[event.player_index].valid then
     if event.entity.type == "locomotive" and event.entity.train then
-      local name = event.entity.backer_name or event.entity.name
       GUI.destroy(event.player_index)
       global.guiData[event.player_index] = nil
       global.playerRules[event.player_index].page = 1
@@ -819,7 +828,6 @@ end
 
 function on_station_rename(station, oldName)
   local oldc = decreaseStationCount(oldName)
-  local newc = increaseStationCount(station.backer_name)
   if oldc == 0 then
     renameStation(station.backer_name, oldName)
   end
@@ -832,8 +840,8 @@ function decreaseStationCount(name)
   global.stationCount[name] = global.stationCount[name] - 1
   if global.stationCount[name] == 0 then
     local found = false
-    for line, data in pairs(global.trainLines) do
-      for i, record in pairs(data.records) do
+    for _, data in pairs(global.trainLines) do
+      for _, record in pairs(data.records) do
         if record.station == name then
           found = true
           break
@@ -860,14 +868,14 @@ function renameStation(newName, oldName)
   --update global.trainLines with new name
   --debugDump("Updating lines",true)
   for line, data in pairs(global.trainLines) do
-    for i, record in pairs(data.records) do
+    for _, record in pairs(data.records) do
       if record.station == oldName then
         debugDump("Line "..line.." changed: "..oldName.." to "..newName,true)
         record.station = newName
       end
     end
     if type(data.rules) == "table" then
-      for i, rule in pairs(data.rules) do
+      for _, rule in pairs(data.rules) do
         if rule.station == oldName then
           rule.station = newName
         end
@@ -876,11 +884,16 @@ function renameStation(newName, oldName)
   end
 end
 
-script.on_event(events.on_player_opened, on_player_opened)
-script.on_event(events.on_player_closed, on_player_closed)
+if remote.interfaces.EventsPlus then
+	script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
+	script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
+else
+	script.on_event(events.on_player_opened, on_player_opened)
+	script.on_event(events.on_player_closed, on_player_closed)
+end
 
 function getTrainFromEntity(ent)
-  for i,trainInfo in pairs(global.trains) do
+  for _,trainInfo in pairs(global.trains) do
     if ent.train == trainInfo.train then
       return trainInfo
     end
@@ -906,7 +919,7 @@ function getTrainKeyFromUI(index)
     if player.opened.type == "locomotive" and player.opened.train ~= nil then
       key = getTrainKeyByTrain(global.trains, player.opened.train)
       if not key then
-        local ti = getTrainFromEntity(player.opened)
+        getTrainFromEntity(player.opened)
         key = getTrainKeyByTrain(global.trains, player.opened.train)
       end
     end
@@ -934,7 +947,7 @@ function onbuiltentity(event)
       return
     end
     if ctype == "locomotive" or ctype == "cargo-wagon" then
-      local newTrainInfo = getTrainFromEntity(ent)
+      getTrainFromEntity(ent)
       removeInvalidTrains(true)
     end
     if ctype == "train-stop" then
@@ -954,7 +967,6 @@ function onpreplayermineditem(event)
     local ent = event.entity
     local ctype = ent.type
     if ctype == "locomotive" or ctype == "cargo-wagon" then
-      local oldTrain = ent.train
       local ownPos
       for i,carriage in pairs(ent.train.carriages) do
         if ent == carriage then
@@ -993,7 +1005,7 @@ function onplayermineditem(event)
     local results = {}
     if name == "diesel-locomotive" or name == "cargo-wagon" then
       if #tmpPos > 0 then
-        for i,pos in pairs(tmpPos) do
+        for _,pos in pairs(tmpPos) do
           local area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
           local loco = game.players[event.player_index].surface.find_entities_filtered{area=area, type="locomotive"}
           local wagon = game.players[event.player_index].surface.find_entities_filtered{area=area, type="cargo-wagon"}
@@ -1004,7 +1016,7 @@ function onplayermineditem(event)
           end
         end
         for _, result in pairs(results) do
-          for i, t in pairs(result) do
+          for _, t in pairs(result) do
             getTrainFromEntity(t)
           end
         end
@@ -1065,7 +1077,7 @@ end
 
 function debugDump(var, force)
   if false or force then
-    for i,player in pairs(game.players) do
+    for _, player in pairs(game.players) do
       local msg
       if type(var) == "string" then
         msg = var
@@ -1082,7 +1094,7 @@ function flyingText(line, color, pos, show)
     local pos = {}
     color = color or RED
     if not pos then
-      for i,p in pairs(game.players) do
+      for _, p in pairs(game.players) do
         p.surface.create_entity({name="flying-text", position=p.position, text=line, color=color})
       end
       return
@@ -1135,7 +1147,7 @@ function findAllEntitiesByType(surface, type)
     local X,Y = coord.x, coord.y
     if surface.is_chunk_generated{X,Y} then
       local area = {{X*32, Y*32}, {X*32 + 32, Y*32 + 32}}
-      for i, entity in pairs(surface.find_entities_filtered{area = area, type = type}) do
+      for _, entity in pairs(surface.find_entities_filtered{area = area, type = type}) do
         local key = entity.position.x.."A"..entity.position.y
         local name = entity.backer_name or entity.name
         local train = entity.train or false
@@ -1190,9 +1202,8 @@ function findStations()
   global.smartTrainstops = {}
   global.stationCount = {}
   for _, station in pairs(surface.find_entities_filtered{area=bounds, type="train-stop"}) do
-    local key = stationKey(station)
     if station.name == "smart-train-stop" then
-      debugDump("SmartStop: "..station.backer_name,true)
+      --debugDump("SmartStop: "..station.backer_name,true)
       createProxy(station)
     end
     if not global.stationCount[station.backer_name] then
@@ -1231,7 +1242,6 @@ if remote.interfaces.logistics_railway then
   end)
 
   script.on_event(remote.call("logistics_railway", "get_chest_destroyed_event"), function(event)
-    local chest = event.chest
     local wagon_index = event.wagon_index
     local train = event.train
     --debugDump("destroyed a chest",true)
@@ -1256,7 +1266,7 @@ remote.add_interface("st",
     end,
 
     printFile = function(var, name)
-      local name = name or "log"
+      name = name or "log"
       if global[var] then
         printToFile(serpent.block(global[var]), name )
       else
@@ -1306,11 +1316,16 @@ remote.add_interface("st",
       script.on_event(defines.events.on_train_changed_state, nil)
       script.on_event(defines.events.on_tick, nil)
       script.on_event(defines.events.on_gui_click, nil)
-      script.on_event(events.on_player_opened, nil)
-      script.on_event(events.on_player_closed, nil)
+      if remote.interfaces.EventsPlus then
+       	script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), nil)
+	      script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), nil)
+      else
+      	script.on_event(events.on_player_opened, nil)
+	      script.on_event(events.on_player_closed, nil)
+	    end
       global.ticks = {}
       global.updateTick = {}
-      for i, t in pairs(global.trains) do
+      for _, t in pairs(global.trains) do
         if t:isWaiting() then
           t.waiting = false
           t:nextStation(t.waitForever)
@@ -1326,8 +1341,13 @@ remote.add_interface("st",
       script.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
       script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
       script.on_event(defines.events.on_tick, ontick)
-      script.on_event(events.on_player_opened, on_player_opened)
-      script.on_event(events.on_player_closed, on_player_closed)
+      if remote.interfaces.EventsPlus then
+      	script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
+	      script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
+	    else
+	    	script.on_event(events.on_player_opened, on_player_opened)
+      	script.on_event(events.on_player_closed, on_player_closed)
+	    end
     end,
 
     init = function()
@@ -1335,7 +1355,7 @@ remote.add_interface("st",
       init_players()
     end,
 
-    set_train_mode = function(lua_train, mode)
+    set_train_mode = function(lua_train)
       local status, err = pcall(function()
         local trainKey = getTrainKeyByTrain(global.trains, lua_train)
         local train = global.trains[trainKey]
@@ -1389,7 +1409,7 @@ remote.add_interface("st",
     end,
 
     smart_stops = function(player)
-      for i,s in pairs(global.smartTrainstops) do
+      for _,s in pairs(global.smartTrainstops) do
         player.print(s.entity.backer_name)
       end
     end,

@@ -18,12 +18,6 @@ GUI = {
 
   position = "left",
 
-  new = function(index, player)
-    local new = {}
-    setmetatable(new, {__index=GUI})
-    return new
-  end,
-
   create_or_update = function(trainInfo, player_index)
     local player = game.players[player_index]
     if player.valid then
@@ -57,7 +51,7 @@ GUI = {
   end,
 
   destroy = function(player_index)
-    local player = false
+    local player
     if type(player_index) == "number" then
       player = game.players[player_index]
     else
@@ -69,7 +63,7 @@ GUI = {
   end,
 
   add = function(parent, e, bind)
-    local type, name = e.type, e.name
+    local type = e.type
     if not e.style and (type == "button" or type == "label") then
       e.style = "st_"..type
     end
@@ -112,8 +106,8 @@ GUI = {
     return GUI.add(parent, e, bind)
   end,
 
-  addLabel = function(parent, e, bind)
-    local e = e
+  addLabel = function(parent, e_, bind)
+    local e = e_
     if type(e) == "string" or type(e) == "number" or (type(e) == "table" and e[1]) then
       e = {caption=e}
     end
@@ -128,7 +122,7 @@ GUI = {
 
   addPlaceHolder = function(parent, count)
     local c = count or 1
-    for i=1,c do
+    for _=1,c do
       GUI.add(parent, {type="label", caption=""})
     end
   end,
@@ -215,28 +209,27 @@ GUI = {
       rules = trainLine.rules
       lineKey = "__"..trainLine.name
     end
-    local tbl = GUI.add(tableRows, {type="table", name="tbl1", colspan=4, style="st_table"})
+    local tbl1 = GUI.add(tableRows, {type="table", name="tbl1", colspan=4, style="st_table"})
     local spp = global.settings.stationsPerPage
     local page = global.playerPage[player_index].schedule or 1
     if #records > 0 then
-      GUI.addLabel(tbl, {"lbl-station"})
-      GUI.addLabel(tbl, {"lbl-time"})
+      GUI.addLabel(tbl1, {"lbl-station"})
+      GUI.addLabel(tbl1, {"lbl-time"})
       if line and rules then
-        GUI.addLabel(tbl, {"lbl-leave-when"})
+        GUI.addLabel(tbl1, {"lbl-leave-when"})
       else
-        GUI.addPlaceHolder(tbl)
+        GUI.addPlaceHolder(tbl1)
       end
-      GUI.addPlaceHolder(tbl)
+      GUI.addPlaceHolder(tbl1)
       local start = (page-1) * spp + 1
       local max = start + spp - 1
       if max > #records then max = #records end
       for i=start, max do
         local s = records[i]
-        GUI.addLabel(tbl, i.." "..s.station)
+        GUI.addLabel(tbl1, i.." "..s.station)
         local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (s.time_to_wait > 12010 and {"lbl-forever"}) or math.floor(s.time_to_wait/60)
-        GUI.addLabel(tbl, time)
+        GUI.addLabel(tbl1, time)
 
-        local inf = ""
         local chunks = {}
         if line and rules and rules[i] then
           local chunk = {}
@@ -285,11 +278,11 @@ GUI = {
             end
           end
 
-          GUI.addLabel(tbl, text)
-          GUI.addPlaceHolder(tbl)
+          GUI.addLabel(tbl1, text)
+          GUI.addPlaceHolder(tbl1)
 
         else
-          GUI.addPlaceHolder(tbl,2)
+          GUI.addPlaceHolder(tbl1,2)
         end
 
 
@@ -314,13 +307,13 @@ GUI = {
       GUI.addPlaceHolder(pages)
     end
     GUI.addButton(btns, {name="saveAsLine__"..trainKey..lineKey, caption={"lbl-save-as-line"}})
-    local line = GUI.addTextfield(btns, {name="saveAslineName", text="", style="st_textfield_big"})
+    local line_ = GUI.addTextfield(btns, {name="saveAslineName", text="", style="st_textfield_big"})
     if trainLine then
-      line.text = trainLine.name
+      line_.text = trainLine.name
     end
   end,
 
-  showTrainLinesWindow = function(parent, trainInfo, player_index)
+  showTrainLinesWindow = function(_, trainInfo, player_index)
     local gui = game.players[player_index].gui[GUI.position].stGui.rows
     local trainKey = trainInfo and getTrainKeyByTrain(global.trains, trainInfo.train) or 0
     if gui.trainLines ~= nil then
@@ -328,11 +321,11 @@ GUI = {
     end
     local page = global.playerPage[player_index].line or 1
     local c=0
-    for _,l in pairs(global.trainLines) do
+    for _,_ in pairs(global.trainLines) do
       c = c+1
     end
     if global.trainLines and c > 0 then
-      local trainKey = trainKey or 0
+      trainKey = trainKey or 0
       gui = GUI.add(gui, {type="frame", name="trainLines", caption={"lbl-trainlines"}, direction="vertical", style="st_frame"})
       local tbl = GUI.add(gui, {type="table", name="tbl1", colspan=9})
       GUI.addLabel(tbl, {"lbl-trainline"})
@@ -399,7 +392,7 @@ GUI = {
     end
   end,
 
-  showDynamicRules = function(index, line, page)
+  showDynamicRules = function(index, line)
     --debugDump({i=index,line=line,station=stationKey, tr=trainKey}, true)
     local gui = game.players[index].gui[GUI.position].stGui
     if gui.dynamicRules ~= nil then
@@ -424,9 +417,9 @@ GUI = {
       GUI.addLabel(top_hdr, {caption="        "})
       GUI.addLabel(top_hdr, {caption={"lbl-wait-for-header"}, style="st_label_bold"})
       GUI.addLabel(tbl, {caption={"", "   ", {"lbl-seperator"},"       "}})
-      local top_hdr = GUI.add(tbl, {name="tophdr_flow2", type="flow", direction="horizontal"})
-      GUI.addLabel(top_hdr, {caption="    "})
-      GUI.addLabel(top_hdr, {caption={"lbl-go-to-header"}, style="st_label_bold"})
+      local top_hdr2 = GUI.add(tbl, {name="tophdr_flow2", type="flow", direction="horizontal"})
+      GUI.addLabel(top_hdr2, {caption="    "})
+      GUI.addLabel(top_hdr2, {caption={"lbl-go-to-header"}, style="st_label_bold"})
 
 
       GUI.addPlaceHolder(tbl,1)
@@ -444,15 +437,15 @@ GUI = {
       GUI.addLabel(test_table, {caption={"lbl-wait-for-circuit-header"}, style="st_label_bold"})
 
       GUI.addLabel(tbl, {caption={"","   ",{"lbl-seperator"}, "   "}})
-      local test_table = GUI.add(tbl, {name="tophdr_flow4", type="flow", direction="horizontal"})
+      local test_table2 = GUI.add(tbl, {name="tophdr_flow4", type="flow", direction="horizontal"})
 
-      GUI.addLabel(test_table, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
-      GUI.addLabel(test_table, {caption="   "})
+      GUI.addLabel(test_table2, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
+      GUI.addLabel(test_table2, {caption="   "})
 
-      GUI.addLabel(test_table, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
-      GUI.addLabel(test_table, {caption="   "})
+      GUI.addLabel(test_table2, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
+      GUI.addLabel(test_table2, {caption="   "})
 
-      GUI.addLabel(test_table, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
+      GUI.addLabel(test_table2, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
 
 
       local records = global.trainLines[line].records
@@ -490,7 +483,7 @@ GUI = {
 
           GUI.addLabel(tbl, {caption={"","   ",{"lbl-seperator"},"   "}})
 
-          local record1 = GUI.add(tbl, {name="rules_flow_b"..i, type="flow", direction="horizontal"})
+          record1 = GUI.add(tbl, {name="rules_flow_b"..i, type="flow", direction="horizontal"})
           GUI.add(record1,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", state=states.jumpToCircuit, left_padding=15})
           GUI.addLabel(record1, {caption="           "})
 
@@ -521,8 +514,8 @@ GUI = {
     end
   end,
 
-  find_relative = function(e, name, option2, flow)
-    local name = name..option2
+  find_relative = function(e, name_, option2, flow)
+    local name = name_..option2
     return e.parent.parent.parent["rules_flow_"..flow..option2]["padding_frame__"..name][name]
   end,
 
@@ -554,14 +547,14 @@ GUI = {
   end,
 }
 
-function sanitizeName(name)
-  local name = string.gsub(name, "_", " ")
+function sanitizeName(name_)
+  local name = string.gsub(name_, "_", " ")
   name = string.gsub(name, "^%s", "")
   name = string.gsub(name, "%s$", "")
   local pattern = "(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)"
   local element = "activeLine__"..name.."__".."something"
-  local t1,t2,t3,t4 = element:match(pattern)
-  if t1 == "activeLine" and t2 == name and t3 == "something" then
+  local t1,t2,t3,_ = element:match(pattern)
+  if t1 == "activeLine" and t2 == name and t3 == "something" then --TODO something?? really..
     return name
   else
     return false
@@ -572,7 +565,7 @@ function sanitizeNumber(number, default)
   return tonumber(number) or default
 end
 
-function sanitize_rules(player, line, rules, page)
+function sanitize_rules(player, line, _, page)
   --local page = global.playerRules[player.index].page or 1
   local upper = page*global.settings.rulesPerPage
   local lower = page*global.settings.rulesPerPage-global.settings.rulesPerPage
@@ -609,7 +602,7 @@ on_gui_click = {
       if on_gui_click[element.name] then
         refresh = on_gui_click[element.name](player)
       else
-        local option1, option2, option3, option4 = event.element.name:match("(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)")
+        local option1, option2, option3, _ = event.element.name:match("(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)")
         if on_gui_click[option1] then
           refresh = on_gui_click[option1](player, option2, option3, element)
         end
@@ -661,7 +654,7 @@ on_gui_click = {
   deleteLines = function(player)
     local group = player.gui[GUI.position].stGui.rows.trainLines.tbl1
     local trainKey
-    for i, child in pairs(group.children_names) do
+    for _, child in pairs(group.children_names) do
       local pattern = "(markedDelete)__([%w%s%-%#%!%$]*)_*(%d*)"
       local del, line, trainkey = child:match(pattern)
       if del and group[child].state == true then
@@ -703,12 +696,12 @@ on_gui_click = {
 
   renameLine = function(player)
     local group = player.gui[GUI.position].stGui.rows.trainLines.tbl1
-    local trainKey, rename
+    local rename
     local count=0
     local newName = player.gui[GUI.position].stGui.rows.trainLines.btns.newName.text
-    for i, child in pairs(group.children_names) do
+    for _, child in pairs(group.children_names) do
       local pattern = "(markedDelete)__([%w%s%-%#%!%$]*)_*(%d*)"
-      local del, line, trainkey = child:match(pattern)
+      local del, line, _ = child:match(pattern)
       if del and group[child].state == true then
         count = count+1
         rename = line
@@ -721,7 +714,7 @@ on_gui_click = {
           global.trainLines[newName] = table.deepcopy(global.trainLines[rename])
           global.trainLines[newName].name = newName
           global.trainLines[rename] = nil
-          for i,t in pairs(global.trains) do
+          for _,t in pairs(global.trains) do
             if t.line == rename then
               t.line = newName
             end
@@ -735,12 +728,12 @@ on_gui_click = {
     return false
   end,
 
-  refuel = function(player, option2)
+  refuel = function(_, option2)
     option2 = tonumber(option2)
     global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
   end,
 
-  depart = function(player, option2)
+  depart = function(_, option2)
     option2 = tonumber(option2)
     global.trains[option2].settings.autoDepart = not global.trains[option2].settings.autoDepart
   end,
@@ -758,7 +751,7 @@ on_gui_click = {
     --local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
     local textfield = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow["lineNumber__"..line]
     global.trainLines[line].number = math.floor(sanitizeNumber(textfield.text,0))
-    local tmp = {}
+
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
     global.trainLines[line].rules = table.deepcopy(global.guiData[player.index].rules)
     global.guiData[player.index] = {}
@@ -768,7 +761,7 @@ on_gui_click = {
     return true
   end,
 
-  readSchedule = function(player, option2)
+  readSchedule = function(_, option2)
     option2 = tonumber(option2)
     if global.trains[option2] ~= nil and global.trains[option2].train.valid then
       global.trains[option2].line = false
@@ -812,12 +805,11 @@ on_gui_click = {
 
         --remove/add rules if needed
         -- update original_time if time ~= 2^32-1
-        local records = global.trainLines[name].records
-        for i, record in pairs(records) do
+        records = global.trainLines[name].records
+        for _, record in pairs(records) do
           record.time_to_wait = record.time_to_wait == 0 and 10 or record.time_to_wait
         end
         
-        local remove_rule = {}
         for r_index, rule in pairs(global.trainLines[name].rules) do
           if records[r_index] and records[r_index].time_to_wait ~= 2^32-1 then
             rule.original_time = records[r_index].time_to_wait
@@ -849,7 +841,7 @@ on_gui_click = {
     return true
   end,
 
-  lineRefuel = function(player, option2)
+  lineRefuel = function(_, option2)
     local line = option2
     local trainKey = tonumber(option3)
     local t = global.trains[trainKey]
@@ -865,7 +857,7 @@ on_gui_click = {
     return true
   end,
 
-  lineDepart = function(player, option2, option3)
+  lineDepart = function(_, option2, option3)
     local line = option2
     local trainKey = tonumber(option3)
     local t = global.trains[trainKey]
@@ -909,33 +901,33 @@ on_gui_click = {
     GUI.create_or_update(t,player.index)
   end,
 
-  prevPageTrain = function(player,option2, option3)
+  prevPageTrain = function(player,option2)
     local page = tonumber(option2)
     page = (page > 1) and page - 1 or 1
     global.playerPage[player.index].schedule = page
     return true
   end,
 
-  nextPageTrain = function(player,option2, option3)
+  nextPageTrain = function(player,option2)
     local page = tonumber(option2)
     global.playerPage[player.index].schedule = page + 1
     return true
   end,
 
-  prevPageLine = function(player,option2, option3)
+  prevPageLine = function(player,option2)
     local page = tonumber(option2)
     page = (page > 1) and page - 1 or 1
     global.playerPage[player.index].line = page
     return true
   end,
 
-  nextPageLine = function(player,option2, option3)
+  nextPageLine = function(player,option2)
     local page = tonumber(option2)
     global.playerPage[player.index].line = page + 1
     return true
   end,
 
-  leaveFull = function(player, option2, option3, element)
+  leaveFull = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
     if element.state == true then
@@ -956,7 +948,7 @@ on_gui_click = {
     GUI.save_station_options(opts, player.index, option2)
   end,
 
-  leaveEmpty = function(player, option2, option3, element)
+  leaveEmpty = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
     if element.state == true then
@@ -978,7 +970,7 @@ on_gui_click = {
     GUI.save_station_options(opts, player.index, option2)
   end,
 
-  keepWaiting = function(player, option2, option3, element)
+  keepWaiting = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
     if opts.leaveFull.state == false and
@@ -990,7 +982,7 @@ on_gui_click = {
     GUI.save_station_options(opts, player.index, option2)
   end,
 
-  requireBoth = function(player, option2, option3, element)
+  requireBoth = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
     if opts.leaveEmpty.state or opts.leaveFull.state then
@@ -1002,7 +994,7 @@ on_gui_click = {
     GUI.save_station_options(opts, player.index, option2)
   end,
 
-  waitForCircuit = function(player, option2, option3, element)
+  waitForCircuit = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
     if opts.leaveFull.state == false and
@@ -1018,7 +1010,7 @@ on_gui_click = {
     GUI.save_station_options(opts, player.index, option2)
   end,
 
-  jumpToCircuit = function(player, option2, option3, element)
+  jumpToCircuit = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
     if opts.leaveFull.state == false and
