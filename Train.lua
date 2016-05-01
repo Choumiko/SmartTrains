@@ -1,5 +1,5 @@
-function startsWith(String,Start)
-  return string.sub(String,1,string.len(Start))==Start
+function startsWith(String,needle)
+  return string.sub(String,1,string.len(needle))==needle
 end
 
 Train = {
@@ -68,7 +68,7 @@ Train = {
         local tmp = (schedule.current % #schedule.records) + 1
         if index and index > 0 and index <= #schedule.records then
           tmp = index
-          self:flyingText("Going to "..schedule.records[index].station, YELLOW, {offset = -1})
+          self:flyingText("Going to "..schedule.records[index].station, YELLOW, {offset = -1}) --TODO localisation
         end
         --all below is needed to make a train go to another station, don't change!
         train.manual_mode = true
@@ -137,7 +137,7 @@ Train = {
     removeRefuelStation = function(self)
       if inSchedule(self:refuelStation(), self.train.schedule) and #self.train.schedule.records >= 3 then
         self.train.schedule = removeStation(self:refuelStation(), self.train.schedule)
-        self:flyingText("Refuel station removed", YELLOW)
+        self:flyingText("Refuel station removed", YELLOW) --TODO localisation
       end
     end,
 
@@ -499,7 +499,7 @@ Train = {
           --debugDump("updating line "..self.line.." train: "..self.train.carriages[1].backer_name,true)
           local rules = trainLine.rules
           if self.lineVersion >= 0 then
-            self:flyingText("updating schedule", YELLOW)
+            self:flyingText("updating schedule", YELLOW) --TODO localisation
           end
           local waitingAt = self.train.schedule.records[self.train.schedule.current] or {station="", time_to_wait=0}
           local schedule = {records={}}
@@ -530,7 +530,7 @@ Train = {
 
         end
       elseif (self.line and not global.trainLines[self.line]) then
-        self:flyingText("Dettached from line", RED)
+        self:flyingText("Dettached from line", RED) --TODO localisation
         local schedule = self.train.schedule
         for _, record in pairs(schedule.records) do
           if record.time_to_wait == 2^32-1 then

@@ -38,6 +38,7 @@ defaultRule = {
 stationsPerPage = 5
 linesPerPage = 5
 rulesPerPage = 5
+mappingsPerPage = 5
 
 local tmpPos = {}
 RED = {r = 0.9}
@@ -109,12 +110,15 @@ function initGlob()
   global.showFlyingText = global.showFlyingText or false
   global.playerPage = global.playerPage or {}
   global.playerRules = global.playerRules or {}
-  global.smartTrainstops = global.smartTrainstops or {}
 
   global.guiData = global.guiData or {}
   global.openedName = global.openedName or {}
   global.openedTrain = global.openedTrain or {}
+
+  -- by force
   global.stationCount = global.stationCount or {}
+  global.smartTrainstops = global.smartTrainstops or {}
+  global.stationMapping = global.stationMapping or {}
 
   global.settings = global.settings or defaultSettings
   global.settings.lines = global.settings.lines or {}
@@ -124,6 +128,7 @@ function initGlob()
   global.settings.stationsPerPage = stationsPerPage
   global.settings.linesPerPage = linesPerPage
   global.settings.rulesPerPage = rulesPerPage
+  global.settings.mappingsPerPage = mappingsPerPage
 
   global.fuel_values = global.fuel_values or {}
   global.fuel_values["coal"] = game.item_prototypes["coal"].fuel_value/1000000
@@ -149,6 +154,7 @@ local function init_force(force)
   initGlob()
   global.stationCount[force.name] = global.stationCount[force.name] or {}
   global.smartTrainstops[force.name] = global.smartTrainstops[force.name] or {}
+  global.stationMapping[force.name] = global.stationMapping[force.name] or {}
 end
 
 local function init_forces()
@@ -193,6 +199,7 @@ function on_configuration_changed(data)
       local old_version = data.mod_changes.SmartTrains.old_version
       local new_version = data.mod_changes.SmartTrains.new_version
       initGlob()
+      init_forces()
       init_players()
       if old_version then
         debugDump("SmartTrains version changed from "..old_version.." to "..new_version,true)
@@ -240,7 +247,6 @@ function on_configuration_changed(data)
           end
         end
         if old_version <= "0.3.9" then
-          log("here")
           local tmp = util.table.deepcopy(global.stationCount)
           local smart_stops = util.table.deepcopy(global.smartTrainstops)
           global.stationCount = {}
@@ -248,6 +254,7 @@ function on_configuration_changed(data)
           init_forces()
           global.stationCount.player = tmp
           global.smartTrainstops.player = smart_stops
+          findStations()
         end
       end
       if not old_version then
@@ -817,7 +824,6 @@ function ontick(event)
 end
 
 function on_player_opened(event)
-  log("st opened "..event.name)
   if event.entity.valid and game.players[event.player_index].valid then
     if event.entity.type == "locomotive" and event.entity.train then
       global.playerPage[event.player_index] = {schedule=1,lines=1}
@@ -830,15 +836,15 @@ function on_player_opened(event)
       train.opened = true
     elseif event.entity.type == "train-stop" then
       global.playerPage[event.player_index] = {schedule=1,lines=1}
+      local force = game.players[event.player_index].force.name
+      global.guiData[event.player_index] = {rules={}, mapping=table.deepcopy(global.stationMapping[force])}
       GUI.create_or_update(false, event.player_index)
-      global.guiData[event.player_index] = {rules={}}
       global.openedName[event.player_index] = event.entity.backer_name
     end
   end
 end
 
 function on_player_closed(event)
-  log("st closed")
   if event.entity.valid and game.players[event.player_index].valid then
     if event.entity.type == "locomotive" and event.entity.train then
       GUI.destroy(event.player_index)
@@ -906,7 +912,7 @@ function renameStation(newName, oldName)
   for line, data in pairs(global.trainLines) do
     for _, record in pairs(data.records) do
       if record.station == oldName then
-        debugDump("Line "..line.." changed: "..oldName.." to "..newName,true)
+        debugDump("Line "..line.." changed: "..oldName.." to "..newName,true) --TODO localisation
         record.station = newName
       end
     end
@@ -1235,15 +1241,16 @@ function findStations()
 
   -- create bounding box covering entire generated map
   local bounds = {{min_x*32,min_y*32},{max_x*32,max_y*32}}
+  initGlob()
   global.smartTrainstops = {}
   global.stationCount = {}
+  init_forces()
   for _, station in pairs(surface.find_entities_filtered{area=bounds, type="train-stop"}) do
     if station.name == "smart-train-stop" then
       --debugDump("SmartStop: "..station.backer_name,true)
       createProxy(station)
     end
     local force = station.force.name
-    global.stationCount[force] = global.stationCount[force] or {}
     if not global.stationCount[force][station.backer_name] then
       global.stationCount[force][station.backer_name] = 0
     end

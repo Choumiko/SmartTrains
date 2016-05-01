@@ -15,7 +15,7 @@ GUI = {
     root = "stGui",
     settings = {"settings"},
     trainInfo = {"trainInfo"}},
-    stationMapping = "stationMapping",
+  stationMapping = "stationMapping",
 
   position = "left",
 
@@ -28,7 +28,7 @@ GUI = {
         if player.opened.type == "locomotive" then
           GUI.showTrainInfoWindow(main, trainInfo, player_index)
         elseif player.opened.type == "train-stop" then
-          GUI.showStationMapping(main, player_index)
+          GUI.showStationMapping(player_index)
         end
       end
       GUI.showTrainLinesWindow(main,trainInfo, player_index)
@@ -267,9 +267,9 @@ GUI = {
           end
 
           if rules[i].jumpTo and rules[i].jumpTo <= #records then
-            table.insert(chunks, {{"lbl-jump-to"}, "", text, rules[i].jumpTo})
+            table.insert(chunks, {{"lbl-jump-to"}, "", rules[i].jumpTo})
           elseif rules[i].jumpTo then
-            table.insert(chunks, {"invalid #"}) --TODO: Localization
+            table.insert(chunks, {"invalid #"}) --TODO: localisation
           end
 
           local text = {""}
@@ -398,17 +398,57 @@ GUI = {
     end
   end,
 
-  showStationMapping = function(main, player_index)
-    local gui = game.players[player_index].gui[GUI.position].stGui.rows
-    local trainKey = trainInfo and getTrainKeyByTrain(global.trains, trainInfo.train) or 0
+  showStationMapping = function(player_index)
+    local player = game.players[player_index]
+    local gui = player.gui[GUI.position].stGui.rows
     if gui.stationMapping ~= nil then
       gui.stationMapping.destroy()
     end
+    local guiData = global.guiData[player_index]
+    guiData.mapping = guiData.mapping or {}
+    local page = global.playerPage[player_index].mapping or 1
+    local c=0
+    for _, count in pairs(global.stationCount[player.force.name]) do
+      if count > 0 then
+        c = c+1
+      end
+    end
+    local dirty = 0
+    local spp = global.settings.mappingsPerPage
+    local start = (page-1) * spp + 1
+    local max = start + spp - 1
 
-    gui = GUI.add(gui, { type = "frame", name = "stationMapping", caption = "Station mapping", direction = "vertical", style = "st_frame" } )
-    local tbl = GUI.add( gui, { type = "table", name = "tbl1", colspan = 2 } )
-    GUI.add( tbl, { type = "label", caption = "Station 1" } )
-    GUI.add( tbl, { type = "textfield", name = "station_map1", style = "", text = "" } )
+    gui = GUI.add(gui, { type = "frame", name = "frame1", caption = "Station mapping", direction = "vertical", style = "st_frame" } )
+    local tbl = GUI.add( gui, { type = "table", name = "stationMapping", colspan = 2 } )
+    local c1 = 1
+
+    for name, count in pairsByKeys(global.stationCount[player.force.name], sortByName) do
+      dirty= dirty+1
+      if dirty >= start and dirty <= max and count > 0 then
+        GUI.add( tbl, { type = "label", name = "station_map_label_" .. c1, caption = name } )
+        local text = global.guiData[player_index].mapping[name] or ""
+        GUI.add( tbl, { type = "textfield", name = "station_map_" .. c1, style = "st_textfield_small", text = text } )
+        c1 = c1 + 1
+      end
+    end
+
+    local btns = GUI.add(gui, {type="table", name="btns", colspan=4})
+    if dirty > spp then
+      if page > 1 then
+        GUI.addButton(btns, {name="prevPageMapping__"..page, caption="<", style="st_button_style_bold"})
+      else
+        GUI.addButton(btns, {caption="<", style="st_disabled_button_bold"})
+      end
+      GUI.addButton(btns, {caption=page.."/"..math.ceil(dirty/spp), style="st_disabled_button_bold"})
+      if max < c then
+        GUI.addButton(btns, {name="nextPageMapping__"..page, caption=">",style="st_button_style_bold"})
+      else
+        GUI.addButton(btns, {caption=">", style="st_disabled_button_bold"})
+      end
+    else
+      GUI.addPlaceHolder(btns)
+    end
+    GUI.addButton( btns, { caption = "Save", name = "saveMapping" } )
   end,
 
   showDynamicRules = function(index, line)
@@ -548,6 +588,29 @@ GUI = {
       jumpTo = GUI.find_relative(e, "jumpTo__", option2, "b"),
       keepWaiting = GUI.find_relative(e, "keepWaiting__", option2, "b"),
     }
+  end,
+
+  get_mapping_from_gui = function(player)
+    local tbl = player.gui[GUI.position].stGui.rows.frame1.stationMapping
+    --local tbl = element.parent.parent.stationMapping
+    local mappings = tbl.children_names
+    for _, name in pairs(mappings) do
+      if startsWith(name, "station_map_label_") then
+        local i = tonumber(name:match("station_map_label_*(%w*)"))
+        local station = tbl[name].caption
+        local text = tonumber(tbl["station_map_" .. i].text)
+        if text then
+          log(i.." " .. station .. ": ".. text)
+        else
+          -- no valid number, restore from saved mapping
+          text = global.stationMapping[player.force.name][station]
+          if tbl["station_map_" .. i].text ~= "" then
+            player.print("Invalid mapping for "..station..", '" .. tbl["station_map_" .. i].text .. "' is not a number") --TODO localisation
+          end
+        end
+        global.guiData[player.index].mapping[station] = text
+      end
+    end
   end,
 
   save_station_options = function(opts, index, option2)
@@ -740,7 +803,7 @@ on_gui_click = {
           end
         end
       else
-        debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true)
+        debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true) --TODO localisation
       end
       return true
     end
@@ -855,7 +918,7 @@ on_gui_click = {
         t.lineVersion = changed
       end
     else
-      debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true)
+      debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true) --TODO localisation
     end
     return true
   end,
@@ -943,6 +1006,28 @@ on_gui_click = {
   nextPageLine = function(player,option2)
     local page = tonumber(option2)
     global.playerPage[player.index].line = page + 1
+    return true
+  end,
+
+  prevPageMapping = function(player,option2)
+    GUI.get_mapping_from_gui(player)
+    local page = tonumber(option2)
+    page = (page > 1) and page - 1 or 1
+    global.playerPage[player.index].mapping = page
+    return true
+  end,
+
+  nextPageMapping = function(player,option2)
+    GUI.get_mapping_from_gui(player)
+    local page = tonumber(option2)
+    global.playerPage[player.index].mapping = page + 1
+    return true
+  end,
+
+  saveMapping = function(player)
+    GUI.get_mapping_from_gui(player)
+    global.stationMapping[player.force.name] = table.deepcopy(global.guiData[player.index].mapping)
+    player.print("Saved station mapping") --TODO localisation
     return true
   end,
 
