@@ -15,6 +15,7 @@ GUI = {
     root = "stGui",
     settings = {"settings"},
     trainInfo = {"trainInfo"}},
+    stationMapping = "stationMapping",
 
   position = "left",
 
@@ -23,8 +24,12 @@ GUI = {
     if player.valid then
       local main = GUI.buildGui(player)
       GUI.showSettingsButton(main)
-      if player.opened and player.opened.type == "locomotive" then
-        GUI.showTrainInfoWindow(main, trainInfo, player_index)
+      if player.opened then
+        if player.opened.type == "locomotive" then
+          GUI.showTrainInfoWindow(main, trainInfo, player_index)
+        elseif player.opened.type == "train-stop" then
+          GUI.showStationMapping(main, player_index)
+        end
       end
       GUI.showTrainLinesWindow(main,trainInfo, player_index)
     end
@@ -165,7 +170,8 @@ GUI = {
 
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
       local noStations, uniqueStations = 0,0
-      for _,station in pairs(global.stationCount) do
+      local force = game.players[index].force.name
+      for _,station in pairs(global.stationCount[force]) do
         if station > 0 then
           noStations = noStations + station
           uniqueStations = uniqueStations + 1
@@ -390,6 +396,19 @@ GUI = {
       GUI.addButton(btns,{name="renameLine", caption={"lbl-rename"}})
       GUI.addTextfield(btns,{name="newName", text="", style="st_textfield_big"})
     end
+  end,
+
+  showStationMapping = function(main, player_index)
+    local gui = game.players[player_index].gui[GUI.position].stGui.rows
+    local trainKey = trainInfo and getTrainKeyByTrain(global.trains, trainInfo.train) or 0
+    if gui.stationMapping ~= nil then
+      gui.stationMapping.destroy()
+    end
+
+    gui = GUI.add(gui, { type = "frame", name = "stationMapping", caption = "Station mapping", direction = "vertical", style = "st_frame" } )
+    local tbl = GUI.add( gui, { type = "table", name = "tbl1", colspan = 2 } )
+    GUI.add( tbl, { type = "label", caption = "Station 1" } )
+    GUI.add( tbl, { type = "textfield", name = "station_map1", style = "", text = "" } )
   end,
 
   showDynamicRules = function(index, line)
@@ -809,7 +828,7 @@ on_gui_click = {
         for _, record in pairs(records) do
           record.time_to_wait = record.time_to_wait == 0 and 10 or record.time_to_wait
         end
-        
+
         for r_index, rule in pairs(global.trainLines[name].rules) do
           if records[r_index] and records[r_index].time_to_wait ~= 2^32-1 then
             rule.original_time = records[r_index].time_to_wait

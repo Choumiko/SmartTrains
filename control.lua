@@ -6,9 +6,9 @@ require "util"
 -- this event is raised with extra parameter foo with value "bar"
 --game.raiseevent(myevent, {foo="bar"})
 if not remote.interfaces.EventsPlus then
-	events = {}
-	events["on_player_opened"] = script.generate_event_name()
-	events["on_player_closed"] = script.generate_event_name()
+  events = {}
+  events["on_player_opened"] = script.generate_event_name()
+  events["on_player_closed"] = script.generate_event_name()
 end
 
 debug = false
@@ -145,12 +145,34 @@ local function init_players()
   end
 end
 
+local function init_force(force)
+  initGlob()
+  global.stationCount[force.name] = global.stationCount[force.name] or {}
+  global.smartTrainstops[force.name] = global.smartTrainstops[force.name] or {}
+end
+
+local function init_forces()
+  for _, force in pairs(game.forces) do
+    init_force(force)
+  end
+end
+
+local function on_force_created(event)
+  init_force(event.force)
+end
+
+local function on_forces_merging(event)
+
+end
+
 local function on_player_created(event)
   init_player(game.players[event.player_index])
 end
 
 function oninit()
   initGlob()
+  init_forces()
+  init_players()
   findStations()
 end
 
@@ -217,6 +239,16 @@ function on_configuration_changed(data)
             end
           end
         end
+        if old_version <= "0.3.9" then
+          log("here")
+          local tmp = util.table.deepcopy(global.stationCount)
+          local smart_stops = util.table.deepcopy(global.smartTrainstops)
+          global.stationCount = {}
+          global.smartTrainstops = {}
+          init_forces()
+          global.stationCount.player = tmp
+          global.smartTrainstops.player = smart_stops
+        end
       end
       if not old_version then
         findStations()
@@ -263,12 +295,13 @@ function createProxy(trainstop)
   else
     ent = ent[1]
   end
+  local force = trainstop.force.name
   local key = stationKey(trainstop)
-  if not global.smartTrainstops[key] then
-    global.smartTrainstops[key] = {entity = trainstop}
+  if not global.smartTrainstops[force][key] then
+    global.smartTrainstops[force][key] = {entity = trainstop}
   end
   if ent.valid then
-    global.smartTrainstops[key] = {entity = trainstop, proxy=ent}
+    global.smartTrainstops[force][key] = {entity = trainstop, proxy=ent}
     ent.minable = false
     ent.destructible = false
   end
@@ -280,7 +313,7 @@ function createProxy(trainstop)
     ent2 = ent2[1]
   end
   if ent.valid and ent2.valid then
-    global.smartTrainstops[stationKey(trainstop)].cargo = ent2
+    global.smartTrainstops[force][stationKey(trainstop)].cargo = ent2
     ent2.minable = false
     ent2.operable = false
     ent2.destructible = false
@@ -288,16 +321,18 @@ function createProxy(trainstop)
 end
 
 function removeProxy(trainstop)
-  if global.smartTrainstops[stationKey(trainstop)] then
-    local proxy = global.smartTrainstops[stationKey(trainstop)].proxy
-    local cargo = global.smartTrainstops[stationKey(trainstop)].cargo
+  local force = trainstop.force.name
+  local key = stationKey(trainstop)
+  if global.smartTrainstops[force][key] then
+    local proxy = global.smartTrainstops[force][key].proxy
+    local cargo = global.smartTrainstops[force][key].cargo
     if proxy and proxy.valid then
       proxy.destroy()
     end
     if cargo and cargo.valid then
       cargo.destroy()
     end
-    global.smartTrainstops[stationKey(trainstop)] = nil
+    global.smartTrainstops[force][key] = nil
   end
 end
 
@@ -305,12 +340,13 @@ function recreateProxy(trainstop)
   local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
   local offsetcargo = {[0] = {x=-0.5,y=0.5},[2]={x=-0.5,y=-0.5},[4]={x=0.5,y=-0.5},[6]={x=0.5,y=0.5}}
   if trainstop.entity.valid then
+    local force = trainstop.entity.force.name
     if not trainstop.cargo or not trainstop.cargo.valid then
       local poscargo = addPos(trainstop.entity.position, offsetcargo[trainstop.entity.direction])
       local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.entity.force, position=poscargo}
       local ent2 = trainstop.entity.surface.create_entity(proxycargo)
       if ent2.valid then
-        global.smartTrainstops[stationKey(trainstop.entity)].cargo = ent2
+        global.smartTrainstops[force][stationKey(trainstop.entity)].cargo = ent2
         ent2.minable = false
         ent2.operable = false
         ent2.destructible = false
@@ -318,11 +354,11 @@ function recreateProxy(trainstop)
       end
     end
     if not trainstop.proxy or not trainstop.proxy.valid then
-      local pos = addPos(trainstop.position, offset[trainstop.direction])
+      local pos = addPos(trainstop.entity.position, offset[trainstop.entity.direction])
       local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.entity.force, position=pos}
-      local ent = trainstop.surface.create_entity(proxy)
+      local ent = trainstop.entity.surface.create_entity(proxy)
       if ent.valid then
-        global.smartTrainstops[stationKey(trainstop)].proxy=ent
+        global.smartTrainstops[force][stationKey(trainstop.entity)].proxy=ent
         ent.minable = false
         ent.destructible = false
       end
@@ -827,18 +863,18 @@ function on_player_closed(event)
 end
 
 function on_station_rename(station, oldName)
-  local oldc = decreaseStationCount(oldName)
+  local oldc = decreaseStationCount(station.force.name, oldName)
   if oldc == 0 then
     renameStation(station.backer_name, oldName)
   end
 end
 
-function decreaseStationCount(name)
-  if not global.stationCount[name] then
-    global.stationCount[name] = 1
+function decreaseStationCount(force, name)
+  if not global.stationCount[force][name] then
+    global.stationCount[force][name] = 1
   end
-  global.stationCount[name] = global.stationCount[name] - 1
-  if global.stationCount[name] == 0 then
+  global.stationCount[force][name] = global.stationCount[force][name] - 1
+  if global.stationCount[force][name] == 0 then
     local found = false
     for _, data in pairs(global.trainLines) do
       for _, record in pairs(data.records) do
@@ -849,19 +885,19 @@ function decreaseStationCount(name)
       end
     end
     if not found then
-      global.stationCount[name] = nil
+      global.stationCount[force][name] = nil
       return 0
     end
   end
-  return global.stationCount[name]
+  return global.stationCount[force][name]
 end
 
-function increaseStationCount(name)
-  if not global.stationCount[name] or global.stationCount[name] < 0 then
-    global.stationCount[name] = 0
+function increaseStationCount(force, name)
+  if not global.stationCount[force][name] or global.stationCount[force][name] < 0 then
+    global.stationCount[force][name] = 0
   end
-  global.stationCount[name] = global.stationCount[name] + 1
-  return global.stationCount[name]
+  global.stationCount[force][name] = global.stationCount[force][name] + 1
+  return global.stationCount[force][name]
 end
 
 function renameStation(newName, oldName)
@@ -885,11 +921,11 @@ function renameStation(newName, oldName)
 end
 
 if remote.interfaces.EventsPlus then
-	script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
-	script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
+  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
+  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
 else
-	script.on_event(events.on_player_opened, on_player_opened)
-	script.on_event(events.on_player_closed, on_player_closed)
+  script.on_event(events.on_player_opened, on_player_opened)
+  script.on_event(events.on_player_closed, on_player_closed)
 end
 
 function getTrainFromEntity(ent)
@@ -951,7 +987,7 @@ function onbuiltentity(event)
       removeInvalidTrains(true)
     end
     if ctype == "train-stop" then
-      increaseStationCount(ent.backer_name)
+      increaseStationCount(ent.force.name, ent.backer_name)
     end
     if ent.name == "smart-train-stop" then
       createProxy(event.created_entity)
@@ -988,7 +1024,7 @@ function onpreplayermineditem(event)
       end
     end
     if ctype == "train-stop" then
-      decreaseStationCount(ent.backer_name)
+      decreaseStationCount(ent.force.name, ent.backer_name)
     end
     if ent.name == "smart-train-stop" then
       removeProxy(event.entity)
@@ -1038,7 +1074,7 @@ function onentitydied(event)
       return
     end
     if event.entity.type == "train-stop" then
-      decreaseStationCount(event.entity.backer_name)
+      decreaseStationCount(event.entity.force.name, event.entity.backer_name)
     end
     if event.entity.name == "smart-train-stop" then
       removeProxy(event.entity)
@@ -1051,7 +1087,7 @@ end
 
 function on_robot_built_entity(event)
   if event.created_entity.type == "train-stop" then
-    increaseStationCount(event.created_entity.backer_name)
+    increaseStationCount(event.created_entity.force.name, event.created_entity.backer_name)
   end
   if event.created_entity.name == "smart-train-stop" then
     createProxy(event.created_entity)
@@ -1060,7 +1096,7 @@ end
 
 function on_robot_pre_mined(event)
   if event.entity.type == "train-stop" then
-    decreaseStationCount(event.entity.backer_name)
+    decreaseStationCount(event.entity.force.name, event.entity.backer_name)
   end
   if event.entity.name == "smart-train-stop" then
     removeProxy(event.entity)
@@ -1206,10 +1242,12 @@ function findStations()
       --debugDump("SmartStop: "..station.backer_name,true)
       createProxy(station)
     end
-    if not global.stationCount[station.backer_name] then
-      global.stationCount[station.backer_name] = 0
+    local force = station.force.name
+    global.stationCount[force] = global.stationCount[force] or {}
+    if not global.stationCount[force][station.backer_name] then
+      global.stationCount[force][station.backer_name] = 0
     end
-    global.stationCount[station.backer_name] = global.stationCount[station.backer_name] + 1
+    global.stationCount[force][station.backer_name] = global.stationCount[force][station.backer_name] + 1
   end
 end
 
@@ -1217,6 +1255,9 @@ script.on_init(oninit)
 script.on_load(onload)
 script.on_configuration_changed(on_configuration_changed)
 script.on_event(defines.events.on_player_created, on_player_created)
+script.on_event(defines.events.on_force_created, on_force_created)
+script.on_event(defines.events.on_forces_merging, on_forces_merging)
+
 script.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
 script.on_event(defines.events.on_player_mined_item, onplayermineditem)
 script.on_event(defines.events.on_preplayer_mined_item, onpreplayermineditem)
@@ -1317,12 +1358,12 @@ remote.add_interface("st",
       script.on_event(defines.events.on_tick, nil)
       script.on_event(defines.events.on_gui_click, nil)
       if remote.interfaces.EventsPlus then
-       	script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), nil)
-	      script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), nil)
+        script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), nil)
+        script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), nil)
       else
-      	script.on_event(events.on_player_opened, nil)
-	      script.on_event(events.on_player_closed, nil)
-	    end
+        script.on_event(events.on_player_opened, nil)
+        script.on_event(events.on_player_closed, nil)
+      end
       global.ticks = {}
       global.updateTick = {}
       for _, t in pairs(global.trains) do
@@ -1342,12 +1383,12 @@ remote.add_interface("st",
       script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
       script.on_event(defines.events.on_tick, ontick)
       if remote.interfaces.EventsPlus then
-      	script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
-	      script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
-	    else
-	    	script.on_event(events.on_player_opened, on_player_opened)
-      	script.on_event(events.on_player_closed, on_player_closed)
-	    end
+        script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
+        script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
+      else
+        script.on_event(events.on_player_opened, on_player_opened)
+        script.on_event(events.on_player_closed, on_player_closed)
+      end
     end,
 
     init = function()
@@ -1409,7 +1450,7 @@ remote.add_interface("st",
     end,
 
     smart_stops = function(player)
-      for _,s in pairs(global.smartTrainstops) do
+      for _,s in pairs(global.smartTrainstops[player.force.name]) do
         player.print(s.entity.backer_name)
       end
     end,

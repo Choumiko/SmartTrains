@@ -92,7 +92,8 @@ Train = {
       local locos = string.match(lType,"^(L*)-*C*$")
       local refuelStation = station.." "..lType
       local match = false
-      for name, c in pairs(global.stationCount) do
+      local force = self.train.carriages[1].force.name
+      for name, c in pairs(global.stationCount[force]) do
         if name == refuelStation and c > 0 then
           return refuelStation
         end
@@ -209,7 +210,7 @@ Train = {
       local station = findSmartTrainStopByTrain(vehicle, self.train.schedule.records[self.train.schedule.current].station)
       local proxy, cargoProxy = false, false
       if station then
-        local smartStop = global.smartTrainstops[stationKey(station)]
+        local smartStop = global.smartTrainstops[vehicle.force.name][stationKey(station)]
         --self:flyingText("S", GREEN, {offset=station.position})
         proxy = (smartStop and smartStop.proxy) and smartStop.proxy or false
         cargoProxy = (smartStop and smartStop.cargo) and smartStop.cargo or false
