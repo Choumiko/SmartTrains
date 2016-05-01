@@ -529,7 +529,7 @@ function ontrainchangedstate(event)
           t:flyingText("refueling", YELLOW)
         end
       end
-      if t:has_rules() then
+      if t:get_rules() then
         t:startWaitingForRules()
         t:flyingText("waiting for rules", YELLOW)
       end
@@ -664,10 +664,10 @@ function ontick(event)
                 local keepWaiting = nil
                 local cargo
                 local rules
-                if  train:isWaitingForRules() then
+                if train:isWaitingForRules() then
                   --Handle leave when full/empty rules here
                   --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
-                  rules = global.trainLines[train.line].rules[train.train.schedule.current]
+                  rules = train:get_rules()
                   --debugDump(rules,true)
                   local full = false
                   local empty = false

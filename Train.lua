@@ -169,19 +169,15 @@ Train = {
       end
     end,
 
-    has_rules = function(self)
-      local rules = (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
-      if rules then
-        return rules.empty or rules.full or rules.waitForCircuit
-      end
-      return false
+    get_rules = function(self)
+      return (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
     end,
 
     startWaitingForRules = function(self)
       if not self.waiting then
         local nextCheck = self.train.schedule.records[self.train.schedule.current].time_to_wait == 10 and game.tick + 9 or game.tick + global.settings.depart.minWait
         self.waiting = {lastCheck = game.tick, nextCheck = nextCheck}
-        local rules = self:has_rules()
+        local rules = self:get_rules()
         self.waitForever = false
         if rules then
           if rules.keepWaiting then
@@ -198,7 +194,7 @@ Train = {
     end,
 
     isWaitingForRules = function(self)
-      local rules = self:has_rules()
+      local rules = self:get_rules()
       return type(self.waiting) == "table" and rules
     end,
 
