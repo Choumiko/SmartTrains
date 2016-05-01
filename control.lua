@@ -16,7 +16,7 @@ debug = false
 require("gui")
 require("Train")
 
-defaultTrainSettings = {autoRefuel = false, autoDepart = false}
+defaultTrainSettings = {autoRefuel = false}
 defaultSettings =
   { refuel={station="Refuel", rangeMin = 25*8, rangeMax = 50*8, time = 600},
     depart={minWait = 240, interval = 120, minFlow = 1},
@@ -26,6 +26,7 @@ defaultSettings =
 defaultRule = {
   empty = false,
   full = false,
+  noChange = false,
   jumpTo = false,
   jumpToCircuit = false,
   keepWaiting = false,
@@ -119,6 +120,7 @@ function initGlob()
   global.stationCount = global.stationCount or {}
   global.smartTrainstops = global.smartTrainstops or {}
   global.stationMapping = global.stationMapping or {}
+  global.stationMap = global.stationMap or {}
 
   global.settings = global.settings or defaultSettings
   global.settings.lines = global.settings.lines or {}
@@ -155,6 +157,7 @@ local function init_force(force)
   global.stationCount[force.name] = global.stationCount[force.name] or {}
   global.smartTrainstops[force.name] = global.smartTrainstops[force.name] or {}
   global.stationMapping[force.name] = global.stationMapping[force.name] or {}
+  global.stationMap[force.name] = global.stationMap[force.name] or {}
 end
 
 local function init_forces()
@@ -575,10 +578,6 @@ function ontrainchangedstate(event)
       if t:get_rules() then
         t:startWaitingForRules()
         t:flyingText("waiting for rules", YELLOW)
-      end
-      if settings.autoDepart and t:currentStation() ~= t:refuelStation() and #schedule.records > 1 then
-        t:startWaitingForAutoDepart()
-        t:flyingText("waiting", YELLOW)
       end
       if t:isWaiting() then
       --debugDump(game.tick.." waiting",true)

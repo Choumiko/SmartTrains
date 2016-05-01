@@ -20,7 +20,6 @@ Train = {
           direction = 0 -- 0 = front, 1 back
         --manualMode = train.manual_mode
         }
-        new.settings.autoDepart = defaultTrainSettings.autoDepart
         new.settings.autoRefuel = defaultTrainSettings.autoRefuel
         if train.locomotives ~= nil and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
           if train.locomotives.front_movers[1] then
@@ -521,7 +520,6 @@ Train = {
             schedule.current = 1
           end
           self.settings.autoRefuel = trainLine.settings.autoRefuel
-          self.settings.autoDepart = trainLine.settings.autoDepart
           self.lineVersion = trainLine.changed
 
           self.train.manual_mode = true

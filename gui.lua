@@ -2,6 +2,10 @@ function page_count(item_count, items_per_page)
   return math.floor((item_count - 1) / (items_per_page)) + 1
 end
 
+function trim(s)
+  return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
+
 GUI = {
   styleprefix = "st_",
 
@@ -202,8 +206,9 @@ GUI = {
     end
     local tableRows = GUI.add(gui, {type="table", name="rows", colspan=1})
     local checkboxes = GUI.add(tableRows, {type="table", name="checkboxes", colspan=2})
-    GUI.add(checkboxes, {type="checkbox", name="btn_refuel__"..trainKey, caption={"lbl-refuel"}, state=t.settings.autoRefuel})
-    GUI.add(checkboxes, {type="checkbox", name="btn_depart__"..trainKey, caption={"lbl-depart"}, state=t.settings.autoDepart})
+    if not trainLine then
+      GUI.add(checkboxes, {type="checkbox", name="btn_refuel__"..trainKey, caption={"lbl-refuel"}, state=t.settings.autoRefuel})
+    end
     local tbl = GUI.add(tableRows, {type="table", name="line", colspan=2})
     GUI.addLabel(tbl, {"", {"lbl-active-line"}, ": ", line})
     GUI.addLabel(tbl, {"", " ", dated})
@@ -240,8 +245,8 @@ GUI = {
         if line and rules and rules[i] then
           local chunk = {}
 
-          if rules[i].full or rules[i].empty then
-            local condition = rules[i].full and {"lbl-full"} or {"lbl-empty"}
+          if rules[i].full or rules[i].empty or rules[i].noChange then
+            local condition = rules[i].full and {"lbl-full"} or rules[i].empty and {"lbl-empty"} or rules[i].noChange and "no change"
             table.insert(chunk, condition)
             table.insert(chunk, " ")
 
@@ -333,7 +338,7 @@ GUI = {
     if global.trainLines and c > 0 then
       trainKey = trainKey or 0
       gui = GUI.add(gui, {type="frame", name="trainLines", caption={"lbl-trainlines"}, direction="vertical", style="st_frame"})
-      local tbl = GUI.add(gui, {type="table", name="tbl1", colspan=9})
+      local tbl = GUI.add(gui, {type="table", name="tbl1", colspan=8})
       GUI.addLabel(tbl, {"lbl-trainline"})
       GUI.addLabel(tbl, {"lbl-1st-station"})
       GUI.addLabel(tbl, {"lbl-number-stations"})
@@ -345,7 +350,6 @@ GUI = {
       end
       GUI.addLabel(tbl, {"lbl-marked"})
       GUI.addLabel(tbl,{"lbl-refuel"})
-      GUI.addLabel(tbl,{"lbl-depart"})
       GUI.addPlaceHolder(tbl)
       local dirty = 0
       local spp = global.settings.linesPerPage
@@ -371,7 +375,6 @@ GUI = {
           end
           GUI.add(tbl, {type="checkbox", name="markedDelete__"..i.."__"..trainKey, state=false})
           GUI.add(tbl,{type="checkbox", name="lineRefuel__"..i.."__"..trainKey, state=l.settings.autoRefuel})
-          GUI.add(tbl,{type="checkbox", name="lineDepart__"..i.."__"..trainKey, state=l.settings.autoDepart})
           GUI.addButton(tbl, {name="editRules__"..i, caption={"lbl-rules"}, style="st_button_style_bold"})
         end
       end
@@ -465,9 +468,10 @@ GUI = {
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
       local flow = GUI.add(gui, {type="flow", name="rulesFlow", direction="horizontal"})
-      GUI.addLabel(flow, {name="line", caption="Line: "..lineName})
+      GUI.addLabel(flow, {name="line", caption="Line: "..lineName}) --TODO localisation
       GUI.addLabel(flow, {name="line_number", caption="#: "})
-      GUI.addTextfield(flow, {name="lineNumber__"..line, style="st_textfield_small", text=line_number})
+      GUI.addTextfield( flow, {name="lineNumber__"..line, style="st_textfield_small", text=line_number})
+      GUI.add( flow, { type = "checkbox", name = "useMapping__" .. line, style = "st_checkbox", caption = "use station mapping" } ) --TODO localisation
 
       local tbl = GUI.add(gui,{type="table", name="tbltophdr", colspan=4, style="st_table"})
 
@@ -488,6 +492,9 @@ GUI = {
       GUI.addLabel(test_table, {caption="   "})
 
       GUI.addLabel(test_table, {caption={"lbl-full-header"}, style="st_label_bold"})
+      GUI.addLabel(test_table, {caption="   "})
+
+      GUI.addLabel(test_table, {caption="No change", style="st_label_bold"}) --TODO localisation
       GUI.addLabel(test_table, {caption="   "})
 
       GUI.addLabel(test_table, {caption={"lbl-and-header"}, style="st_label_bold"})
@@ -523,20 +530,24 @@ GUI = {
             waitForCircuit = rules[i] and rules[i].waitForCircuit or false,
             requireBoth = rules[i] and rules[i].requireBoth or false,
             jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false,
-            jumpTo = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or ""
+            jumpTo = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or "",
+            noChange = rules[i] and rules[i].noChange or false
           }
 
           GUI.addLabel(tbl, {caption="#"..i..s.station, style="st_label_bold"})
           local record1 = GUI.add(tbl, {name="rules_flow_a"..i, type="flow", direction="horizontal"})
 
-          GUI.add(record1, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", state=states.empty, left_padding=14, top_padding=true})
+          GUI.add(record1, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", state=states.empty, left_padding=14})--, top_padding=true})
           GUI.addLabel(record1, {caption="     "})
 
-          GUI.add(record1, {type="checkbox", name="leaveFull__"..i, style="st_radio", state=states.full, left_padding=7, top_padding=true})
-          GUI.addLabel(record1, {caption="   "})
+          GUI.add(record1, {type="checkbox", name="leaveFull__"..i, style="st_radio", state=states.full, left_padding=7})--, top_padding=true})
+          GUI.addLabel(record1, {caption="         "})
+
+          GUI.add(record1, {type="checkbox", name="leaveNoChange__"..i, style="st_radio", state=states.noChange, left_padding=7})--, top_padding=true})
+          GUI.addLabel(record1, {caption="          "})
 
           GUI.add(record1, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", state=states.requireBoth, left_padding=7})
-          GUI.addLabel(record1, {caption="    "})
+          GUI.addLabel(record1, {caption="     "})
 
           GUI.add(record1, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", state=states.waitForCircuit, left_padding=11})
 
@@ -580,13 +591,14 @@ GUI = {
 
   get_station_options = function(e, option2)
     return {
-      leaveEmpty = GUI.find_relative(e, "leaveEmpty__", option2, "a"),
-      leaveFull = GUI.find_relative(e, "leaveFull__", option2, "a"),
-      requireBoth = GUI.find_relative(e, "requireBoth__", option2, "a"),
-      waitForCircuit = GUI.find_relative(e, "waitForCircuit__", option2, "a"),
-      jumpToCircuit = GUI.find_relative(e, "jumpToCircuit__", option2, "b"),
-      jumpTo = GUI.find_relative(e, "jumpTo__", option2, "b"),
-      keepWaiting = GUI.find_relative(e, "keepWaiting__", option2, "b"),
+      leaveEmpty      = GUI.find_relative(e, "leaveEmpty__", option2, "a"),
+      leaveFull       = GUI.find_relative(e, "leaveFull__", option2, "a"),
+      leaveNoChange     = GUI.find_relative(e, "leaveNoChange__", option2 ,"a"),
+      requireBoth     = GUI.find_relative(e, "requireBoth__", option2, "a"),
+      waitForCircuit  = GUI.find_relative(e, "waitForCircuit__", option2, "a"),
+      jumpToCircuit   = GUI.find_relative(e, "jumpToCircuit__", option2, "b"),
+      jumpTo          = GUI.find_relative(e, "jumpTo__", option2, "b"),
+      keepWaiting     = GUI.find_relative(e, "keepWaiting__", option2, "b"),
     }
   end,
 
@@ -598,26 +610,38 @@ GUI = {
       if startsWith(name, "station_map_label_") then
         local i = tonumber(name:match("station_map_label_*(%w*)"))
         local station = tbl[name].caption
-        local text = tonumber(tbl["station_map_" .. i].text)
-        if text then
-          log(i.." " .. station .. ": ".. text)
-        else
+        local text = trim(tbl["station_map_" .. i].text)
+        text = tonumber(text)
+
+        if text == nil then
           -- no valid number, restore from saved mapping
           text = global.stationMapping[player.force.name][station]
-          if tbl["station_map_" .. i].text ~= "" then
-            player.print("Invalid mapping for "..station..", '" .. tbl["station_map_" .. i].text .. "' is not a number") --TODO localisation
-          end
+          player.print("Invalid mapping for "..station..", '" .. tbl["station_map_" .. i].text .. "' is not a number") --TODO localisation
         end
-        global.guiData[player.index].mapping[station] = text
+        global.guiData[player.index].mapping[station] = text or false
       end
     end
   end,
 
   save_station_options = function(opts, index, option2)
+
+    if  opts.leaveFull.state == false and
+      opts.leaveEmpty.state == false and
+      opts.leaveNoChange.state == false and
+      opts.waitForCircuit.state == false
+    then
+      opts.keepWaiting.state = false
+    end
+
+    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state and not opts.leaveNoChange.state) then
+      opts.requireBoth.state = false
+    end
+
     local rules = global.guiData[index].rules[tonumber(option2)] or {}
 
     rules.empty = opts.leaveEmpty.state
     rules.full = opts.leaveFull.state
+    rules.noChange = opts.leaveNoChange.state
     rules.requireBoth = opts.requireBoth.state
     rules.waitForCircuit = opts.waitForCircuit.state
     rules.keepWaiting = opts.keepWaiting.state
@@ -815,11 +839,6 @@ on_gui_click = {
     global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
   end,
 
-  depart = function(_, option2)
-    option2 = tonumber(option2)
-    global.trains[option2].settings.autoDepart = not global.trains[option2].settings.autoDepart
-  end,
-
   editRules = function(player, option2)
     --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
     GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
@@ -877,7 +896,7 @@ on_gui_click = {
         end
 
         local changed = game.tick
-        global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel, autoDepart = t.settings.autoDepart}
+        global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel}
         global.trainLines[name].records = records
         global.trainLines[name].changed = changed
 
@@ -933,22 +952,6 @@ on_gui_click = {
       line.changed = game.tick
       if t and t.line and t.line == line.name then
         t.settings.autoRefuel = line.settings.autoRefuel
-        t.lineVersion = line.changed
-      end
-    end
-    return true
-  end,
-
-  lineDepart = function(_, option2, option3)
-    local line = option2
-    local trainKey = tonumber(option3)
-    local t = global.trains[trainKey]
-    if line and global.trainLines[line] then
-      line = global.trainLines[line]
-      line.settings.autoDepart = not line.settings.autoDepart
-      line.changed = game.tick
-      if t and t.line and t.line == line.name then
-        t.settings.autoDepart = line.settings.autoDepart
         t.lineVersion = line.changed
       end
     end
@@ -1026,7 +1029,22 @@ on_gui_click = {
 
   saveMapping = function(player)
     GUI.get_mapping_from_gui(player)
-    global.stationMapping[player.force.name] = table.deepcopy(global.guiData[player.index].mapping)
+    --global.stationMapping[player.force.name] = table.deepcopy(global.guiData[player.index].mapping)
+    local force = player.force.name
+    global.stationMap[force] = {}
+    for name, id in pairs(global.guiData[player.index].mapping) do
+      global.stationMap[force][id] = global.stationMap[force][id] or {}
+      if id then
+        global.stationMapping[force][name] = id
+        global.stationMap[force][id][name] = true
+      else
+        global.stationMapping[force][name] = nil
+        global.stationMap[force][id][name] = nil
+      end
+      if not next(global.stationMap[force][id]) then
+        global.stationMap[force][id] = nil
+      end
+    end
     player.print("Saved station mapping") --TODO localisation
     return true
   end,
@@ -1038,15 +1056,9 @@ on_gui_click = {
       if opts.leaveEmpty.state == true then
         opts.leaveEmpty.state = false
       end
-    end
-    if opts.leaveFull.state == false and
-      opts.leaveEmpty.state == false and
-      opts.waitForCircuit.state == false then
-      opts.keepWaiting.state = false
-    end
-
-    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then
-      opts.requireBoth.state = false
+      if opts.leaveNoChange.state == true then
+        opts.leaveNoChange.state = false
+      end
     end
 
     GUI.save_station_options(opts, player.index, option2)
@@ -1059,16 +1071,24 @@ on_gui_click = {
       if opts.leaveFull.state == true then
         opts.leaveFull.state = false
       end
+      if opts.leaveNoChange.state == true then
+        opts.leaveNoChange.state = false
+      end
     end
 
-    if opts.leaveFull.state == false and
-      opts.leaveEmpty.state == false and
-      opts.waitForCircuit.state == false then
-      opts.keepWaiting.state = false
-    end
+    GUI.save_station_options(opts, player.index, option2)
+  end,
 
-    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then
-      opts.requireBoth.state = false
+  leaveNoChange = function(player, option2, _, element)
+    local opts = GUI.get_station_options(element, option2)
+
+    if element.state == true then
+      if opts.leaveFull.state == true then
+        opts.leaveFull.state = false
+      end
+      if opts.leaveEmpty.state == true then
+        opts.leaveEmpty.state = false
+      end
     end
 
     GUI.save_station_options(opts, player.index, option2)
@@ -1077,21 +1097,15 @@ on_gui_click = {
   keepWaiting = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
-    if opts.leaveFull.state == false and
-      opts.leaveEmpty.state == false and
-      opts.waitForCircuit.state == false then
-      opts.keepWaiting.state = false
-    end
-
     GUI.save_station_options(opts, player.index, option2)
   end,
 
   requireBoth = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
-    if opts.leaveEmpty.state or opts.leaveFull.state then
+    if opts.leaveEmpty.state or opts.leaveFull.state or opts.leaveNoChange.state then
       opts.waitForCircuit.state = true
-    elseif not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then
+    elseif not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state and not opts.leaveNoChange.state) then
       opts.requireBoth.state = false
     end
 
@@ -1101,27 +1115,11 @@ on_gui_click = {
   waitForCircuit = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
 
-    if opts.leaveFull.state == false and
-      opts.leaveEmpty.state == false and
-      opts.waitForCircuit.state == false then
-      opts.keepWaiting.state = false
-    end
-
-    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state) then
-      opts.requireBoth.state = false
-    end
-
     GUI.save_station_options(opts, player.index, option2)
   end,
 
   jumpToCircuit = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
-
-    if opts.leaveFull.state == false and
-      opts.leaveEmpty.state == false and
-      opts.waitForCircuit.state == false then
-      opts.keepWaiting.state = false
-    end
 
     GUI.save_station_options(opts, player.index, option2)
   end,
