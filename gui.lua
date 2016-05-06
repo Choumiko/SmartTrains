@@ -422,7 +422,7 @@ GUI = {
     local max = start + spp - 1
 
     gui = GUI.add(gui, { type = "frame", name = "frame1", caption = "Station mapping", direction = "vertical", style = "st_frame" } )
-    local tbl = GUI.add( gui, { type = "table", name = "stationMapping", colspan = 2 } )
+    local tbl = GUI.add( gui, { type = "table", name = "stationMapping", colspan = 5 } )
     local c1 = 1
 
     for name, count in pairsByKeys(global.stationCount[player.force.name], sortByName) do
@@ -431,6 +431,9 @@ GUI = {
         GUI.add( tbl, { type = "label", name = "station_map_label_" .. c1, caption = name } )
         local text = global.guiData[player_index].mapping[name] or ""
         GUI.add( tbl, { type = "textfield", name = "station_map_" .. c1, style = "st_textfield_small", text = text } )
+        if c1 % 2 == 1 then
+          GUI.add( tbl, { type = "label", caption = "   "})
+        end
         c1 = c1 + 1
       end
     end

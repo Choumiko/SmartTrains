@@ -5,11 +5,11 @@ require "util"
 -- the name and tick are filled for the event automatically
 -- this event is raised with extra parameter foo with value "bar"
 --game.raiseevent(myevent, {foo="bar"})
-if not remote.interfaces.EventsPlus then
+--if not remote.interfaces.EventsPlus then
   events = {}
   events["on_player_opened"] = script.generate_event_name()
   events["on_player_closed"] = script.generate_event_name()
-end
+--end
 
 debug = false
 
@@ -39,7 +39,7 @@ defaultRule = {
 stationsPerPage = 5
 linesPerPage = 5
 rulesPerPage = 5
-mappingsPerPage = 5
+mappingsPerPage = 10
 
 local tmpPos = {}
 RED = {r = 0.9}
@@ -745,7 +745,7 @@ function on_tick(event)
               or (not rules.requireBoth and ( cargo_requirement or ( rules.waitForCircuit and signal )))
             then
               local signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
-              
+
               local use_mapping = global.trainLines[train.line] and global.trainLines[train.line].settings.useMapping or false
               local jump
               if use_mapping then
@@ -805,7 +805,8 @@ function on_tick(event)
     end
     --debugLog(" tick e", game.tick)
   end
-  if not remote.interfaces.EventsPlus and current_tick%10==9  then
+  --if not remote.interfaces.EventsPlus and current_tick%10==9  then
+  if current_tick%10==9  then
     local status,err = pcall(function()
       for pi, player in pairs(game.players) do
         if player.connected then
@@ -871,13 +872,6 @@ function on_player_closed(event)
   end
 end
 
-function on_station_rename(station, oldName)
-  local oldc = decreaseStationCount(station.force.name, oldName)
-  if oldc == 0 then
-    renameStation(station.backer_name, oldName)
-  end
-end
-
 function decreaseStationCount(force, name)
   if not global.stationCount[force][name] then
     global.stationCount[force][name] = 1
@@ -929,13 +923,29 @@ function renameStation(newName, oldName)
   end
 end
 
-if remote.interfaces.EventsPlus then
-  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
-  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
-else
+function on_station_rename(station, oldName)
+  local force = station.force.name
+  local oldc = decreaseStationCount(force, oldName)
+  if oldc == 0 then
+    renameStation(station.backer_name, oldName)
+    global.stationMapping[force][oldName] = nil
+    for i, stations in pairs(global.stationMap[force]) do
+      stations[oldName] = nil
+      if not next(global.stationMap[force][i]) then
+        global.stationMap[force][i] = nil
+      end
+    end
+  end
+  increaseStationCount(force,station.backer_name)
+end
+
+--if remote.interfaces.EventsPlus then
+--  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
+--  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
+--else
   script.on_event(events.on_player_opened, on_player_opened)
   script.on_event(events.on_player_closed, on_player_closed)
-end
+--end
 
 function getTrainFromEntity(ent)
   for _,trainInfo in pairs(global.trains) do
