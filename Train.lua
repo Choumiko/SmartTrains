@@ -53,6 +53,25 @@ Train = {
       debugDump(self.name, true)
     end,
 
+    get_first_matching_station = function(self, value)
+      local stations = global.stationMap[self.train.carriages[1].force.name][value]
+      if not stations then
+        return false
+      end
+      local schedule = self.train.schedule
+      local records = schedule.records
+      local current = schedule.current
+      local num_records = #records
+      local index
+      for i = 0, num_records - 2 do
+        index = (current + i) % num_records + 1
+        if stations[records[index].station] then
+          return index
+        end
+      end
+      return false
+    end,
+
     nextStation = function(self, force, index)
       local train = self.train
       if self.settings.autoRefuel then
@@ -63,6 +82,7 @@ Train = {
       end
       if train.manual_mode == false or force then
         local schedule = train.schedule
+
         local tmp = (schedule.current % #schedule.records) + 1
         if index and index > 0 and index <= #schedule.records then
           tmp = index
@@ -202,7 +222,7 @@ Train = {
       local vehicle = (self.direction and self.direction == 0) and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
       --self:flyingText("V", GREEN, {offset=vehicle.position})
       local station = findSmartTrainStopByTrain(vehicle, self.train.schedule.records[self.train.schedule.current].station)
-      local proxy, cargoProxy = false, false
+      local proxy, cargoProxy
       if station then
         local smartStop = global.smartTrainstops[vehicle.force.name][stationKey(station)]
         --self:flyingText("S", GREEN, {offset=station.position})
@@ -256,8 +276,8 @@ Train = {
         output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = 5}
 
         local i=6
-        if self.line and global.trainLines[self.line] and global.trainLines[self.line].number ~= 0 then
-          output.parameters[6]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].number, index = 6}
+        if self.line and global.trainLines[self.line] and global.trainLines[self.line].settings.number ~= 0 then
+          output.parameters[6]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].settings.number, index = 6}
           i=7
         end
 

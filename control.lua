@@ -170,7 +170,7 @@ local function on_force_created(event)
   init_force(event.force)
 end
 
-local function on_forces_merging(event)
+local function on_forces_merging(_)
 
 end
 
@@ -268,6 +268,13 @@ function on_configuration_changed(data)
               t.settings.autoDepart = nil
             end
           end
+
+          for _, l in pairs(global.trainLines) do
+            l.settings.useMapping = false
+            l.settings.number = l.number
+            l.number = nil
+            l.settings.autoDepart = nil
+          end
         end
       end
       if not old_version and not searched_stations then
@@ -290,12 +297,12 @@ function addPos(p1,p2)
   if p2 and not p2.x then
     error("Invalid position 2", 2)
   end
-  local p2 = p2 or {x=0,y=0}
+  p2 = p2 or {x=0,y=0}
   return {x=p1.x+p2.x, y=p1.y+p2.y}
 end
 
 function expandPos(pos, range)
-  local range = range or 0.5
+  range = range or 0.5
   if not pos or not pos.x then error("invalid pos",3) end
   return {{pos.x - range, pos.y - range}, {pos.x + range, pos.y + range}}
 end
@@ -407,7 +414,7 @@ end
 
 function removeInvalidTrains(show)
   local removed = 0
-  local show = show or debug
+  show = show or debug
   for i=#global.trains,1,-1 do
     local ti = global.trains[i]
     if not ti.train or not ti.train.valid or (#ti.train.locomotives.front_movers == 0 and #ti.train.locomotives.back_movers == 0) then
@@ -457,7 +464,7 @@ function removeStation(station, schedule)
 end
 
 function addStation(station, schedule, wait, after)
-  local wait = wait or 600
+  wait = wait or 600
   local tmp = {time_to_wait = wait, station = station}
   if after then
     table.insert(schedule.records, after+1, tmp)
@@ -558,12 +565,12 @@ function on_train_changed_state(event)
         end
       end
       if not done then
-        for _, train in pairs(global.trains) do
-          if train == t then
-            train:resetCircuitSignal()
-            train.waitingStation = false
-            train.waiting = false
-            train.refueling = false
+        for _, train_ in pairs(global.trains) do
+          if train_ == t then
+            train_:resetCircuitSignal()
+            train_.waitingStation = false
+            train_.waiting = false
+            train_.refueling = false
           end
         end
       end
@@ -705,7 +712,7 @@ function on_tick(event)
           end
 
           if train:isWaitingForRules() and current_tick >= train.waiting.nextCheck then
-            local keepWaiting = nil
+            local keepWaiting
             local cargo
             local rules
             --Handle leave when full/empty rules here
@@ -738,7 +745,23 @@ function on_tick(event)
               or (not rules.requireBoth and ( cargo_requirement or ( rules.waitForCircuit and signal )))
             then
               local signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
-              local jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
+              
+              local use_mapping = global.trainLines[train.line] and global.trainLines[train.line].settings.useMapping or false
+              local jump
+              if use_mapping then
+                local jumpSignal, jumpTo
+                if signalValue then
+                  jumpSignal = train:get_first_matching_station(signalValue)
+                  log("jumpSignal:" .. serpent.line(jumpSignal))
+                end
+                if rules.jumpTo then
+                  jumpTo = train:get_first_matching_station(rules.jumpTo)
+                  log("jumpTo:" .. serpent.line(jumpTo))
+                end
+                jump = jumpSignal or jumpTo or false
+              else
+                jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
+              end
               train:waitingDone(true, jump)
               keepWaiting = false
             else
@@ -959,7 +982,7 @@ function onbuiltentity(event)
       local name = ent.ghost_name
       local area = expandPos(ent.position, 0.2)
       ent.revive()
-      local ent = surface.find_entities_filtered{area=area, name = name}
+      ent = surface.find_entities_filtered{area=area, name = name}
       --debugDump({ent[1].name},true)
       ent[1].destructible = false
       ent[1].minable = false

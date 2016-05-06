@@ -463,7 +463,8 @@ GUI = {
     if line and global.trainLines[line] then
       global.guiData[index].line = line
       local lineName = global.trainLines[line].name
-      local line_number = global.trainLines[line].number
+      local line_number = global.trainLines[line].settings.number
+      local use_mapping = global.trainLines[line].settings.useMapping
 
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
@@ -471,7 +472,7 @@ GUI = {
       GUI.addLabel(flow, {name="line", caption="Line: "..lineName}) --TODO localisation
       GUI.addLabel(flow, {name="line_number", caption="#: "})
       GUI.addTextfield( flow, {name="lineNumber__"..line, style="st_textfield_small", text=line_number})
-      GUI.add( flow, { type = "checkbox", name = "useMapping__" .. line, style = "st_checkbox", caption = "use station mapping" } ) --TODO localisation
+      GUI.add( flow, { type = "checkbox", name = "useMapping__" .. line, style = "st_checkbox", caption = "use station mapping", state = use_mapping } ) --TODO localisation
 
       local tbl = GUI.add(gui,{type="table", name="tbltophdr", colspan=4, style="st_table"})
 
@@ -534,10 +535,10 @@ GUI = {
             noChange = rules[i] and rules[i].noChange or false
           }
 
-          GUI.addLabel(tbl, {caption="#"..i..s.station, style="st_label_bold"})
+          GUI.addLabel(tbl, {caption="#" .. i .. " " .. s.station, style="st_label_bold"})
           local record1 = GUI.add(tbl, {name="rules_flow_a"..i, type="flow", direction="horizontal"})
 
-          GUI.add(record1, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", state=states.empty, left_padding=14})--, top_padding=true})
+          GUI.add(record1, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", state=states.empty, left_padding=13})--, top_padding=true})
           GUI.addLabel(record1, {caption="     "})
 
           GUI.add(record1, {type="checkbox", name="leaveFull__"..i, style="st_radio", state=states.full, left_padding=7})--, top_padding=true})
@@ -611,7 +612,11 @@ GUI = {
         local i = tonumber(name:match("station_map_label_*(%w*)"))
         local station = tbl[name].caption
         local text = trim(tbl["station_map_" .. i].text)
-        text = tonumber(text)
+        if text ~= "" then
+          text = tonumber(text)
+        else
+          text = false
+        end
 
         if text == nil then
           -- no valid number, restore from saved mapping
@@ -850,11 +855,16 @@ on_gui_click = {
   saveRules = function(player, option2)
     local line = option2
     --local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
-    local textfield = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow["lineNumber__"..line]
-    global.trainLines[line].number = math.floor(sanitizeNumber(textfield.text,0))
+    local rulesFlow = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow
+    local textfield = rulesFlow["lineNumber__"..line]
+    global.trainLines[line].settings.number = math.floor(sanitizeNumber(textfield.text,0))
 
+    local use_mapping = rulesFlow["useMapping__" .. line].state
+    global.trainLines[line].settings.useMapping = use_mapping
+    
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
     global.trainLines[line].rules = table.deepcopy(global.guiData[player.index].rules)
+    
     global.guiData[player.index] = {}
     global.playerRules[player.index].page = 1
     debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
@@ -880,10 +890,10 @@ on_gui_click = {
       local is_copy = t.line and t.line ~= name
 
       if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
-        --new train line
         local records = util.table.deepcopy(t.train.schedule.records)
+        --new train line
         if not global.trainLines[name] then
-          global.trainLines[name] = {name=name, number=0, rules={}}
+          global.trainLines[name] = {name=name, rules={}, settings = {autoRefuel = false, useMapping = false, number = 0} }
           local rules = global.trainLines[name].rules
           for s_index, record in pairs(records) do
             local rule = table.deepcopy(defaultRule)
@@ -896,12 +906,15 @@ on_gui_click = {
         end
 
         local changed = game.tick
-        global.trainLines[name].settings = {autoRefuel = t.settings.autoRefuel}
+        global.trainLines[name].settings.autoRefuel = t.settings.autoRefuel
+        global.trainLines[name].settings.useMapping = false
+        global.trainLines[name].settings.number = 0
         global.trainLines[name].records = records
         global.trainLines[name].changed = changed
 
         if is_copy then
           global.trainLines[name].rules = table.deepcopy(global.trainLines[t.line].rules)
+          global.trainLines[name].settings = table.deepcopy(global.trainLines[t.line].settings)
         end
 
         --remove/add rules if needed
@@ -942,7 +955,7 @@ on_gui_click = {
     return true
   end,
 
-  lineRefuel = function(_, option2)
+  lineRefuel = function(_, option2, option3)
     local line = option2
     local trainKey = tonumber(option3)
     local t = global.trains[trainKey]
