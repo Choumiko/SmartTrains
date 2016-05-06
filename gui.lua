@@ -1056,9 +1056,6 @@ on_gui_click = {
       if opts.leaveEmpty.state == true then
         opts.leaveEmpty.state = false
       end
-      if opts.leaveNoChange.state == true then
-        opts.leaveNoChange.state = false
-      end
     end
 
     GUI.save_station_options(opts, player.index, option2)
@@ -1071,9 +1068,6 @@ on_gui_click = {
       if opts.leaveFull.state == true then
         opts.leaveFull.state = false
       end
-      if opts.leaveNoChange.state == true then
-        opts.leaveNoChange.state = false
-      end
     end
 
     GUI.save_station_options(opts, player.index, option2)
@@ -1081,15 +1075,6 @@ on_gui_click = {
 
   leaveNoChange = function(player, option2, _, element)
     local opts = GUI.get_station_options(element, option2)
-
-    if element.state == true then
-      if opts.leaveFull.state == true then
-        opts.leaveFull.state = false
-      end
-      if opts.leaveEmpty.state == true then
-        opts.leaveEmpty.state = false
-      end
-    end
 
     GUI.save_station_options(opts, player.index, option2)
   end,

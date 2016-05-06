@@ -46,7 +46,7 @@ RED = {r = 0.9}
 GREEN = {g = 0.7}
 YELLOW = {r = 0.8, g = 0.8}
 
-defines.trainstate.left_station = 11
+trainstate = {left_station = 11}
 
 function debugLog(var, prepend)
   if not global.debug_log then return end
@@ -201,6 +201,7 @@ function on_configuration_changed(data)
     if data.mod_changes.SmartTrains then
       local old_version = data.mod_changes.SmartTrains.old_version
       local new_version = data.mod_changes.SmartTrains.new_version
+      local searched_stations = false
       initGlob()
       init_forces()
       init_players()
@@ -208,6 +209,7 @@ function on_configuration_changed(data)
         debugDump("SmartTrains version changed from "..old_version.." to "..new_version,true)
         if old_version < "0.3.2" then
           findStations()
+          searched_stations = true
           for _,train in pairs(global.trains) do
             if not train.cargoUpdated then
               train.cargoUpdated = 0
@@ -240,6 +242,7 @@ function on_configuration_changed(data)
             line.changed = game.tick
           end
           findStations()
+          searched_stations = true
         end
         if old_version < "0.3.77" then
           for _, train in pairs(global.trains) do
@@ -258,9 +261,16 @@ function on_configuration_changed(data)
           global.stationCount.player = tmp
           global.smartTrainstops.player = smart_stops
           findStations()
+          searched_stations = true
+          for _, t in pairs(global.trains) do
+            t.dynamic = nil
+            if t.settings and t.settings.autoDepart then
+              t.settings.autoDepart = nil
+            end
+          end
         end
       end
-      if not old_version then
+      if not old_version and not searched_stations then
         findStations()
       end
       global.version = new_version
@@ -492,7 +502,7 @@ function getKeyByValue(tableA, value)
   end
 end
 
-function ontrainchangedstate(event)
+function on_train_changed_state(event)
   --debugDump(game.tick.." "..getKeyByValue(defines.trainstate, event.train.state),true)
   --log("state change : "..event.train.state)
   --debugLog("train changed state to "..event.train.state.. " s")
@@ -518,7 +528,7 @@ function ontrainchangedstate(event)
       return
     end
     t:updateState()
-    if t.advancedState == defines.trainstate.left_station then
+    if t.advancedState == trainstate.left_station then
       t:resetCircuitSignal()
       t.waitingStation = false
       t.waiting = false
@@ -559,37 +569,26 @@ function ontrainchangedstate(event)
       end
     elseif train.state == defines.trainstate.wait_station then
       t:updateLine()
-      local smartStop = t:setWaitingStation()
-      if smartStop then
-        t:setCircuitSignal()
-        local tick = event.tick + global.settings.circuit.interval
-        insertInTable(global.updateTick,tick,t)
-      end
+      t:setWaitingStation()
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then
         if lowest_fuel >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
         end
-        if t:currentStation() == t:refuelStation() then
+        if t:currentStation() == t:refuelStation() then --TODO start refueling only if station is last in schedule?
           t:startRefueling()
           t:flyingText("refueling", YELLOW)
         end
       end
-      if t:get_rules() then
-        t:startWaitingForRules()
-        t:flyingText("waiting for rules", YELLOW)
-      end
-      if t:isWaiting() then
-      --debugDump(game.tick.." waiting",true)
-      end
-    elseif train.state == defines.trainstate.arrive_station then --or train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then
+      t:startWaitingForRules()
+    elseif train.state == defines.trainstate.arrive_station then
       if t.settings.autoRefuel then
         if lowest_fuel < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
           train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
           t:flyingText("Refuel station added", YELLOW)
         end
-    end
-    t.direction = t.train.speed < 0 and 1 or 0
+      end
+      t.direction = t.train.speed < 0 and 1 or 0
     end
   end)
   if not status then
@@ -632,190 +631,172 @@ function deduceSignalValue(entity,signal,condNum)
   return v
 end
 
-function ontick(event)
-  if global.updateTick[event.tick] then
-    for _, train in pairs(global.updateTick[event.tick]) do
-      local status,err = pcall(
-        function()
-          if train.train and train.train.valid and train.waitingStation then
+function on_tick(event)
+  local current_tick = event.tick
+  if global.updateTick[current_tick] then
+    local status,err = pcall(function()
+      for _, train in pairs(global.updateTick[current_tick]) do
+        if train.train and train.train.valid then
+          if train.waitingStation then
             --debugDump("set signal",true)
             train:setCircuitSignal()
-            insertInTable(global.updateTick,event.tick+global.settings.circuit.interval,train)
-          else
-            removeInvalidTrains(true)
+            insertInTable(global.updateTick,current_tick+global.settings.circuit.interval,train)
           end
-        end)
-      if not status then
-        pauseError(err, "on_tick: updateCircuit")
+        else
+          removeInvalidTrains(true)
+        end
       end
+    end)
+    if not status then
+      pauseError(err, "on_tick: updateCircuit")
     end
-    global.updateTick[event.tick] = nil
+    global.updateTick[current_tick] = nil
   end
 
-  if event.tick % 60 == 0 then
-    local status,err = pcall(
-      function()
-        for _,train in pairs(global.trains) do
-          if train.train and train.train.valid then
-            if train.line and train.train.state ~= defines.trainstate.wait_station and train.train.speed == 0 then
-              train:updateLine()
-            end
-          else
-            removeInvalidTrains(true)
+  if current_tick % 60 == 0 then
+    local status,err = pcall(function()
+      for _,train in pairs(global.trains) do
+        if train.train and train.train.valid then
+          if train.line and train.train.state ~= defines.trainstate.wait_station and train.train.speed == 0 then
+            train:updateLine()
           end
+        else
+          removeInvalidTrains(true)
         end
-      end)
+      end
+    end)
     if not status then
       pauseError(err, "on_tick: updateLine")
     end
   end
 
-  if global.ticks[event.tick] then
+  if global.ticks[current_tick] then
     --debugLog(" tick s", game.tick)
-    local status,err = pcall(
-      function()
-        for _,train in pairs(global.ticks[event.tick]) do
-          if train.train.valid then
-            train.lastMessage = train.lastMessage or 0
-            if train.departAt  and event.tick - train.lastMessage >= 120 then
-              local text = train.waitForever and "waiting forever" or "Leaving in "..util.formattime(train.departAt-event.tick)
-              train:flyingText(text, RED,{offset=-2})
+    local status,err = pcall(function()
+      for _,train in pairs(global.ticks[current_tick]) do
+        if train.train.valid then
+          train.lastMessage = train.lastMessage or 0
+          if train.departAt  and current_tick - train.lastMessage >= 120 then
+            local text
+            if train.waitForever then
+              text = "waiting forever"
+            else
+              text = "Leaving in "..util.formattime(train.departAt-current_tick)
             end
-
-            --for i,train in pairs(global.trains) do
-            if train:isRefueling() then
-              if event.tick >= train.refueling.nextCheck then
-                if train:lowestFuel() >= global.settings.refuel.rangeMax then
-                  train:flyingText("Refueling done", YELLOW)
-                  train:refuelingDone(true)
-                else
-                  local nextCheck = event.tick + global.settings.depart.interval
-                  train.refueling.nextCheck = nextCheck
-                  if not global.ticks[nextCheck] then
-                    global.ticks[nextCheck] = {train}
-                  else
-                    table.insert(global.ticks[nextCheck], train)
-                  end
-                end
-              end
-            end
-
-            if train:isWaiting() then
-              --local wait = (type(train.waiting.arrived) == "number") and train.waiting.arrived + global.settings.depart.minWait or train.waiting.lastCheck + global.settings.depart.interval
-              if event.tick >= train.waiting.nextCheck then
-                local keepWaiting = nil
-                local cargo
-                local rules
-                if train:isWaitingForRules() then
-                  --Handle leave when full/empty rules here
-                  --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
-                  rules = train:get_rules()
-                  --debugDump(rules,true)
-                  local full = false
-                  local empty = false
-                  if rules.full then
-                    full = train:isCargoFull()
-                  end
-                  if rules.empty then
-                    empty = train:isCargoEmpty()
-                  end
-
-                  local signal = train:getCircuitSignal()
-
-                  local cargo_requirement = (rules.full and full) or (rules.empty and empty)
-
-                  if (rules.requireBoth and cargo_requirement and signal)
-                    or (not rules.requireBoth and cargo_requirement)
-                    or (not rules.requireBoth and rules.waitForCircuit and signal) then
-                    local signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
-                    local jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
-
-                    --debugDump("LEAVING "..(jump or "default"), true)
-
-                    train:waitingDone(true, jump)
-
-                    if not (rules.jumpTo or rules.jumpToCircuit) then
-                      train:flyingText("leave station", YELLOW, {offset=-1})
-                    end
-
-                    keepWaiting = false
-
-                  else
-                    local txt = (rules.full and not full) and "not full" or "not empty"
-                    txt = rules.waitForCircuit and "waiting for circuit" or txt
-                    if rules.full or rules.empty or rules.waitForCircuit then
-                      if not rules.waitForCircuit or (rules.waitForCircuit and event.tick - train.lastMessage >= 120) then
-                        train:flyingText(txt, YELLOW, {offset=-1})
-                        train.lastMessage = event.tick
-                      end
-                    end
-                    keepWaiting = true
-                  end
-
-                elseif train:isWaitingForAutoDepart() and (keepWaiting == nil or keepWaiting) then
-                  cargo = train:cargoCount()
-                  local last = train.waiting.lastCheck
-                  if train:cargoEquals(cargo, train.waiting.cargo, global.settings.depart.minFlow, event.tick - last) then
-                    train:flyingText("leave station", YELLOW)
-                    train:waitingDone(true)
-                    keepWaiting = false
-                  else
-                    train:flyingText("cargo changed", YELLOW)
-                    keepWaiting = true
-                  end
-                end
-
-                if keepWaiting and train.train.speed == 0 then
-                  train.waiting.lastCheck = event.tick
-                  train.waiting.cargo = cargo
-                  local nextCheck = event.tick + global.settings.depart.interval
-                  if rules and rules.waitForCircuit then
-                    nextCheck = event.tick + global.settings.circuit.interval
-                  end
-                  train.waiting.nextCheck = nextCheck
-                  if not global.ticks[nextCheck] then
-                    global.ticks[nextCheck] = {train}
-                  else
-                    table.insert(global.ticks[nextCheck], train)
-                  end
-                else
-                  train:resetCircuitSignal()
-                  train.waitingStation = false
-                  train.waiting = false
-                  train.waitForever = false
-                end
-              end
-
-            end
-          else
-            removeInvalidTrains(true)
+            train:flyingText(text, RED,{offset=-2})
           end
+
+          --for i,train in pairs(global.trains) do
+          if train:isRefueling() then
+            if current_tick >= train.refueling.nextCheck then
+              if train:lowestFuel() >= global.settings.refuel.rangeMax then
+                train:flyingText("Refueling done", YELLOW)
+                train:refuelingDone(true)
+              else
+                local nextCheck = current_tick + global.settings.depart.interval
+                train.refueling.nextCheck = nextCheck
+                if not global.ticks[nextCheck] then
+                  global.ticks[nextCheck] = {train}
+                else
+                  table.insert(global.ticks[nextCheck], train)
+                end
+              end
+            end
+          end
+
+          if train:isWaitingForRules() and current_tick >= train.waiting.nextCheck then
+            local keepWaiting = nil
+            local cargo
+            local rules
+            --Handle leave when full/empty rules here
+            --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
+            rules = train:get_rules()
+            --debugDump(rules,true)
+            local full = false
+            local empty = false
+            local noChange = false
+            if rules.full then
+              full = train:isCargoFull()
+              --log(current_tick .. " full: "..serpent.line(full))
+            end
+            if rules.empty then
+              empty = train:isCargoEmpty()
+              --log(current_tick .. " empty: "..serpent.line(empty))
+            end
+            if rules.noChange and (current_tick >= train.waiting.nextCargoCheck) then
+              --log(game.tick .. " no change")
+              cargo = train:cargoCount()
+              local last = train.waiting.lastCheck
+              noChange = train:cargoEquals(cargo, train.waiting.cargo, global.settings.depart.minFlow, current_tick - last)
+              train.waiting.cargo = cargo
+              train.waiting.nextCargoCheck = current_tick + global.settings.depart.interval
+            end
+
+            local signal = train:getCircuitSignal()
+            local cargo_requirement = (rules.full and full) or (rules.empty and empty) or (rules.noChange and noChange)
+            if (rules.requireBoth and cargo_requirement and signal)
+              or (not rules.requireBoth and ( cargo_requirement or ( rules.waitForCircuit and signal )))
+            then
+              local signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
+              local jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
+              train:waitingDone(true, jump)
+              keepWaiting = false
+            else
+              local txt = (rules.full and not full) and "not full" or "not empty"
+              txt = rules.waitForCircuit and "waiting for circuit" or txt
+              if rules.full or rules.empty or rules.waitForCircuit then
+                if not rules.waitForCircuit or (rules.waitForCircuit and current_tick - train.lastMessage >= 120) then
+                  train:flyingText(txt, YELLOW, {offset=-1})
+                  train.lastMessage = current_tick
+                end
+              end
+              keepWaiting = true
+            end
+            if keepWaiting and train.train.speed == 0 then
+              train.waiting.lastCheck = current_tick
+              local nextCheck = current_tick + global.settings.depart.interval
+              if rules and rules.waitForCircuit then
+                nextCheck = current_tick + global.settings.circuit.interval
+              end
+              train.waiting.nextCheck = nextCheck
+              if not global.ticks[nextCheck] then
+                global.ticks[nextCheck] = {train}
+              else
+                table.insert(global.ticks[nextCheck], train)
+              end
+            else
+              train:resetCircuitSignal()
+              train.waitingStation = false
+              train.waiting = false
+              train.waitForever = false
+            end
+          end
+        else
+          removeInvalidTrains(true)
         end
-        global.ticks[event.tick] = nil
       end
-    )
+      global.ticks[current_tick] = nil
+    end)
     if not status then
       pauseError(err, "on_tick_trains")
     end
     --debugLog(" tick e", game.tick)
   end
-  if not remote.interfaces.EventsPlus and event.tick%10==9  then
-    local status,err = pcall(
-      function()
-        for pi, player in pairs(game.players) do
-          if player.connected then
-            if player.opened ~= nil and not global.player_opened[player.name] then
-              game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
-              global.player_opened[player.name] = player.opened
-            end
-            if global.player_opened[player.name] and player.opened == nil then
-              game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
-              global.player_opened[player.name] = nil
-            end
+  if not remote.interfaces.EventsPlus and current_tick%10==9  then
+    local status,err = pcall(function()
+      for pi, player in pairs(game.players) do
+        if player.connected then
+          if player.opened ~= nil and not global.player_opened[player.name] then
+            game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
+            global.player_opened[player.name] = player.opened
+          end
+          if global.player_opened[player.name] and player.opened == nil then
+            game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
+            global.player_opened[player.name] = nil
           end
         end
       end
-    )
+    end)
     if not status then
       pauseError(err, "on_tick_players")
     end
@@ -1264,7 +1245,7 @@ script.on_event(defines.events.on_player_created, on_player_created)
 script.on_event(defines.events.on_force_created, on_force_created)
 script.on_event(defines.events.on_forces_merging, on_forces_merging)
 
-script.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
+script.on_event(defines.events.on_train_changed_state, on_train_changed_state)
 script.on_event(defines.events.on_player_mined_item, onplayermineditem)
 script.on_event(defines.events.on_preplayer_mined_item, onpreplayermineditem)
 script.on_event(defines.events.on_entity_died, onentitydied)
@@ -1272,7 +1253,7 @@ script.on_event(defines.events.on_built_entity, onbuiltentity)
 script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
 script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
 script.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
-script.on_event(defines.events.on_tick, ontick)
+script.on_event(defines.events.on_tick, on_tick)
 
 if remote.interfaces.logistics_railway then
   script.on_event(remote.call("logistics_railway", "get_chest_created_event"), function(event)
@@ -1385,9 +1366,9 @@ remote.add_interface("st",
     end,
 
     activate = function()
-      script.on_event(defines.events.on_train_changed_state, ontrainchangedstate)
+      script.on_event(defines.events.on_train_changed_state, on_train_changed_state)
       script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
-      script.on_event(defines.events.on_tick, ontick)
+      script.on_event(defines.events.on_tick, on_tick)
       if remote.interfaces.EventsPlus then
         script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
         script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)

@@ -8,7 +8,6 @@ Train = {
       if train.valid then
         local new = {
           train = train,
-          dynamic = false,
           line = false,
           lineVersion = 0,
           settings = {},
@@ -68,6 +67,8 @@ Train = {
         if index and index > 0 and index <= #schedule.records then
           tmp = index
           self:flyingText("Going to "..schedule.records[index].station, YELLOW, {offset = -1}) --TODO localisation
+        else
+          self:flyingText("leave station", YELLOW, {offset=-1})
         end
         --all below is needed to make a train go to another station, don't change!
         train.manual_mode = true
@@ -81,7 +82,6 @@ Train = {
       if index and index > 0 and index <= #self.train.schedule.records then
         return index
       end
-
       return false
     end,
 
@@ -148,16 +148,6 @@ Train = {
       end
     end,
 
-    startWaitingForAutoDepart = function(self)
-      self.waiting = {cargo = self:cargoCount(), lastCheck = game.tick, nextCheck = game.tick + global.settings.depart.minWait}
-      local tick = self.waiting.nextCheck
-      insertInTable(global.ticks, tick, self )
-    end,
-
-    isWaitingForAutoDepart = function(self)
-      return type(self.waiting) == "table" and type(self.waiting.cargo) == "table" and self.settings.autoDepart --and self.train.manual_mode == false
-    end,
-
     waitingDone = function(self, done, index)
       if done then
         local force = self.waitForever or false
@@ -174,28 +164,33 @@ Train = {
     end,
 
     startWaitingForRules = function(self)
-      if not self.waiting then
-        local nextCheck = self.train.schedule.records[self.train.schedule.current].time_to_wait == 10 and game.tick + 9 or game.tick + global.settings.depart.minWait
-        self.waiting = {lastCheck = game.tick, nextCheck = nextCheck}
-        local rules = self:get_rules()
+      local rules = self:get_rules()
+      if rules and not self.waiting then
+        local current_tick = game.tick
+        local nextCheck = self.train.schedule.records[self.train.schedule.current].time_to_wait == 10 and current_tick + 9 or current_tick + global.settings.depart.minWait
+        self.waiting = {lastCheck = current_tick, nextCheck = nextCheck}
         self.waitForever = false
         if rules then
           if rules.keepWaiting then
-            --debugDump(util.formattime(game.tick,true).." waitForever set",true)
+            --debugDump(util.formattime(current_tick,true).." waitForever set",true)
             self.waitForever = true
           end
           if rules.waitForCircuit then
-            self.waiting.nextCheck = game.tick + global.settings.circuit.interval
+            self.waiting.nextCheck = current_tick + global.settings.circuit.interval
+          end
+          if rules.noChange then
+            self.waiting.cargo = self:cargoCount()
+            self.waiting.nextCargoCheck = current_tick + global.settings.depart.minWait
           end
         end
         local tick = self.waiting.nextCheck
         insertInTable(global.ticks, tick, self)
+        self:flyingText("waiting for rules", YELLOW)
       end
     end,
 
     isWaitingForRules = function(self)
-      local rules = self:get_rules()
-      return type(self.waiting) == "table" and rules
+      return type(self.waiting) == "table" and self:get_rules()
     end,
 
     isWaiting = function(self)
@@ -211,11 +206,13 @@ Train = {
       if station then
         local smartStop = global.smartTrainstops[vehicle.force.name][stationKey(station)]
         --self:flyingText("S", GREEN, {offset=station.position})
-        proxy = (smartStop and smartStop.proxy) and smartStop.proxy or false
-        cargoProxy = (smartStop and smartStop.cargo) and smartStop.cargo or false
+        proxy = (smartStop and smartStop.proxy and smartStop.proxy.valid) and smartStop.proxy or false
+        cargoProxy = (smartStop and smartStop.cargo and smartStop.cargo.valid) and smartStop.cargo or false
+        self:setCircuitSignal()
+        local tick = game.tick + global.settings.circuit.interval
+        insertInTable(global.updateTick,tick,self)
+        self.waitingStation = {station = station, signalProxy = proxy, cargoProxy = cargoProxy}
       end
-      self.waitingStation = {station = station, signalProxy = proxy, cargoProxy = cargoProxy}
-      return station and proxy and cargoProxy
     end,
 
     getCircuitSignal = function(self)
@@ -265,7 +262,7 @@ Train = {
         end
 
         --debugLog("getCargo s")
-        local cargoCount = self:cargoCount()
+        local cargoCount = self:cargoCount(true)
         for name, count in pairs(cargoCount) do
           local type = "item"
           if game.fluid_prototypes[name] then
@@ -330,25 +327,29 @@ Train = {
       return value
     end,
 
-    cargoCount = function(self)
-      if self.cargoUpdated + global.settings.circuit.interval - 1 < game.tick then
+    cargoCount = function(self, exact)
+      local current_tick = game.tick
+      if (not exact and self.cargoUpdated > current_tick - 12) or self.cargoUpdated == current_tick then -- update cargo only if older than 12 ticks (default circuit update rate)
+        --log(current_tick .. " cached cargo, from "..self.cargoUpdated)
+        return self.cargo
+      end
+      if self.cargoUpdated + global.settings.circuit.interval <= current_tick then
+        --log(current_tick .. " new cargo, last Update: "..self.cargoUpdated)
         local sum = {}
         local train = self.train
         --sum = train.get_contents()
         for i, wagon in pairs(train.cargo_wagons) do
           if not self.proxy_chests or not self.proxy_chests[i] then
-            if wagon.type == "cargo-wagon" then
-              if wagon.name ~= "rail-tanker" then
-                --sum = sum + wagon.getcontents()
-                sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
-              else
-                if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
-                  local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-                  if d.type ~= nil then
-                    sum[d.type] = sum[d.type] or 0
-                    sum[d.type] = sum[d.type] + d.amount
-                    --self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
-                  end
+            if wagon.name ~= "rail-tanker" then
+              --sum = sum + wagon.getcontents()
+              sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
+            else
+              if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+                local d = remote.call("railtanker", "getLiquidByWagon", wagon)
+                if d.type ~= nil then
+                  sum[d.type] = sum[d.type] or 0
+                  sum[d.type] = sum[d.type] + d.amount
+                  --self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
                 end
               end
             end
@@ -360,7 +361,7 @@ Train = {
           end
         end
         self.cargo = sum
-        self.cargoUpdated = game.tick
+        self.cargoUpdated = current_tick
       end
       return self.cargo
     end,
@@ -370,6 +371,10 @@ Train = {
       local liquids2 = {}
       local goodflow = false
       local fluids = game.fluid_prototypes
+      c1 = c1 or {}
+      c2 = c2 or {}
+      --log("c1 "..serpent.line(c1))
+      --log("c2 "..serpent.line(c2))
       for l,_ in pairs(fluids) do
         liquids1[l], liquids2[l] = false, false
         if c1[l] ~= nil or c2[l] ~= nil then
@@ -473,7 +478,7 @@ Train = {
       self.previousState = self.state
       self.state = self.train.state
       if self.previousState == defines.trainstate.wait_station and self.state == defines.trainstate.on_the_path then
-        self.advancedState = defines.trainstate.left_station
+        self.advancedState = trainstate.left_station
         --debugDump(game.tick.." left_station",true)
       else
         self.advancedState = false
