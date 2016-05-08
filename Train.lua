@@ -226,12 +226,12 @@ Train = {
       if station then
         local smartStop = global.smartTrainstops[vehicle.force.name][stationKey(station)]
         --self:flyingText("S", GREEN, {offset=station.position})
-        proxy = (smartStop and smartStop.proxy and smartStop.proxy.valid) and smartStop.proxy or false
+        proxy = (smartStop and smartStop.signalProxy and smartStop.signalProxy.valid) and smartStop.signalProxy or false
         cargoProxy = (smartStop and smartStop.cargo and smartStop.cargo.valid) and smartStop.cargo or false
         self:setCircuitSignal()
-        local tick = game.tick + global.settings.circuit.interval
-        insertInTable(global.updateTick,tick,self)
-        self.waitingStation = {station = station, signalProxy = proxy, cargoProxy = cargoProxy}
+        self.updateTick = game.tick + global.settings.circuit.interval
+        insertInTable(global.updateTick,self.updateTick,self)
+        self.waitingStation = smartStop
       end
     end,
 
@@ -254,9 +254,8 @@ Train = {
     end,
 
     setCircuitSignal = function(self)
-      if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
-        --debugLog("setSignal " ..self.waitingStation.station.backer_name, game.tick.." ")
-        local cargoProxy = self.waitingStation.cargoProxy
+      if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
+        local cargoProxy = self.waitingStation.cargo
         --local output = cargoProxy.get_circuit_condition(1)
         local output = {parameters={}}
         local passenger = 0
@@ -266,9 +265,7 @@ Train = {
             break
           end
         end
-        --debugLog("getFuel s")
         local min_fuel = self:lowestFuel()
-        --debugLog("getFuel e")
         output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
@@ -281,7 +278,6 @@ Train = {
           i=7
         end
 
-        --debugLog("getCargo s")
         local cargoCount = self:cargoCount(true)
         for name, count in pairs(cargoCount) do
           local type = "item"
@@ -293,24 +289,13 @@ Train = {
           i=i+1
           if i>50 then break end
         end
-        --debugLog("getCargo e")
-        --debugLog("set Condition s")
         cargoProxy.set_circuit_condition(1,output)
-        --debugLog("set Condition e")
       end
-      --debugLog("setSignal e")
     end,
 
     resetCircuitSignal = function(self)
-      if self.waitingStation and self.waitingStation.cargoProxy and self.waitingStation.cargoProxy.valid then
-        local cargoProxy = self.waitingStation.cargoProxy
-        local output = {parameters={}}
-        --output.parameters[1]={signal={type = "virtual", name = "signal-cargowagons"}, count = -1, index = 1}
-        --game.write_file("st/debugOutput.lua", serpent.block(output, {name="output"}))
-        --local v = cargoProxy.valid and "valid" or "invalid"
-        --debugDump("CargoProxy: "..cargoProxy.name.." "..v,true)
-        --debugDump(output.parameters,true)
-        cargoProxy.set_circuit_condition(1,output)
+      if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
+        self.waitingStation.cargo.set_circuit_condition(1, {parameters={}})
       end
     end,
 

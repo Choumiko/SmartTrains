@@ -193,8 +193,11 @@ GUI = {
     if gui.trainSettings ~= nil then
       gui.trainSettings.destroy()
     end
-    local t = trainInfo or global.trains[getTrainKeyFromUI(player_index)]
+    local keyUI = getTrainKeyFromUI(player_index)
+    local t = trainInfo or global.trains[keyUI]
     local trainKey = getTrainKeyByTrain(global.trains, t.train)
+    --log(serpent.line(trainInfo))
+    --log(serpent.line({kUI=keyUI, trainkey=trainKey, t=t}))
     local trainLine = t.line and global.trainLines[t.line] or false
     gui = GUI.add(gui, {type="frame", name="trainSettings", caption={"", {"lbl-train"}, ": ", t.name, " (", t:getType(),")"}, direction="vertical", style="st_frame"})
     local line = "-"
@@ -332,7 +335,9 @@ GUI = {
     end
     local page = global.playerPage[player_index].line or 1
     local c=0
-    for _,_ in pairs(global.trainLines) do
+    local trainCount = {}
+    for l,_ in pairs(global.trainLines) do
+      trainCount[l] = 0
       c = c+1
     end
     if global.trainLines and c > 0 then
@@ -355,19 +360,19 @@ GUI = {
       local spp = global.settings.linesPerPage
       local start = (page-1) * spp + 1
       local max = start + spp - 1
-      for i, l in pairsByKeys(global.trainLines, sortByName) do
-        local trainCount = 0
-        for _,t in pairs(global.trains) do
-          if t.line == i then
-            trainCount = trainCount + 1
-          end
+      for _,t in pairs(global.trains) do
+        if t.line and trainCount[t.line] then
+          trainCount[t.line] = trainCount[t.line] + 1
         end
+      end
+      for i, l in pairsByKeys(global.trainLines, sortByName) do
         dirty= dirty+1
         if dirty >= start and dirty <= max then
+        local c = trainCount[l.name] or 0
           GUI.addLabel(tbl, l.name)
           GUI.addLabel(tbl, l.records[1].station)
           GUI.addLabel(tbl, #l.records)
-          GUI.addLabel(tbl, trainCount)
+          GUI.addLabel(tbl, c)
           if trainKey > 0 then
             GUI.add(tbl, {type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==trainInfo.line), style="st_checkbox"})
           else
@@ -864,10 +869,10 @@ on_gui_click = {
 
     local use_mapping = rulesFlow["useMapping__" .. line].state
     global.trainLines[line].settings.useMapping = use_mapping
-    
+
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
     global.trainLines[line].rules = table.deepcopy(global.guiData[player.index].rules)
-    
+
     global.guiData[player.index] = {}
     global.playerRules[player.index].page = 1
     debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)

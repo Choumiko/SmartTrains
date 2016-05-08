@@ -5,11 +5,13 @@ require "util"
 -- the name and tick are filled for the event automatically
 -- this event is raised with extra parameter foo with value "bar"
 --game.raiseevent(myevent, {foo="bar"})
---if not remote.interfaces.EventsPlus then
+use_EventsPlus = false
+
+if not use_EventsPlus or not remote.interfaces.EventsPlus then
   events = {}
   events["on_player_opened"] = script.generate_event_name()
   events["on_player_closed"] = script.generate_event_name()
---end
+end
 
 debug = false
 
@@ -192,6 +194,87 @@ function onload()
   --if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
 end
 
+local function update_0_3_77()
+  global.settings.lines = nil
+  global.stopTick = nil
+  for name, line in pairs(global.trainLines) do
+    for i,record in pairs(line.records) do
+      if not line.rules then line.rules = {} end
+      if not line.rules[i] then
+        local rule = {}
+        rule.empty = false
+        rule.full = false
+        rule.jumpTo = false
+        rule.jumpToCircuit = false
+        rule.keepWaiting = false
+        rule.original_time = record.time_to_wait
+        rule.station = record.station
+        rule.waitForCircuit = false
+        line.rules[i] = rule
+      else
+        if not line.rules[i].original_time then
+          line.rules[i].original_time = record.time_to_wait
+        end
+        if line.rules[i].keepWaiting then
+          record.time_to_wait = 2^32-1
+        end
+      end
+    end
+    if line.rules[false] then line.rules[false] = nil end
+    line.number = 0
+    line.changed = game.tick
+  end
+  local trainLine, rules
+  for i, train in pairs(global.trains) do
+    if train.line and global.trainLines[train.line] and train.waitForever then
+      trainLine = global.trainLines[train.line]
+      rules = trainLine.rules
+      local schedule = {records={}, current=train.train.schedule.current}
+      for i, record in pairs(trainLine.records) do
+        if rules then
+          if rules[i].keepWaiting then
+            record.time_to_wait = 2^32-1
+          else
+            record.time_to_wait = rules[i].original_time
+          end
+        end
+        schedule.records[i] = record
+      end
+      if train.name == "Dysoch" then
+        log(serpent.block(train.train.schedule.records[1]))
+      end
+      local old_s = train.train.state
+      train.train.schedule = schedule
+      if train.name == "Dysoch" then
+        log(train.name .. " o:".. getKeyByValue(defines.trainstate, old_s) .. " n:".. getKeyByValue(defines.trainstate, train.train.state))
+        log(serpent.block(train.train.schedule.records[1]))
+      end
+    end
+  end
+end
+
+function fix_updateTick()
+  local newtick
+  local math = math
+  for tick, trains in pairs(global.ticks) do
+    if #trains > 10 then
+      local s=11
+      local e=s+math.ceil((#trains - 10) / 10)
+      for i=1,10 do
+        newtick = tick+1
+        global.ticks[newtick] = global.ticks[newtick] or {}
+        for j=s,e do
+          if trains[j] then
+            trains[j].waiting.nextCheck = newtick
+            table.insert(global.ticks[newtick], trains[j])
+            table.remove(global.ticks[tick], j)
+          end
+        end
+      end
+    end
+  end
+end
+
 function on_configuration_changed(data)
   local status, err = pcall(function()
     if not data or not data.mod_changes then
@@ -205,75 +288,62 @@ function on_configuration_changed(data)
       initGlob()
       init_forces()
       init_players()
+      setMetatables()
       if old_version then
         debugDump("SmartTrains version changed from "..old_version.." to "..new_version,true)
-        if old_version < "0.3.2" then
-          findStations()
-          searched_stations = true
-          for _,train in pairs(global.trains) do
-            if not train.cargoUpdated then
-              train.cargoUpdated = 0
-            end
-          end
-        end
-        if old_version < "0.3.82" then
-          global.settings.lines = nil
-          global.stopTick = nil
-          for _, line in pairs(global.trainLines) do
-            for i,record in pairs(line.records) do
-              if not line.rules then line.rules = {} end
-              if not line.rules[i] then
-                local rule = util.table.deepcopy(defaultRule)
-                rule.original_time = record.time_to_wait
-                rule.station = record.station
-                line.rules[i] = rule
-              else
-                if not line.rules[i].original_time then
-                  line.rules[i].original_time = record.time_to_wait
-                end
-                if line.rules[i].keepWaiting then
-                  record.time_to_wait = 2^32-1
-                end
-                line.rules[i].requireBoth = line.rules[i].waitForCircuit and (line.rules[i].full or line.rules[i].empty)
-              end
-            end
-            if line.rules[false] then line.rules[false] = nil end
-            line.number = line.number or 0
-            line.changed = game.tick
-          end
-          findStations()
-          searched_stations = true
-        end
+        saveGlob("PreUpdate"..old_version)
         if old_version < "0.3.77" then
-          for _, train in pairs(global.trains) do
-            if train.waitForever then
-              train.train.manual_mode = false
-              train.waitForever = false
+          update_0_3_77()
+        end
+        if old_version < "0.3.9" then
+          --local tmp = util.table.deepcopy(global.stationCount)
+          --local smart_stops = util.table.deepcopy(global.smartTrainstops)
+
+          for i, t in pairs(global.trains) do
+            t.dynamic = nil
+            if t.settings then
+              t.settings.autoDepart = nil
+            end
+            t.type = t:getType()
+            if t.waitingStation and t.waitingStation.station and t.waitingStation.station.valid then
+              t.waitingStation.key = stationKey(t.waitingStation.station)
             end
           end
-        end
-        if old_version <= "0.3.9" then
-          local tmp = util.table.deepcopy(global.stationCount)
-          local smart_stops = util.table.deepcopy(global.smartTrainstops)
+          removeInvalidTrains(true,true)
           global.stationCount = {}
           global.smartTrainstops = {}
           init_forces()
-          global.stationCount.player = tmp
-          global.smartTrainstops.player = smart_stops
           findStations()
           searched_stations = true
-          for _, t in pairs(global.trains) do
-            t.dynamic = nil
-            if t.settings and t.settings.autoDepart then
-              t.settings.autoDepart = nil
-            end
-          end
 
           for _, l in pairs(global.trainLines) do
             l.settings.useMapping = false
-            l.settings.number = l.number
+            l.settings.number = l.number or 0
             l.number = nil
             l.settings.autoDepart = nil
+          end
+          local smart_stop
+          local found
+          for _, t in pairs(global.trains) do
+            if t.waitingStation and t.waitingStation.key then
+              found = false
+              smart_stop = global.smartTrainstops[t.train.carriages[1].force.name][t.waitingStation.key]
+              t.waitingStation = smart_stop
+              for tick, trains in pairs(global.updateTick) do
+                for i, t2 in pairs(trains) do
+                  if t.train == t2.train and not found then
+                    --log("Uref found["..tick .."]["..i.."] "..t.name)
+                    global.updateTick[tick][i] = t
+                    t.updateTick = tick
+                    found = true
+                  end
+                end
+              end
+            end
+          end
+
+          for tick, trains in pairs(global.ticks) do
+          --log("tick " .. tick ..": " .. #trains)
           end
         end
       end
@@ -281,6 +351,7 @@ function on_configuration_changed(data)
         findStations()
       end
       global.version = new_version
+      saveGlob("PostUpdate"..old_version)
     end
     --update fuelvalue cache, in case the values changed
     for item, _ in pairs(global.fuel_values) do
@@ -325,10 +396,10 @@ function createProxy(trainstop)
   local force = trainstop.force.name
   local key = stationKey(trainstop)
   if not global.smartTrainstops[force][key] then
-    global.smartTrainstops[force][key] = {entity = trainstop}
+    global.smartTrainstops[force][key] = {station = trainstop}
   end
   if ent.valid then
-    global.smartTrainstops[force][key] = {entity = trainstop, proxy=ent}
+    global.smartTrainstops[force][key] = {station = trainstop, signalProxy=ent}
     ent.minable = false
     ent.destructible = false
   end
@@ -351,7 +422,7 @@ function removeProxy(trainstop)
   local force = trainstop.force.name
   local key = stationKey(trainstop)
   if global.smartTrainstops[force][key] then
-    local proxy = global.smartTrainstops[force][key].proxy
+    local proxy = global.smartTrainstops[force][key].signalProxy
     local cargo = global.smartTrainstops[force][key].cargo
     if proxy and proxy.valid then
       proxy.destroy()
@@ -366,26 +437,26 @@ end
 function recreateProxy(trainstop)
   local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
   local offsetcargo = {[0] = {x=-0.5,y=0.5},[2]={x=-0.5,y=-0.5},[4]={x=0.5,y=-0.5},[6]={x=0.5,y=0.5}}
-  if trainstop.entity.valid then
-    local force = trainstop.entity.force.name
+  if trainstop.station.valid then
+    local force = trainstop.station.force.name
     if not trainstop.cargo or not trainstop.cargo.valid then
-      local poscargo = addPos(trainstop.entity.position, offsetcargo[trainstop.entity.direction])
-      local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.entity.force, position=poscargo}
-      local ent2 = trainstop.entity.surface.create_entity(proxycargo)
+      local poscargo = addPos(trainstop.station.position, offsetcargo[trainstop.station.direction])
+      local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.station.force, position=poscargo}
+      local ent2 = trainstop.station.surface.create_entity(proxycargo)
       if ent2.valid then
-        global.smartTrainstops[force][stationKey(trainstop.entity)].cargo = ent2
+        global.smartTrainstops[force][stationKey(trainstop.station)].cargo = ent2
         ent2.minable = false
         ent2.operable = false
         ent2.destructible = false
-        debugDump("Updated smart train stop:"..trainstop.entity.backer_name,true)
+        debugDump("Updated smart train stop:"..trainstop.station.backer_name,true)
       end
     end
-    if not trainstop.proxy or not trainstop.proxy.valid then
-      local pos = addPos(trainstop.entity.position, offset[trainstop.entity.direction])
-      local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.entity.force, position=pos}
-      local ent = trainstop.entity.surface.create_entity(proxy)
+    if not trainstop.signalProxy or not trainstop.signalProxy.valid then
+      local pos = addPos(trainstop.station.position, offset[trainstop.station.direction])
+      local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.station.force, position=pos}
+      local ent = trainstop.station.surface.create_entity(proxy)
       if ent.valid then
-        global.smartTrainstops[force][stationKey(trainstop.entity)].proxy=ent
+        global.smartTrainstops[force][stationKey(trainstop.station)].signalProxy=ent
         ent.minable = false
         ent.destructible = false
       end
@@ -511,7 +582,7 @@ end
 
 function on_train_changed_state(event)
   --debugDump(game.tick.." "..getKeyByValue(defines.trainstate, event.train.state),true)
-  --log("state change : "..event.train.state)
+  --log("state change : ".. getKeyByValue(defines.trainstate, event.train.state))
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
@@ -645,9 +716,13 @@ function on_tick(event)
       for _, train in pairs(global.updateTick[current_tick]) do
         if train.train and train.train.valid then
           if train.waitingStation then
-            --debugDump("set signal",true)
-            train:setCircuitSignal()
-            insertInTable(global.updateTick,current_tick+global.settings.circuit.interval,train)
+            if train.updateTick == current_tick then
+              train:setCircuitSignal()
+              train.updateTick = current_tick+global.settings.circuit.interval
+              insertInTable(global.updateTick, train.updateTick, train)
+            else
+              log(game.tick .. " " .. train.name .. " invalid updatetick")
+            end
           end
         else
           removeInvalidTrains(true)
@@ -741,6 +816,11 @@ function on_tick(event)
 
             local signal = train:getCircuitSignal()
             local cargo_requirement = (rules.full and full) or (rules.empty and empty) or (rules.noChange and noChange)
+            
+            if startsWith(train.name,"Janko") then
+              log("waiting: " .. serpent.line({s=signal, c=cargo_requirement}))
+            end
+            
             if (rules.requireBoth and cargo_requirement and signal)
               or (not rules.requireBoth and ( cargo_requirement or ( rules.waitForCircuit and signal )))
             then
@@ -761,6 +841,9 @@ function on_tick(event)
                 jump = jumpSignal or jumpTo or false
               else
                 jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
+              end
+              if startsWith(train.name,"Janko") then
+              log("done: " .. serpent.line(jump))
               end
               train:waitingDone(true, jump)
               keepWaiting = false
@@ -805,24 +888,25 @@ function on_tick(event)
     end
     --debugLog(" tick e", game.tick)
   end
-  --if not remote.interfaces.EventsPlus and current_tick%10==9  then
-  if current_tick%10==9  then
-    local status,err = pcall(function()
-      for pi, player in pairs(game.players) do
-        if player.connected then
-          if player.opened ~= nil and not global.player_opened[player.name] then
-            game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
-            global.player_opened[player.name] = player.opened
-          end
-          if global.player_opened[player.name] and player.opened == nil then
-            game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
-            global.player_opened[player.name] = nil
+  if not use_EventsPlus or not remote.interfaces.EventsPlus and current_tick%10==9  then
+    if current_tick%10==9  then
+      local status,err = pcall(function()
+        for pi, player in pairs(game.players) do
+          if player.connected then
+            if player.opened ~= nil and not global.player_opened[player.name] then
+              game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
+              global.player_opened[player.name] = player.opened
+            end
+            if global.player_opened[player.name] and player.opened == nil then
+              game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
+              global.player_opened[player.name] = nil
+            end
           end
         end
+      end)
+      if not status then
+        pauseError(err, "on_tick_players")
       end
-    end)
-    if not status then
-      pauseError(err, "on_tick_players")
     end
   end
 end
@@ -832,12 +916,16 @@ function on_player_opened(event)
     if event.entity.type == "locomotive" and event.entity.train then
       global.playerPage[event.player_index] = {schedule=1,lines=1}
       local trainInfo = getTrainFromEntity(event.entity)
-      removeInvalidTrains(true)
+      log(serpent.line(trainInfo))
+      log(#global.trains)
+      removeInvalidTrains(true,true)
+      log(#global.trains)
       GUI.create_or_update(trainInfo, event.player_index)
       global.guiData[event.player_index] = {rules={}}
       global.openedTrain[event.player_index] = event.entity.train
-      local train = getTrainFromEntity(event.entity)
-      train.opened = true
+      if trainInfo then
+        trainInfo.opened = true
+      end
     elseif event.entity.type == "train-stop" then
       global.playerPage[event.player_index] = {schedule=1,lines=1}
       local force = game.players[event.player_index].force.name
@@ -939,13 +1027,13 @@ function on_station_rename(station, oldName)
   increaseStationCount(force,station.backer_name)
 end
 
---if remote.interfaces.EventsPlus then
---  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
---  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
---else
+if use_EventsPlus and remote.interfaces.EventsPlus then
+  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
+  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
+else
   script.on_event(events.on_player_opened, on_player_opened)
   script.on_event(events.on_player_closed, on_player_closed)
---end
+end
 
 function getTrainFromEntity(ent)
   for _,trainInfo in pairs(global.trains) do
@@ -1471,7 +1559,7 @@ remote.add_interface("st",
 
     smart_stops = function(player)
       for _,s in pairs(global.smartTrainstops[player.force.name]) do
-        player.print(s.entity.backer_name)
+        player.print(s.station.backer_name)
       end
     end,
 
@@ -1480,5 +1568,20 @@ remote.add_interface("st",
       local state = global.debug_log and "on" or "off"
       debugDump("Debug: "..state,true)
     end,
+
+    countTrains = function()
+      local t = #global.trains
+      local ticksC = 0
+      local ticksU = 0
+      log(#global.trains/global.settings.depart.interval)
+      for tick, trains in pairs(global.ticks) do
+        ticksC = ticksC + #trains
+        log("tick " .. tick ..": " .. #trains)
+      end
+      for tick, trains in pairs(global.updateTick) do
+        ticksU = ticksU + #trains
+      end
+      debugDump({t=t,c=ticksC,u=ticksU},true)
+    end
   }
 )
