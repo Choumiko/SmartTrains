@@ -39,7 +39,7 @@ data.raw["gui-style"].default["st_label"] =
     top_padding = 0,
     bottom_padding = 0
   }
-  
+
 data.raw["gui-style"].default["st_label_bold"] =
   {
     type = "label_style",
@@ -139,13 +139,13 @@ data.raw["gui-style"].default["st_table"] =
     type = "table_style",
     parent = "table_style",
   }
-  
+
 data.raw["gui-style"].default["st_checkbox"] =
   {
     type = "checkbox_style",
     parent = "checkbox_style",
   }
-  
+
 data.raw["gui-style"].default["st_radio"] =
   {
     type = "checkbox_style",
@@ -248,13 +248,13 @@ data.raw["gui-style"].default["st_disabled_button_bold"] =
     default_font_color={r=0.5, g=0.5, b=0.5},
     hovered_font_color={r=0.5, g=0.5, b=0.5},
   }
-    
+
 
 
 data.raw["gui-style"].default["st_selected_button"] =
   {
     type = "button_style",
-    parent = "st_button_style",
+    parent = "st_button_style_bold",
 
     default_font_color={r=0, g=0, b=0},
     default_graphical_set =
@@ -264,8 +264,6 @@ data.raw["gui-style"].default["st_selected_button"] =
       corner_size = {3, 3},
       position = {0, 8}
     },
-
-
 
     hovered_font_color={r=1, g=1, b=1},
     hovered_graphical_set =
@@ -285,21 +283,21 @@ data.raw["gui-style"].default["st_selected_button"] =
       position = {0, 0}
     },
   }
-  
-  
+
+
 for left = 1,60 do
-	data.raw["gui-style"].default["st_frame_padding_left_"..left] =
-	  {
+  data.raw["gui-style"].default["st_frame_padding_left_"..left] =
+    {
       type = "frame_style",
       parent = "inner_frame_style",
       left_padding = left
-	  }	
-	  
-	data.raw["gui-style"].default["st_frame_padding_top_left_"..left] =
-	  {
+    }
+
+  data.raw["gui-style"].default["st_frame_padding_top_left_"..left] =
+    {
       type = "frame_style",
       parent = "inner_frame_style",
       left_padding = left,
       top_padding = 8
-	  }
+    }
 end

@@ -334,13 +334,13 @@ GUI = {
       gui.trainLines.destroy()
     end
     local page = global.playerPage[player_index].line or 1
-    local c=0
+    local c_lines=0
     local trainCount = {}
     for l,_ in pairs(global.trainLines) do
       trainCount[l] = 0
-      c = c+1
+      c_lines = c_lines+1
     end
-    if global.trainLines and c > 0 then
+    if global.trainLines and c_lines > 0 then
       trainKey = trainKey or 0
       gui = GUI.add(gui, {type="frame", name="trainLines", caption={"lbl-trainlines"}, direction="vertical", style="st_frame"})
       local tbl = GUI.add(gui, {type="table", name="tbl1", colspan=8})
@@ -365,14 +365,15 @@ GUI = {
           trainCount[t.line] = trainCount[t.line] + 1
         end
       end
+      local c_trains = 0
       for i, l in pairsByKeys(global.trainLines, sortByName) do
         dirty= dirty+1
         if dirty >= start and dirty <= max then
-        local c = trainCount[l.name] or 0
+          c_trains = trainCount[l.name] or 0
           GUI.addLabel(tbl, l.name)
           GUI.addLabel(tbl, l.records[1].station)
           GUI.addLabel(tbl, #l.records)
-          GUI.addLabel(tbl, c)
+          GUI.addLabel(tbl, c_trains)
           if trainKey > 0 then
             GUI.add(tbl, {type="checkbox", name="activeLine__"..i.."__"..trainKey, state=(i==trainInfo.line), style="st_checkbox"})
           else
@@ -391,7 +392,7 @@ GUI = {
           GUI.addButton(btns, {caption="<", style="st_disabled_button_bold"})
         end
         GUI.addButton(btns, {caption=page.."/"..math.ceil(dirty/spp), style="st_disabled_button_bold"})
-        if max < c then
+        if max < c_lines then
           GUI.addButton(btns, {name="nextPageLine__"..page, caption=">",style="st_button_style_bold"})
         else
           GUI.addButton(btns, {caption=">", style="st_disabled_button_bold"})
@@ -462,13 +463,25 @@ GUI = {
     GUI.addButton( btns, { caption = "Save", name = "saveMapping" } )
   end,
 
-  showDynamicRules = function(index, line)
+  showDynamicRules = function(index, line, rule_button)
     --debugDump({i=index,line=line,station=stationKey, tr=trainKey}, true)
     local gui = game.players[index].gui[GUI.position].stGui
+    local guiData = global.guiData[index]
     if gui.dynamicRules ~= nil then
       gui.dynamicRules.destroy()
+      if global.guiData[index].line == line then
+        if guiData.rules_button and guiData.rules_button.valid then
+          guiData.rules_button.style = "st_button_style_bold"
+        end
+        global.guiData[index].line = false
+        return
+      end
     end
     if line and global.trainLines[line] then
+      if rule_button and rule_button.valid then
+        rule_button.style = "st_selected_button"
+        guiData.rules_button = rule_button
+      end
       global.guiData[index].line = line
       local lineName = global.trainLines[line].name
       local line_number = global.trainLines[line].settings.number
@@ -616,7 +629,7 @@ GUI = {
     --local tbl = element.parent.parent.stationMapping
     local mappings = tbl.children_names
     for _, name in pairs(mappings) do
-      if startsWith(name, "station_map_label_") then
+      if string.starts_with(name, "station_map_label_") then
         local i = tonumber(name:match("station_map_label_*(%w*)"))
         local station = tbl[name].caption
         local text = trim(tbl["station_map_" .. i].text)
@@ -852,12 +865,17 @@ on_gui_click = {
     global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
   end,
 
-  editRules = function(player, option2)
+  editRules = function(player, option2, _, element)
     --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
     GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
-    global.guiData[player.index].rules = false
+    local guiData = global.guiData[player.index]
+    if guiData.rules_button and guiData.rules_button.valid then
+      guiData.rules_button.style = "st_button_style_bold"
+    end
+
+    guiData.rules = false
     global.playerRules[player.index].page = 1
-    GUI.showDynamicRules(player.index,option2)
+    GUI.showDynamicRules(player.index, option2, element)
   end,
 
   saveRules = function(player, option2)

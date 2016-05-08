@@ -1,5 +1,18 @@
 require "defines"
 require "util"
+require 'stdlib.area.position'
+require 'stdlib.surface'
+require 'stdlib.string'
+
+Logger = require('stdlib.log.logger')
+
+debug = true
+
+LOGGERS = {}
+
+LOGGERS.main = Logger.new("SmartTrains","main", debug)
+
+
 
 -- myevent = game.generateeventname()
 -- the name and tick are filled for the event automatically
@@ -12,8 +25,6 @@ if not use_EventsPlus or not remote.interfaces.EventsPlus then
   events["on_player_opened"] = script.generate_event_name()
   events["on_player_closed"] = script.generate_event_name()
 end
-
-debug = false
 
 require("gui")
 require("Train")
@@ -172,10 +183,6 @@ local function on_force_created(event)
   init_force(event.force)
 end
 
-local function on_forces_merging(_)
-
-end
-
 local function on_player_created(event)
   init_player(game.players[event.player_index])
 end
@@ -197,7 +204,7 @@ end
 local function update_0_3_77()
   global.settings.lines = nil
   global.stopTick = nil
-  for name, line in pairs(global.trainLines) do
+  for _, line in pairs(global.trainLines) do
     for i,record in pairs(line.records) do
       if not line.rules then line.rules = {} end
       if not line.rules[i] then
@@ -225,7 +232,7 @@ local function update_0_3_77()
     line.changed = game.tick
   end
   local trainLine, rules
-  for i, train in pairs(global.trains) do
+  for _, train in pairs(global.trains) do
     if train.line and global.trainLines[train.line] and train.waitForever then
       trainLine = global.trainLines[train.line]
       rules = trainLine.rules
@@ -240,37 +247,7 @@ local function update_0_3_77()
         end
         schedule.records[i] = record
       end
-      if train.name == "Dysoch" then
-        log(serpent.block(train.train.schedule.records[1]))
-      end
-      local old_s = train.train.state
       train.train.schedule = schedule
-      if train.name == "Dysoch" then
-        log(train.name .. " o:".. getKeyByValue(defines.trainstate, old_s) .. " n:".. getKeyByValue(defines.trainstate, train.train.state))
-        log(serpent.block(train.train.schedule.records[1]))
-      end
-    end
-  end
-end
-
-function fix_updateTick()
-  local newtick
-  local math = math
-  for tick, trains in pairs(global.ticks) do
-    if #trains > 10 then
-      local s=11
-      local e=s+math.ceil((#trains - 10) / 10)
-      for i=1,10 do
-        newtick = tick+1
-        global.ticks[newtick] = global.ticks[newtick] or {}
-        for j=s,e do
-          if trains[j] then
-            trains[j].waiting.nextCheck = newtick
-            table.insert(global.ticks[newtick], trains[j])
-            table.remove(global.ticks[tick], j)
-          end
-        end
-      end
     end
   end
 end
@@ -284,6 +261,7 @@ function on_configuration_changed(data)
     if data.mod_changes.SmartTrains then
       local old_version = data.mod_changes.SmartTrains.old_version
       local new_version = data.mod_changes.SmartTrains.new_version
+      LOGGERS.main.log("Updating SmartTrains from " .. serpent.line(old_version, {comment=false}) .. " to " .. new_version)
       local searched_stations = false
       initGlob()
       init_forces()
@@ -299,7 +277,7 @@ function on_configuration_changed(data)
           --local tmp = util.table.deepcopy(global.stationCount)
           --local smart_stops = util.table.deepcopy(global.smartTrainstops)
 
-          for i, t in pairs(global.trains) do
+          for _, t in pairs(global.trains) do
             t.dynamic = nil
             if t.settings then
               t.settings.autoDepart = nil
@@ -341,52 +319,38 @@ function on_configuration_changed(data)
               end
             end
           end
-
-          for tick, trains in pairs(global.ticks) do
-          --log("tick " .. tick ..": " .. #trains)
-          end
         end
       end
       if not old_version and not searched_stations then
         findStations()
       end
       global.version = new_version
-      saveGlob("PostUpdate"..old_version)
+      if old_version then
+        saveGlob("PostUpdate"..old_version)
+      end
+      LOGGERS.main.log("Updating to " .. new_version .." done, tick: " .. game.tick)
+      LOGGERS.main.write()
     end
     --update fuelvalue cache, in case the values changed
     for item, _ in pairs(global.fuel_values) do
       global.fuel_values[item] = game.item_prototypes[item].fuel_value/1000000
     end
   end)
-  if not status then error(err, 2) end
-end
-
-function addPos(p1,p2)
-  if not p1.x then
-    error("Invalid position", 2)
+  if not status then
+    LOGGERS.main.write()
+    error(err, 2)
   end
-  if p2 and not p2.x then
-    error("Invalid position 2", 2)
-  end
-  p2 = p2 or {x=0,y=0}
-  return {x=p1.x+p2.x, y=p1.y+p2.y}
-end
-
-function expandPos(pos, range)
-  range = range or 0.5
-  if not pos or not pos.x then error("invalid pos",3) end
-  return {{pos.x - range, pos.y - range}, {pos.x + range, pos.y + range}}
 end
 
 function createProxy(trainstop)
   local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
   local offsetcargo = {[0] = {x=-0.5,y=0.5},[2]={x=-0.5,y=-0.5},[4]={x=0.5,y=-0.5},[6]={x=0.5,y=0.5}}
-  local pos = addPos(trainstop.position, offset[trainstop.direction])
-  local poscargo = addPos(trainstop.position, offsetcargo[trainstop.direction])
+  local pos = Position.add(trainstop.position, offset[trainstop.direction])
+  local poscargo = Position.add(trainstop.position, offsetcargo[trainstop.direction])
 
   local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.force, position=pos}
   local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.force, position=poscargo}
-  local area = expandPos(pos,0.2)
+  local area = Position.expand_to_area(pos, 0.2)
   local ent = trainstop.surface.find_entities_filtered{area = area, name="smart-train-stop-proxy", force = trainstop.force}
   if not ent[1] then
     ent = trainstop.surface.create_entity(proxy)
@@ -403,7 +367,7 @@ function createProxy(trainstop)
     ent.minable = false
     ent.destructible = false
   end
-  area = expandPos(poscargo,0.2)
+  area = Position.expand_to_area(poscargo,0.2)
   local ent2 = trainstop.surface.find_entities_filtered{area = area, name="smart-train-stop-proxy-cargo", force = trainstop.force}
   if not ent2[1] then
     ent2 = trainstop.surface.create_entity(proxycargo)
@@ -440,7 +404,7 @@ function recreateProxy(trainstop)
   if trainstop.station.valid then
     local force = trainstop.station.force.name
     if not trainstop.cargo or not trainstop.cargo.valid then
-      local poscargo = addPos(trainstop.station.position, offsetcargo[trainstop.station.direction])
+      local poscargo = Position.add(trainstop.station.position, offsetcargo[trainstop.station.direction])
       local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.station.force, position=poscargo}
       local ent2 = trainstop.station.surface.create_entity(proxycargo)
       if ent2.valid then
@@ -452,7 +416,7 @@ function recreateProxy(trainstop)
       end
     end
     if not trainstop.signalProxy or not trainstop.signalProxy.valid then
-      local pos = addPos(trainstop.station.position, offset[trainstop.station.direction])
+      local pos = Position.add(trainstop.station.position, offset[trainstop.station.direction])
       local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.station.force, position=pos}
       local ent = trainstop.station.surface.create_entity(proxy)
       if ent.valid then
@@ -465,11 +429,10 @@ function recreateProxy(trainstop)
 end
 
 function findSmartTrainStopByTrain(vehicle, stationName)
-  --local areas = {expandPos(vehicle.carriages[1].position, 3), expandPos(vehicle.carriages[#vehicle.carriages].position, 3)}
   local surface = vehicle.surface
   local found = false
 
-  local area = expandPos(vehicle.position, 3)
+  local area = Position.expand_to_area(vehicle.position, 3)
   --for _,area in pairs(areas) do
   for _, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
     --flyingText("S", GREEN, station.position, true)
@@ -816,11 +779,7 @@ function on_tick(event)
 
             local signal = train:getCircuitSignal()
             local cargo_requirement = (rules.full and full) or (rules.empty and empty) or (rules.noChange and noChange)
-            
-            if startsWith(train.name,"Janko") then
-              log("waiting: " .. serpent.line({s=signal, c=cargo_requirement}))
-            end
-            
+
             if (rules.requireBoth and cargo_requirement and signal)
               or (not rules.requireBoth and ( cargo_requirement or ( rules.waitForCircuit and signal )))
             then
@@ -841,9 +800,6 @@ function on_tick(event)
                 jump = jumpSignal or jumpTo or false
               else
                 jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
-              end
-              if startsWith(train.name,"Janko") then
-              log("done: " .. serpent.line(jump))
               end
               train:waitingDone(true, jump)
               keepWaiting = false
@@ -1078,7 +1034,7 @@ function onbuiltentity(event)
     if ctype == "entity-ghost" and (ent.ghost_name == "smart-train-stop-proxy" or ent.ghost_name == "smart-train-stop-proxy-cargo") then
       local surface = ent.surface
       local name = ent.ghost_name
-      local area = expandPos(ent.position, 0.2)
+      local area = Position.expand_to_area(ent.position, 0.2)
       ent.revive()
       ent = surface.find_entities_filtered{area=area, name = name}
       --debugDump({ent[1].name},true)
@@ -1313,6 +1269,9 @@ function pauseError(err, desc)
   global.error = {msg = err, desc = desc}
   game.write_file("errorReportSmartTrains.txt", serpent.block(global, {name="global"}))
   global.error = nil
+  for _, logger in pairs(LOGGERS) do
+    logger.write()
+  end
 end
 
 function stationKey(station)
@@ -1321,32 +1280,15 @@ function stationKey(station)
 end
 
 function findStations()
-
-  -- create shorthand object for primary game surface
-  local surface = game.surfaces['nauvis']
-
-  -- determine map size
-  local min_x, min_y, max_x, max_y = 0, 0, 0, 0
-  for c in surface.get_chunks() do
-    if c.x < min_x then
-      min_x = c.x
-    elseif c.x > max_x then
-      max_x = c.x
-    end
-    if c.y < min_y then
-      min_y = c.y
-    elseif c.y > max_y then
-      max_y = c.y
-    end
-  end
-
-  -- create bounding box covering entire generated map
-  local bounds = {{min_x*32,min_y*32},{max_x*32,max_y*32}}
   initGlob()
   global.smartTrainstops = {}
   global.stationCount = {}
   init_forces()
-  for _, station in pairs(surface.find_entities_filtered{area=bounds, type="train-stop"}) do
+  LOGGERS.main.log("Searching smart trainstops...")
+  log("Searching smart trainstops...")
+  local results = Surface.find_all_entities({ type = 'train-stop', surface = 'nauvis' })
+
+  for _, station in pairs(results) do
     if station.name == "smart-train-stop" then
       --debugDump("SmartStop: "..station.backer_name,true)
       createProxy(station)
@@ -1357,6 +1299,8 @@ function findStations()
     end
     global.stationCount[force][station.backer_name] = global.stationCount[force][station.backer_name] + 1
   end
+  LOGGERS.main.log("Found " .. #results .. " smart trainstops (all forces)")
+  log("Found " .. #results .. " smart trainstops (all forces)")
 end
 
 script.on_init(oninit)
@@ -1437,8 +1381,6 @@ remote.add_interface("st",
     end,
 
     findStations = function()
-      global.smartTrainstops = {}
-      global.stationCount = {}
       findStations()
     end,
 
@@ -1578,7 +1520,7 @@ remote.add_interface("st",
         ticksC = ticksC + #trains
         log("tick " .. tick ..": " .. #trains)
       end
-      for tick, trains in pairs(global.updateTick) do
+      for _, trains in pairs(global.updateTick) do
         ticksU = ticksU + #trains
       end
       debugDump({t=t,c=ticksC,u=ticksU},true)

@@ -1,7 +1,3 @@
-function startsWith(String,needle)
-  return string.sub(String,1,string.len(needle))==needle
-end
-
 Train = {
 
     new = function(train)
@@ -118,8 +114,8 @@ Train = {
         end
         if locos then
           --debugDump(name..": "..station.." "..locos,true)
-          --debugDump(startsWith(name,station.." "..locos),true)
-          if startsWith(name,station.." "..locos) and string.match(name,"^"..station.."%s(L*)") == locos then
+          --debugDump(string.starts_with(name,station.." "..locos),true)
+          if string.starts_with(name, station.." "..locos) and string.match(name,"^"..station.."%s(L*)") == locos then
             match = name
           end
         end
@@ -222,12 +218,9 @@ Train = {
       local vehicle = (self.direction and self.direction == 0) and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
       --self:flyingText("V", GREEN, {offset=vehicle.position})
       local station = findSmartTrainStopByTrain(vehicle, self.train.schedule.records[self.train.schedule.current].station)
-      local proxy, cargoProxy
       if station then
         local smartStop = global.smartTrainstops[vehicle.force.name][stationKey(station)]
         --self:flyingText("S", GREEN, {offset=station.position})
-        proxy = (smartStop and smartStop.signalProxy and smartStop.signalProxy.valid) and smartStop.signalProxy or false
-        cargoProxy = (smartStop and smartStop.cargo and smartStop.cargo.valid) and smartStop.cargo or false
         self:setCircuitSignal()
         self.updateTick = game.tick + global.settings.circuit.interval
         insertInTable(global.updateTick,self.updateTick,self)
@@ -301,7 +294,7 @@ Train = {
 
     --returns fuelvalue (in MJ)
     lowestFuel = function(self)
-      local minfuel = nil
+      local minfuel
       local c
       local locos = self.train.locomotives
       if locos ~= nil then
