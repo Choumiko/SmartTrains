@@ -12,20 +12,17 @@ recipe.enabled = false
 local smart_train_stop = copyPrototype("train-stop", "train-stop", "smart-train-stop")
 smart_train_stop.icon = "__SmartTrains__/graphics/smart-train-stop-icon.png"
 
-local copyfrom = "small-lamp"
-if data.raw["item"]["small-lamp-green"] then
-  copyfrom = "small-lamp-green"
-end
-
-local st_proxy = copyPrototype("lamp", copyfrom,"smart-train-stop-proxy")
+local st_proxy = copyPrototype("lamp", "small-lamp","smart-train-stop-proxy")
+st_proxy.icon = "__SmartTrains__/graphics/lamp/icon.png"
+st_proxy.picture_off.filename = "__SmartTrains__/graphics/lamp/light-off.png"
+st_proxy.picture_off.shift = { 0, 0 } 
+st_proxy.picture_on.filename = "__SmartTrains__/graphics/lamp/light-on-patch.png"
+st_proxy.picture_on.shift = { -0.015625, -0.1875 }
 st_proxy.energy_usage_per_tick = "250W"
-st_proxy.collision_mask = {"resource-layer"}
+st_proxy.collision_mask = { "resource-layer" }
+st_proxy.light = { intensity = 0.5, size = 5, color = { r = 0.02, g = 0.2, b = 0.02, a = 0 } }
 
-if data.raw["item"]["small-lamp-green"] then
-  st_proxy.light = {intensity = 0.5, size = 5, color={1,1,0,0}}
-end
-
-local st_proxy_i = copyPrototype("item", copyfrom, "smart-train-stop-proxy")
+local st_proxy_i = copyPrototype("item", "small-lamp", "smart-train-stop-proxy")
 table.insert(st_proxy_i.flags, "hidden")
 
 local st_proxyc = copyPrototype("constant-combinator","constant-combinator","smart-train-stop-proxy-cargo")
