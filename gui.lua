@@ -282,12 +282,12 @@ GUI = {
 
           local text = {""}
           local chunk_count = #chunks
-          for i, chunk in pairs(chunks) do
-            for _, bit in pairs(chunk) do
+          for j, chunk_ in pairs(chunks) do
+            for _, bit in pairs(chunk_) do
               table.insert(text, bit)
             end
 
-            if i < chunk_count then
+            if j < chunk_count then
               table.insert(text, ", ")
             end
           end
@@ -365,7 +365,7 @@ GUI = {
           trainCount[t.line] = trainCount[t.line] + 1
         end
       end
-      local c_trains = 0
+      local c_trains
       for i, l in pairsByKeys(global.trainLines, sortByName) do
         dirty= dirty+1
         if dirty >= start and dirty <= max then
@@ -463,7 +463,7 @@ GUI = {
     GUI.addButton( btns, { caption = "Save", name = "saveMapping" } )
   end,
 
-  showDynamicRules = function(index, line, rule_button)
+  showDynamicRules = function(index, line, rule_button, stay_opened)
     --debugDump({i=index,line=line,station=stationKey, tr=trainKey}, true)
     local gui = game.players[index].gui[GUI.position].stGui
     local guiData = global.guiData[index]
@@ -473,8 +473,10 @@ GUI = {
         if guiData.rules_button and guiData.rules_button.valid then
           guiData.rules_button.style = "st_button_style_bold"
         end
-        global.guiData[index].line = false
-        return
+        if not stay_opened then
+          global.guiData[index].line = false
+          return
+        end
       end
     end
     if line and global.trainLines[line] then
@@ -806,13 +808,14 @@ on_gui_click = {
   end,
 
   nextPageRule = function(player)
+    local guiData = global.guiData[player.index]
     local line = global.guiData[player.index].line
     local maxPage = page_count(#global.trainLines[line].records, global.settings.rulesPerPage)
     local page = global.playerRules[player.index].page
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, page)
     page = page < maxPage and page + 1 or page
     global.playerRules[player.index].page = page
-    GUI.showDynamicRules(player.index,line)
+    GUI.showDynamicRules(player.index, line, global.guiData[player.index].rules_button, true)
     return false
   end,
 
@@ -822,7 +825,7 @@ on_gui_click = {
     global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, page)
     page =  page > 1 and page - 1 or 1
     global.playerRules[player.index].page = page
-    GUI.showDynamicRules(player.index,line)
+    GUI.showDynamicRules(player.index, line, global.guiData[player.index].rules_button, true)
     return false
   end,
 

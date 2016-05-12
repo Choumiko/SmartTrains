@@ -13,3 +13,5 @@ function copyPrototype(type, name, newName)
   end
   return p
 end
+
+return copyPrototype
