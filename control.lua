@@ -3,10 +3,11 @@ require "util"
 require 'stdlib.area.position'
 require 'stdlib.surface'
 require 'stdlib.string'
+require 'stdlib.table'
 
 Logger = require('stdlib.log.logger')
 
-debug = true
+debug = false
 
 LOGGERS = {}
 
@@ -55,13 +56,21 @@ rulesPerPage = 5
 mappingsPerPage = 10
 
 local tmpPos = {}
-RED = {r = 0.9}
-GREEN = {g = 0.7}
-YELLOW = {r = 0.8, g = 0.8}
+colors = {
+  RED = {r = 0.9},
+  GREEN = {g = 0.7},
+  YELLOW = {r = 0.8, g = 0.8}
+}
+
 
 trainstate = {left_station = 11}
 
-function debugLog(var, prepend)
+function insertInTable(tableA, key, value)
+  if not tableA[key] then tableA[key] = {} end
+  table.insert(tableA[key], value)
+end
+
+local function debugLog(var, prepend)
   if not global.debug_log then return end
   local str = prepend or ""
   for _,_ in pairs(game.players) do
@@ -73,6 +82,14 @@ function debugLog(var, prepend)
     end
     --player.print(str..msg)
     log(str..msg)
+  end
+end
+
+function util.getKeyByValue(tableA, value)
+  for i,c in pairs(tableA) do
+    if c == value then
+      return i
+    end
   end
 end
 
@@ -117,8 +134,10 @@ function initGlob()
   global.version = global.version or "0.3.75"
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
+
   global.ticks = global.ticks or {}
   global.updateTick = global.updateTick or {}
+  global.scheduleUpdate = global.scheduleUpdate or {}
 
   global.player_opened = global.player_opened or {}
   global.showFlyingText = global.showFlyingText or false
@@ -201,6 +220,10 @@ function onload()
   --if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
 end
 
+local function updateSetting(setting, defaults, old_keys)
+  setting = table.update(setting, defaults, true) table.remove_keys(setting, old_keys)
+end
+
 local function update_0_3_77()
   global.settings.lines = nil
   global.stopTick = nil
@@ -269,15 +292,14 @@ function on_configuration_changed(data)
       setMetatables()
       if old_version then
         debugDump("SmartTrains version changed from "..old_version.." to "..new_version,true)
-        saveGlob("PreUpdate"..old_version)
+        saveGlob("PreUpdate"..old_version.."_"..game.tick)
         if old_version < "0.3.77" then
           update_0_3_77()
         end
         if old_version < "0.3.9" then
-          --local tmp = util.table.deepcopy(global.stationCount)
-          --local smart_stops = util.table.deepcopy(global.smartTrainstops)
-
-          for _, t in pairs(global.trains) do
+          local line
+          local c = 0
+          for i, t in pairs(global.trains) do
             t.dynamic = nil
             if t.settings then
               t.settings.autoDepart = nil
@@ -286,7 +308,22 @@ function on_configuration_changed(data)
             if t.waitingStation and t.waitingStation.station and t.waitingStation.station.valid then
               t.waitingStation.key = stationKey(t.waitingStation.station)
             end
+            local update
+            local line = t.line and global.trainLines[t.line]
+            if line then
+              update = t.lineVersion < global.trainLines[t.line].changed
+            elseif t.line and not global.trainLines[t.line] then
+              update = true
+            end
+
+            if update then
+              t.scheduleUpdate = game.tick + 60 + i
+              insertInTable(global.scheduleUpdate, t.scheduleUpdate, t)
+              c = c + 1
+              log(t.scheduleUpdate .. ": " .. i)
+            end
           end
+          log(game.tick .. " Total: " .. c)
           removeInvalidTrains(true,true)
           global.stationCount = {}
           global.smartTrainstops = {}
@@ -326,7 +363,7 @@ function on_configuration_changed(data)
       end
       global.version = new_version
       if old_version then
-        saveGlob("PostUpdate"..old_version)
+        saveGlob("PostUpdate"..old_version.."_"..game.tick)
       end
       LOGGERS.main.log("Updating to " .. new_version .." done, tick: " .. game.tick)
       LOGGERS.main.write()
@@ -398,7 +435,7 @@ function removeProxy(trainstop)
   end
 end
 
-function recreateProxy(trainstop)
+local function recreateProxy(trainstop)
   local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
   local offsetcargo = {[0] = {x=-0.5,y=0.5},[2]={x=-0.5,y=-0.5},[4]={x=0.5,y=-0.5},[6]={x=0.5,y=0.5}}
   if trainstop.station.valid then
@@ -467,7 +504,7 @@ function removeInvalidTrains(show)
     end
   end
   if removed > 0 and show then
-    flyingText("Removed "..removed.." invalid trains", RED, false, true)
+    flyingText("Removed "..removed.." invalid trains", colors.RED, false, true)
   end
   return removed
 end
@@ -535,17 +572,9 @@ function addInventoryContents(invA, invB)
   return res
 end
 
-function getKeyByValue(tableA, value)
-  for i,c in pairs(tableA) do
-    if c == value then
-      return i
-    end
-  end
-end
-
 function on_train_changed_state(event)
   --debugDump(game.tick.." "..getKeyByValue(defines.trainstate, event.train.state),true)
-  --log("state change : ".. getKeyByValue(defines.trainstate, event.train.state))
+  -- log("state change : ".. getKeyByValue(defines.trainstate, event.train.state), GREEN)
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
@@ -609,6 +638,7 @@ function on_train_changed_state(event)
         end
       end
     elseif train.state == defines.trainstate.wait_station then
+      LOGGERS.main.log("Train arrived at " .. t:currentStation() .. "\t\t  train: " .. t.name .. " Speed: " .. t.train.speed)
       t:updateLine()
       t:setWaitingStation()
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
@@ -616,9 +646,9 @@ function on_train_changed_state(event)
         if lowest_fuel >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
         end
-        if t:currentStation() == t:refuelStation() then --TODO start refueling only if station is last in schedule?
+        if t:currentStation() == t:refuelStation() and #schedule.records == schedule.current then --TODO start refueling only if station is last in schedule?
           t:startRefueling()
-          t:flyingText("refueling", YELLOW)
+          t:flyingText("refueling", colors.YELLOW)
         end
       end
       t:startWaitingForRules()
@@ -626,7 +656,7 @@ function on_train_changed_state(event)
       if t.settings.autoRefuel then
         if lowest_fuel < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
           train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
-          t:flyingText("Refuel station added", YELLOW)
+          t:flyingText("Refuel station added", colors.YELLOW)
         end
       end
       t.direction = t.train.speed < 0 and 1 or 0
@@ -637,11 +667,6 @@ function on_train_changed_state(event)
   end
   --debugLog("train changed state to "..event.train.state.. " e")
   --log("state change e")
-end
-
-function insertInTable(tableA, key, value)
-  if not tableA[key] then tableA[key] = {} end
-  table.insert(tableA[key], value)
 end
 
 --https://github.com/GopherAtl/logistic-combinators/blob/master/control.lua
@@ -676,6 +701,7 @@ function on_tick(event)
   local current_tick = event.tick
   if global.updateTick[current_tick] then
     local status,err = pcall(function()
+      local remove_invalid = false
       for _, train in pairs(global.updateTick[current_tick]) do
         if train.train and train.train.valid then
           if train.waitingStation then
@@ -683,14 +709,15 @@ function on_tick(event)
               train:setCircuitSignal()
               train.updateTick = current_tick+global.settings.circuit.interval
               insertInTable(global.updateTick, train.updateTick, train)
-            else
-              log(game.tick .. " " .. train.name .. " invalid updatetick")
+              --else
+              --log(game.tick .. " " .. train.name .. " invalid updatetick")
             end
           end
         else
-          removeInvalidTrains(true)
+          remove_invalid = true
         end
       end
+      if remove_invalid then removeInvalidTrains(true) end
     end)
     if not status then
       pauseError(err, "on_tick: updateCircuit")
@@ -698,21 +725,28 @@ function on_tick(event)
     global.updateTick[current_tick] = nil
   end
 
-  if current_tick % 60 == 0 then
+  if global.scheduleUpdate[current_tick] then
     local status,err = pcall(function()
-      for _,train in pairs(global.trains) do
+      log(current_tick .. " scheduleUpdate " .. #global.scheduleUpdate[current_tick])
+      local remove_invalid = false
+      for _,train in pairs(global.scheduleUpdate[current_tick]) do
         if train.train and train.train.valid then
-          if train.line and train.train.state ~= defines.trainstate.wait_station and train.train.speed == 0 then
-            train:updateLine()
+          if train.line and train.scheduleUpdate == current_tick and not train:updateLine() then
+            log(current_tick .. " retry " .. train.name)
+            --line wasn't updated, retry in 1 second
+            train.scheduleUpdate = current_tick + 60
+            insertInTable(global.scheduleUpdate, train.scheduleUpdate, train)
           end
         else
-          removeInvalidTrains(true)
+          remove_invalid = true
         end
       end
+      if remove_invalid then removeInvalidTrains(true) end
     end)
     if not status then
       pauseError(err, "on_tick: updateLine")
     end
+    global.scheduleUpdate[current_tick] = nil
   end
 
   if global.ticks[current_tick] then
@@ -728,14 +762,14 @@ function on_tick(event)
             else
               text = "Leaving in "..util.formattime(train.departAt-current_tick)
             end
-            train:flyingText(text, RED,{offset=-2})
+            train:flyingText(text, colors.RED,{offset=-2})
           end
 
           --for i,train in pairs(global.trains) do
           if train:isRefueling() then
             if current_tick >= train.refueling.nextCheck then
               if train:lowestFuel() >= global.settings.refuel.rangeMax then
-                train:flyingText("Refueling done", YELLOW)
+                train:flyingText("Refueling done", colors.YELLOW)
                 train:refuelingDone(true)
               else
                 local nextCheck = current_tick + global.settings.depart.interval
@@ -783,6 +817,7 @@ function on_tick(event)
             if (rules.requireBoth and cargo_requirement and signal)
               or (not rules.requireBoth and ( cargo_requirement or ( rules.waitForCircuit and signal )))
             then
+              LOGGERS.main.log("Train ready for departure from " .. train:currentStation() .. "\t\t  train: " .. train.name)
               local signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
 
               local use_mapping = global.trainLines[train.line] and global.trainLines[train.line].settings.useMapping or false
@@ -792,12 +827,15 @@ function on_tick(event)
                 if signalValue then
                   jumpSignal = train:get_first_matching_station(signalValue)
                   log("jumpSignal:" .. serpent.line(jumpSignal))
+                  LOGGERS.main.log("Mapping signal \t" .. signalValue .. " to " .. (train:getStationName(jumpSignal) or " invalid index"))
                 end
                 if rules.jumpTo then
                   jumpTo = train:get_first_matching_station(rules.jumpTo)
                   log("jumpTo:" .. serpent.line(jumpTo))
+                  LOGGERS.main.log("Mapping station # \t" .. rules.jumpTo .. " to " .. (train:getStationName(jumpTo) or " invalid index"))
                 end
                 jump = jumpSignal or jumpTo or false
+
               else
                 jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
               end
@@ -808,7 +846,7 @@ function on_tick(event)
               txt = rules.waitForCircuit and "waiting for circuit" or txt
               if rules.full or rules.empty or rules.waitForCircuit then
                 if not rules.waitForCircuit or (rules.waitForCircuit and current_tick - train.lastMessage >= 120) then
-                  train:flyingText(txt, YELLOW, {offset=-1})
+                  train:flyingText(txt, colors.YELLOW, {offset=-1})
                   train.lastMessage = current_tick
                 end
               end
@@ -837,13 +875,14 @@ function on_tick(event)
           removeInvalidTrains(true)
         end
       end
-      global.ticks[current_tick] = nil
     end)
     if not status then
       pauseError(err, "on_tick_trains")
     end
+    global.ticks[current_tick] = nil
     --debugLog(" tick e", game.tick)
   end
+
   if not use_EventsPlus or not remote.interfaces.EventsPlus and current_tick%10==9  then
     if current_tick%10==9  then
       local status,err = pcall(function()
@@ -872,10 +911,7 @@ function on_player_opened(event)
     if event.entity.type == "locomotive" and event.entity.train then
       global.playerPage[event.player_index] = {schedule=1,lines=1}
       local trainInfo = getTrainFromEntity(event.entity)
-      log(serpent.line(trainInfo))
-      log(#global.trains)
       removeInvalidTrains(true,true)
-      log(#global.trains)
       GUI.create_or_update(trainInfo, event.player_index)
       global.guiData[event.player_index] = {rules={}}
       global.openedTrain[event.player_index] = event.entity.train
@@ -1166,14 +1202,6 @@ function on_robot_pre_mined(event)
   end
 end
 
-function scheduleToString(schedule)
-  local tmp = "Schedule: "
-  for i=1,#schedule.records do
-    tmp = tmp.." "..schedule.records[i].station.."|"..schedule.records[i].time_to_wait/60
-  end
-  return tmp.." next: "..schedule.current
-end
-
 function debugDump(var, force)
   if false or force then
     for _, player in pairs(game.players) do
@@ -1190,8 +1218,7 @@ end
 
 function flyingText(line, color, pos, show)
   if show or debug then
-    local pos = {}
-    color = color or RED
+    color = color or colors.RED
     if not pos then
       for _, p in pairs(game.players) do
         p.surface.create_entity({name="flying-text", position=p.position, text=line, color=color})
@@ -1226,35 +1253,6 @@ function sortByName(a,b)
   --table.sort(o, function(a,b)
   return tostring(a):gsub("%d+",padnum):lower() < tostring(b):gsub("%d+",padnum):lower()
     --return a < b
-end
-
-
---for k,v in ipairs(alphanumsort(unsorted)) do print(v) end
-function alphanumsort(o)
-  --local maxl = 0
-  --for n,v in ipairs(o) do tostring(v):gsub("%d+", function(d) if #d > maxl then maxl = #d end; return d end) end
-  --local function padnum(d) return ("%0"..maxl.."d"):format(d) end
-  local function padnum(d) return ("%012d"):format(d) end
-  table.sort(o, function(a,b)
-    return tostring(a):gsub("%d+",padnum):lower() < tostring(b):gsub("%d+",padnum):lower() end)
-  return o
-end
-
-function findAllEntitiesByType(surface, type)
-  local entities = {}
-  for coord in surface.get_chunks() do
-    local X,Y = coord.x, coord.y
-    if surface.is_chunk_generated{X,Y} then
-      local area = {{X*32, Y*32}, {X*32 + 32, Y*32 + 32}}
-      for _, entity in pairs(surface.find_entities_filtered{area = area, type = type}) do
-        local key = entity.position.x.."A"..entity.position.y
-        local name = entity.backer_name or entity.name
-        local train = entity.train or false
-        entities[key] = {name= name, pos = entity.position, train=train}
-      end
-    end
-  end
-  return entities
 end
 
 function saveGlob(name)
@@ -1308,7 +1306,7 @@ script.on_load(onload)
 script.on_configuration_changed(on_configuration_changed)
 script.on_event(defines.events.on_player_created, on_player_created)
 script.on_event(defines.events.on_force_created, on_force_created)
-script.on_event(defines.events.on_forces_merging, on_forces_merging)
+--script.on_event(defines.events.on_forces_merging, on_forces_merging)
 
 script.on_event(defines.events.on_train_changed_state, on_train_changed_state)
 script.on_event(defines.events.on_player_mined_item, onplayermineditem)

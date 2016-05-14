@@ -73,7 +73,7 @@ Train = {
       if self.settings.autoRefuel then
         if self:lowestFuel() < (global.settings.refuel.rangeMin) and not inSchedule(self:refuelStation(), train.schedule) then
           train.schedule = addStation(self:refuelStation(), train.schedule, global.settings.refuel.time)
-          self:flyingText("Refuel station added", YELLOW)
+          self:flyingText("Refuel station added", colors.YELLOW)
         end
       end
       if train.manual_mode == false or force then
@@ -82,9 +82,9 @@ Train = {
         local tmp = (schedule.current % #schedule.records) + 1
         if index and index > 0 and index <= #schedule.records then
           tmp = index
-          self:flyingText("Going to "..schedule.records[index].station, YELLOW, {offset = -1}) --TODO localisation
+          self:flyingText("Going to "..schedule.records[index].station, colors.YELLOW, {offset = -1}) --TODO localisation
         else
-          self:flyingText("leave station", YELLOW, {offset=-1})
+          self:flyingText("leave station", colors.YELLOW, {offset=-1})
         end
         --all below is needed to make a train go to another station, don't change!
         train.manual_mode = true
@@ -152,13 +152,21 @@ Train = {
     removeRefuelStation = function(self)
       if inSchedule(self:refuelStation(), self.train.schedule) and #self.train.schedule.records >= 3 then
         self.train.schedule = removeStation(self:refuelStation(), self.train.schedule)
-        self:flyingText("Refuel station removed", YELLOW) --TODO localisation
+        self:flyingText("Refuel station removed", colors.YELLOW) --TODO localisation
       end
     end,
 
     currentStation = function(self)
       if self.train.valid and type(self.train.schedule.records) == "table" and self.train.schedule.records[self.train.schedule.current] then
         return self.train.schedule.records[self.train.schedule.current].station
+      else
+        return false
+      end
+    end,
+
+    getStationName = function(self, index)
+      if self.train.valid and self:isValidScheduleIndex(index) and type(self.train.schedule.records) == "table" then
+        return self.train.schedule.records[index].station
       else
         return false
       end
@@ -201,7 +209,7 @@ Train = {
         end
         local tick = self.waiting.nextCheck
         insertInTable(global.ticks, tick, self)
-        self:flyingText("waiting for rules", YELLOW)
+        self:flyingText("waiting for rules", colors.YELLOW)
       end
     end,
 
@@ -347,7 +355,7 @@ Train = {
                 if d.type ~= nil then
                   sum[d.type] = sum[d.type] or 0
                   sum[d.type] = sum[d.type] + d.amount
-                  --self:flyingText(d.type..": "..d.amount, YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+                  --self:flyingText(d.type..": "..d.amount, colors.YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
                 end
               end
             end
@@ -380,7 +388,7 @@ Train = {
           liquids2[l] = c2[l] or 0
           local flow = (liquids1[l] - liquids2[l])/(interval/60)
           if math.abs(flow) >= minFlow then goodflow = true end
-          --self:flyingText("flow: "..flow, YELLOW, {offset=1})
+          --self:flyingText("flow: "..flow, colors.YELLOW, {offset=1})
           c1[l] = nil
           c2[l] = nil
         end
@@ -483,25 +491,28 @@ Train = {
       end
     end,
 
+    --- Update a trainline
+    -- @return #boolean whether the line was updated
     updateLine = function(self)
-      if self.opened or self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
-        return
+       if self.train.speed ~= 0 or self.opened or self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
+        return false
       end
+      --log(game.tick .. " update line")
       local oldmode = self.train.manual_mode
       if self.line and global.trainLines[self.line] then
-        if self.settings.autoRefuel and self.train.schedule.current == inSchedule(self:refuelStation(), self.train.schedule) then
-          --self:flyingText("Skipping line update", YELLOW)
-          return
+        if self.settings.autoRefuel and self.train.schedule.current == inSchedule(self:refuelStation(), self.train.schedule) and self.train.schedule.current == #self.train.schedule then
+          self:flyingText("Skipping line update, refueling", colors.YELLOW)
+          return false
         end
         local trainLine = global.trainLines[self.line]
         if self.line and trainLine.changed <= self.lineVersion then
-          return
+          return true --already updated
         end
         if self.line then
           --debugDump("updating line "..self.line.." train: "..self.train.carriages[1].backer_name,true)
           local rules = trainLine.rules
           if self.lineVersion >= 0 then
-            self:flyingText("updating schedule", YELLOW) --TODO localisation
+            self:flyingText("updating schedule", colors.YELLOW) --TODO localisation
           end
           local waitingAt = self.train.schedule.records[self.train.schedule.current] or {station="", time_to_wait=0}
           local schedule = {records={}}
@@ -517,6 +528,11 @@ Train = {
           end
 
           local inLine = inSchedule(waitingAt.station,schedule)
+          if self.train.state == defines.trainstate.wait_station and not inLine then
+            self:flyingText("Current station not in new schedule, skipping update", colors.RED) --TODO localisation
+            log(game.tick .. "Current station not in new schedule, skipping update")
+            return false
+          end
           if inLine then
             schedule.current = inLine
           else
@@ -528,16 +544,18 @@ Train = {
           self.train.manual_mode = true
           self.train.schedule = schedule
           self.train.manual_mode = oldmode
-
+          LOGGERS.main.log("Train updated schedule for line " .. self.line .. "\t\t train: " .. self.name)
+          return true
         end
       elseif (self.line and not global.trainLines[self.line]) then
-        self:flyingText("Dettached from line", RED) --TODO localisation
+        self:flyingText("Dettached from line", colors.RED) --TODO localisation
         local schedule = self.train.schedule
         for _, record in pairs(schedule.records) do
           if record.time_to_wait == 2^32-1 then
             record.time_to_wait = 200*60
           end
         end
+        LOGGERS.main.log("Train detached from line " .. self.line .. "\t\t train: " .. self.name)
         self.waitForever = false
         self.line = false
         self.lineVersion = false
@@ -545,6 +563,7 @@ Train = {
         self.train.manual_mode = true
         self.train.schedule = schedule
         self.train.manual_mode = oldmode
+        return true
       end
     end,
 
