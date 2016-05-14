@@ -933,8 +933,6 @@ function on_player_closed(event)
   if event.entity.valid and game.players[event.player_index].valid then
     if event.entity.type == "locomotive" and event.entity.train then
       GUI.destroy(event.player_index)
-      global.guiData[event.player_index] = nil
-      global.playerRules[event.player_index].page = 1
       global.openedTrain[event.player_index] = nil
       --set line version to -1, so it gets updated at the next station
       local train = getTrainFromEntity(event.entity)
@@ -944,8 +942,6 @@ function on_player_closed(event)
       end
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)
-      global.guiData[event.player_index] = nil
-      global.playerRules[event.player_index].page = 1
       if event.entity.backer_name ~= global.openedName[event.player_index] then
         on_station_rename(event.entity, global.openedName[event.player_index])
       end
