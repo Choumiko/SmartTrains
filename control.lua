@@ -574,7 +574,7 @@ end
 
 function on_train_changed_state(event)
   --debugDump(game.tick.." "..getKeyByValue(defines.trainstate, event.train.state),true)
-  -- log("state change : ".. getKeyByValue(defines.trainstate, event.train.state), GREEN)
+  --log("state change : ".. util.getKeyByValue(defines.trainstate, event.train.state))
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
@@ -604,6 +604,7 @@ function on_train_changed_state(event)
       t.waiting = false
       t.refueling = false
       t.departAt = false
+      t:updateLine()
       return
     end
     if train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then

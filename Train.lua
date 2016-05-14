@@ -494,7 +494,7 @@ Train = {
     --- Update a trainline
     -- @return #boolean whether the line was updated
     updateLine = function(self)
-       if self.train.speed ~= 0 or self.opened or self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
+      if self.train.speed ~= 0 or self.opened or self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
         return false
       end
       --log(game.tick .. " update line")
@@ -540,7 +540,6 @@ Train = {
           end
           self.settings.autoRefuel = trainLine.settings.autoRefuel
           self.lineVersion = trainLine.changed
-
           self.train.manual_mode = true
           self.train.schedule = schedule
           self.train.manual_mode = oldmode
