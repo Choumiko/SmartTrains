@@ -54,7 +54,6 @@ linesPerPage = 5
 rulesPerPage = 5
 mappingsPerPage = 10
 
-local tmpPos = {}
 colors = {
   RED = {r = 0.9},
   GREEN = {g = 0.7},
@@ -165,6 +164,8 @@ function initGlob()
 
   global.fuel_values = global.fuel_values or {}
   global.fuel_values["coal"] = game.item_prototypes["coal"].fuel_value/1000000
+
+  global.blueprinted_proxies = global.blueprinted_proxies or {}
 
   if not global.settings.circuit then
     global.settings.circuit = util.table.deepcopy(defaultSettings.circuit)
@@ -386,43 +387,59 @@ function on_configuration_changed(data)
   end
 end
 
-function createProxy(trainstop)
+local function getProxyPositions(trainstop)
   local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
   local offsetcargo = {[0] = {x=-0.5,y=0.5},[2]={x=-0.5,y=-0.5},[4]={x=0.5,y=-0.5},[6]={x=0.5,y=0.5}}
   local pos = Position.add(trainstop.position, offset[trainstop.direction])
   local poscargo = Position.add(trainstop.position, offsetcargo[trainstop.direction])
+  return {signalProxy = pos, cargo = poscargo}
+end
 
-  local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.force, position=pos}
-  local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.force, position=poscargo}
-  local area = Position.expand_to_area(pos, 0.2)
-  local ent = trainstop.surface.find_entities_filtered{area = area, name="smart-train-stop-proxy", force = trainstop.force}
-  if not ent[1] then
-    ent = trainstop.surface.create_entity(proxy)
-  else
-    ent = ent[1]
-  end
-  local force = trainstop.force.name
+function createProxy(trainstop)
+  local positions = getProxyPositions(trainstop)
   local key = stationKey(trainstop)
-  if not global.smartTrainstops[force][key] then
-    global.smartTrainstops[force][key] = {station = trainstop}
+  local keySignal = stationKey({position=positions.signalProxy})
+  local keyCargo = stationKey({position=positions.cargo})
+  local signalProxy, cargoProxy
+  local force = trainstop.force.name
+  local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.force, position=positions.signalProxy}
+  local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.force, position=positions.cargo}
+  if global.blueprinted_proxies[keySignal] then
+    local signal = global.blueprinted_proxies[keySignal]
+    if signal and signal.valid then
+      debugDump("signal: "..serpent.line(signal.position),true)
+      signal.revive()
+    end
+    global.blueprinted_proxies[keySignal] = nil
   end
-  if ent.valid then
-    global.smartTrainstops[force][key] = {station = trainstop, signalProxy=ent}
-    ent.minable = false
-    ent.destructible = false
+  if global.blueprinted_proxies[keyCargo] then
+    local cargo = global.blueprinted_proxies[keyCargo]
+    if cargo and cargo.valid then
+      debugDump("cargo: "..serpent.line(cargo.position),true)
+      cargo.revive()
+    end
+    global.blueprinted_proxies[keyCargo] = nil
   end
-  area = Position.expand_to_area(poscargo,0.2)
-  local ent2 = trainstop.surface.find_entities_filtered{area = area, name="smart-train-stop-proxy-cargo", force = trainstop.force}
-  if not ent2[1] then
-    ent2 = trainstop.surface.create_entity(proxycargo)
+
+  signalProxy = trainstop.surface.find_entity("smart-train-stop-proxy", positions.signalProxy)
+  if not signalProxy then
+    signalProxy = trainstop.surface.create_entity(proxy)
+  end
+
+  cargoProxy = trainstop.surface.find_entity("smart-train-stop-proxy-cargo", positions.cargo)
+  if not cargoProxy then
+    cargoProxy = trainstop.surface.create_entity(proxycargo)
+  end
+  if signalProxy.valid and cargoProxy.valid then
+    cargoProxy.operable = false
+    cargoProxy.destructible = false
+    cargoProxy.set_circuit_condition(1, {parameters={}})
+    signalProxy.destructible = false
+    if not global.smartTrainstops[force][key] then
+      global.smartTrainstops[force][key] = {station = trainstop, signalProxy = signalProxy, cargo = cargoProxy}
+    end
   else
-    ent2 = ent2[1]
-  end
-  if ent.valid and ent2.valid then
-    global.smartTrainstops[force][stationKey(trainstop)].cargo = ent2
-    ent2.minable = false
-    ent2.operable = false
-    ent2.destructible = false
+    pauseError("Could not find signal/cargo proxy for " .. trainstop.backer_name .. " @ " .. serpent.line(trainstop.position,{comment=false}))
   end
 end
 
@@ -443,12 +460,12 @@ function removeProxy(trainstop)
 end
 
 local function recreateProxy(trainstop)
-  local offset = {[0] = {x=-0.5,y=-0.5},[2]={x=0.5,y=-0.5},[4]={x=0.5,y=0.5},[6]={x=-0.5,y=0.5}}
-  local offsetcargo = {[0] = {x=-0.5,y=0.5},[2]={x=-0.5,y=-0.5},[4]={x=0.5,y=-0.5},[6]={x=0.5,y=0.5}}
+  local positions = getProxyPositions(trainstop)
+
   if trainstop.station.valid then
     local force = trainstop.station.force.name
     if not trainstop.cargo or not trainstop.cargo.valid then
-      local poscargo = Position.add(trainstop.station.position, offsetcargo[trainstop.station.direction])
+      local poscargo = positions.cargo
       local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.station.force, position=poscargo}
       local ent2 = trainstop.station.surface.create_entity(proxycargo)
       if ent2.valid then
@@ -460,7 +477,7 @@ local function recreateProxy(trainstop)
       end
     end
     if not trainstop.signalProxy or not trainstop.signalProxy.valid then
-      local pos = Position.add(trainstop.station.position, offset[trainstop.station.direction])
+      local pos = positions.signalProxy
       local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.station.force, position=pos}
       local ent = trainstop.station.surface.create_entity(proxy)
       if ent.valid then
@@ -1063,19 +1080,10 @@ function onbuiltentity(event)
     local ent = event.created_entity
     local ctype = ent.type
     --debugDump({e=ent.ghost_name, t=ctype},true)
-    if ctype == "entity-ghost" and (ent.ghost_name == "smart-train-stop-proxy" or ent.ghost_name == "smart-train-stop-proxy-cargo") then
-      local surface = ent.surface
-      local name = ent.ghost_name
-      local area = Position.expand_to_area(ent.position, 0.2)
-      ent.revive()
-      ent = surface.find_entities_filtered{area=area, name = name}
-      --debugDump({ent[1].name},true)
-      ent[1].destructible = false
-      ent[1].minable = false
-      if ent[1].name == "smart-train-stop-proxy-cargo" then
-        ent[1].operable = false
+    if ctype == "entity-ghost" then
+      if (ent.ghost_name == "smart-train-stop-proxy" or ent.ghost_name == "smart-train-stop-proxy-cargo") then
+        global.blueprinted_proxies[stationKey(ent)] = ent
       end
-      return
     end
     if ctype == "locomotive" or ctype == "cargo-wagon" then
       getTrainFromEntity(ent)
@@ -1105,16 +1113,23 @@ function onpreplayermineditem(event)
           break
         end
       end
-      removeInvalidTrains(true)
       local old = getTrainKeyByTrain(global.trains, ent.train)
-      if old then table.remove(global.trains, old) end
+      if old then
+        local t = global.trains[old]
+        if t then
+          t:resetCircuitSignal()
+        end
+        table.remove(global.trains, old)
+      end
+      removeInvalidTrains(true)
 
       if #ent.train.carriages > 1 then
+        if not global.tmpPos then global.tmpPos = {} end
         if ent.train.carriages[ownPos-1] ~= nil then
-          table.insert(tmpPos, ent.train.carriages[ownPos-1].position)
+          table.insert(global.tmpPos, ent.train.carriages[ownPos-1].position)
         end
         if ent.train.carriages[ownPos+1] ~= nil then
-          table.insert(tmpPos, ent.train.carriages[ownPos+1].position)
+          table.insert(global.tmpPos, ent.train.carriages[ownPos+1].position)
         end
       end
     end
@@ -1135,8 +1150,8 @@ function onplayermineditem(event)
     local name = event.item_stack.name
     local results = {}
     if name == "diesel-locomotive" or name == "cargo-wagon" then
-      if #tmpPos > 0 then
-        for _,pos in pairs(tmpPos) do
+      if global.tmpPos then
+        for _,pos in pairs(global.tmpPos) do
           local area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
           local loco = game.players[event.player_index].surface.find_entities_filtered{area=area, type="locomotive"}
           local wagon = game.players[event.player_index].surface.find_entities_filtered{area=area, type="cargo-wagon"}
@@ -1151,7 +1166,7 @@ function onplayermineditem(event)
             getTrainFromEntity(t)
           end
         end
-        tmpPos = {}
+        global.tmpPos = nil
       end
       removeInvalidTrains(true)
     end
@@ -1165,6 +1180,13 @@ function onentitydied(event)
   local status, err = pcall(function()
     removeInvalidTrains(true)
     if event.entity.type == "locomotive" or event.entity.type == "cargo-wagon" then
+      local old = getTrainKeyByTrain(global.trains, event.entity.train)
+      if old then
+        local t = global.trains[old]
+        if t then
+          t:resetCircuitSignal()
+        end
+      end
       removeInvalidTrains(true)
       return
     end

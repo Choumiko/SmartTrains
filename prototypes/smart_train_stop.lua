@@ -21,6 +21,7 @@ st_proxy.picture_on.shift = { -0.015625, -0.1875 }
 st_proxy.energy_usage_per_tick = "250W"
 st_proxy.collision_mask = { "resource-layer" }
 st_proxy.light = { intensity = 0.5, size = 5, color = { r = 0.02, g = 0.2, b = 0.02, a = 0 } }
+st_proxy.minable = nil
 
 local st_proxy_i = copyPrototype("item", "small-lamp", "smart-train-stop-proxy")
 table.insert(st_proxy_i.flags, "hidden")
@@ -28,6 +29,8 @@ table.insert(st_proxy_i.flags, "hidden")
 local st_proxyc = copyPrototype("constant-combinator","constant-combinator","smart-train-stop-proxy-cargo")
 st_proxyc.collision_mask = {"resource-layer"}
 st_proxyc.item_slot_count = 50
+st_proxyc.minable = nil
+
 local st_proxyc_i = copyPrototype("item","constant-combinator","smart-train-stop-proxy-cargo")
 table.insert(st_proxyc_i.flags, "hidden")
 
