@@ -778,6 +778,7 @@ on_gui_click = {
   toggleSTSettings = function(player)
     if player.gui[GUI.position].stGui.rows.globalSettings == nil then
       GUI.globalSettingsWindow(player.index)
+      GUI.destroyGui(player.gui[GUI.position].stGui.rows.frameMapping)
       GUI.destroyGui(player.gui[GUI.position].stGui.rows.toggleSTSettings)
       GUI.destroyGui(player.gui[GUI.position].stGui.rows.dynamicRules)
       GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)

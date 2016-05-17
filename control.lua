@@ -13,8 +13,6 @@ LOGGERS = {}
 
 LOGGERS.main = Logger.new("SmartTrains","main", debug)
 
-
-
 -- myevent = game.generateeventname()
 -- the name and tick are filled for the event automatically
 -- this event is raised with extra parameter foo with value "bar"
@@ -37,6 +35,7 @@ defaultSettings =
     circuit={interval = 12},
     lines={forever=false}
   }
+
 defaultRule = {
   empty = false,
   full = false,
@@ -297,7 +296,15 @@ function on_configuration_changed(data)
           update_0_3_77()
         end
         if old_version < "0.3.9" then
-          local line
+          for _, line in pairs(global.trainLines) do
+            for _, rule in pairs(line.rules) do
+              if (rule.empty or rule.full) and rule.waitForCircuit then
+                rule.requireBoth = true
+              else
+                rule.requireBoth = false
+              end
+            end
+          end
           local c = 0
           for i, t in pairs(global.trains) do
             t.dynamic = nil
@@ -775,11 +782,7 @@ function on_tick(event)
               else
                 local nextCheck = current_tick + global.settings.depart.interval
                 train.refueling.nextCheck = nextCheck
-                if not global.ticks[nextCheck] then
-                  global.ticks[nextCheck] = {train}
-                else
-                  table.insert(global.ticks[nextCheck], train)
-                end
+                insertInTable(global.ticks, nextCheck, train)
               end
             end
           end
@@ -860,11 +863,7 @@ function on_tick(event)
                 nextCheck = current_tick + global.settings.circuit.interval
               end
               train.waiting.nextCheck = nextCheck
-              if not global.ticks[nextCheck] then
-                global.ticks[nextCheck] = {train}
-              else
-                table.insert(global.ticks[nextCheck], train)
-              end
+              insertInTable(global.ticks, nextCheck, train)
             else
               train:resetCircuitSignal()
               train.waitingStation = false
