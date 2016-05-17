@@ -36,13 +36,34 @@ Train = {
 
     getType = function(self)
       --local type = string.rep("L",#self.train.locomotives.front_movers).."-"..string.rep("C", #self.train.cargo_wagons).."-"..string.rep("L",#self.train.locomotives.back_movers)
+
       local type = ""
+      local parts = {}
+      local found
       for _,c in pairs(self.train.carriages) do
-        local str = c.type == "locomotive" and "L" or "C"
-        type = type..str
+        found = false
+        if c.type == "locomotive" then
+          for i, fm in pairs(self.train.locomotives.front_movers) do
+            if fm == c then
+              table.insert(parts,'F')
+              found = true
+              break
+            end
+          end
+          if not found then
+            for i, bm in pairs(self.train.locomotives.back_movers) do
+              if bm == c then
+                table.insert(parts,'B')
+                found = true
+                break
+              end
+            end
+          end
+        else
+          table.insert(parts, 'c')
+        end
       end
-      type = string.gsub(type, "L%-%-L", "LL")
-      return string.gsub(string.gsub(type, "^-", ""), "-$", "")
+      return table.concat(parts,'')
     end,
 
     printName = function(self)
