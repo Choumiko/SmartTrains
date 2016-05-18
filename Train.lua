@@ -12,7 +12,8 @@ Train = {
           advancedState = false,
           cargo = {},
           cargoUpdated = 0,
-          direction = 0 -- 0 = front, 1 back
+          direction = 0, -- 0 = front, 1 back
+          railtanker = false
         --manualMode = train.manual_mode
         }
         new.settings.autoRefuel = defaultTrainSettings.autoRefuel
@@ -27,6 +28,12 @@ Train = {
           end
         else
           new.name = "cargoOnly"
+        end
+        for _, c in pairs(train.cargo_wagons) do
+          if c.name == "rail-tanker" then
+            new.railtanker = true
+            break
+          end
         end
         setmetatable(new, {__index = Train})
         new.type = new:getType()
@@ -364,27 +371,30 @@ Train = {
         --log(current_tick .. " new cargo, last Update: "..self.cargoUpdated)
         local sum = {}
         local train = self.train
-        --sum = train.get_contents()
-        for i, wagon in pairs(train.cargo_wagons) do
-          if not self.proxy_chests or not self.proxy_chests[i] then
-            if wagon.name ~= "rail-tanker" then
-              --sum = sum + wagon.getcontents()
-              sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
-            else
-              if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
-                local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-                if d.type ~= nil then
-                  sum[d.type] = sum[d.type] or 0
-                  sum[d.type] = sum[d.type] + d.amount
-                  --self:flyingText(d.type..": "..d.amount, colors.YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+        if not self.railtanker and not self.proxy_chests then
+          sum = train.get_contents()
+        else
+          for i, wagon in pairs(train.cargo_wagons) do
+            if not self.proxy_chests or not self.proxy_chests[i] then
+              if wagon.name ~= "rail-tanker" then
+                --sum = sum + wagon.getcontents()
+                sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
+              else
+                if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+                  local d = remote.call("railtanker", "getLiquidByWagon", wagon)
+                  if d.type ~= nil then
+                    sum[d.type] = sum[d.type] or 0
+                    sum[d.type] = sum[d.type] + d.amount
+                    --self:flyingText(d.type..": "..d.amount, colors.YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
+                  end
                 end
               end
+            else
+              --wagon is used by logistics railway
+              local inventory = self.proxy_chests[i].get_inventory(defines.inventory.chest)
+              local contents = inventory.get_contents()
+              sum = addInventoryContents(sum, contents)
             end
-          else
-            --wagon is used by logistics railway
-            local inventory = self.proxy_chests[i].get_inventory(defines.inventory.chest)
-            local contents = inventory.get_contents()
-            sum = addInventoryContents(sum, contents)
           end
         end
         self.cargo = sum
@@ -424,6 +434,10 @@ Train = {
 
     isCargoEmpty = function(self)
       local train = self.train
+      if not self.railtanker and not self.proxy_chests then
+        return train.get_item_count() == 0
+      end
+      local floor = math.floor
       for i, wagon in pairs(train.cargo_wagons) do
         if self.proxy_chests and self.proxy_chests[i] then
           --wagon is used by logistics railway
@@ -442,7 +456,7 @@ Train = {
             if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
               local d = remote.call("railtanker", "getLiquidByWagon", wagon)
               if d.type ~= nil then
-                if math.floor(d.amount) > 0 then
+                if floor(d.amount) > 0 then
                   return false
                 end
               end
@@ -455,13 +469,13 @@ Train = {
 
     isCargoFull = function(self)
       local train = self.train
-      local inv_full = function(inv)
+      local inv_full = function(inv, wagon)
         --check if all slots are blocked
-        if inv.hasbar() and inv.getbar() == 0 then
-          return false
-        end
         if inv.can_insert{name="railgun", count=1} then
           --inserted railgun -> at least 1 slot is free
+          return false
+        end
+        if inv.hasbar() and inv.getbar() == 0 then
           return false
         end
         -- check if all stacks are full
@@ -471,10 +485,19 @@ Train = {
             return false
           end
         end
-        -- all stacks are full,
+        if wagon then
+          local filtered_item
+          for i=1, #inv do
+            filtered_item = wagon.get_filter(i)
+            if filtered_item then
+              if inv.can_insert{name=filtered_item, count=1} then return false end
+            end
+          end
+        end
+        -- all stacks are full, filtered slots are full
         return true
       end
-
+      local ceil = math.ceil
       for i, wagon in pairs(train.cargo_wagons) do
         if self.proxy_chests and self.proxy_chests[i] then
           --wagon is used by logistics railway
@@ -484,14 +507,12 @@ Train = {
         else
           if wagon.name ~= "rail-tanker" then
             local inv = wagon.get_inventory(1)
-            if not inv_full(inv) then return false end
+            if not inv_full(inv, wagon) then return false end
           else
             if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
               local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-              if d.type ~= nil then
-                if math.ceil(d.amount) < 2500 then
-                  return false
-                end
+              if ceil(d.amount) < 2500 then
+                return false
               end
             end
           end

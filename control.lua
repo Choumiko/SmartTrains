@@ -366,6 +366,16 @@ function on_configuration_changed(data)
           end
         end
       end
+      if old_version < "0.3.91" then
+        for _, t in pairs(global.trains) do
+          for _, c in pairs(t.train.cargo_wagons) do
+            if c.name == "rail-tanker" then
+              t.railtanker = true
+              break
+            end
+          end
+        end
+      end
       if not old_version and not searched_stations then
         findStations()
       end
