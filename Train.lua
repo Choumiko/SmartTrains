@@ -12,8 +12,11 @@ Train = {
           advancedState = false,
           cargo = {},
           cargoUpdated = 0,
+          last_fuel_update = 0,
           direction = 0, -- 0 = front, 1 back
-          railtanker = false
+          railtanker = false, -- has a railtanker wagon
+          has_filter = false, -- has a filter set in one of the wagons,
+          passengers = 0,
         --manualMode = train.manual_mode
         }
         new.settings.autoRefuel = defaultTrainSettings.autoRefuel
@@ -29,22 +32,35 @@ Train = {
         else
           new.name = "cargoOnly"
         end
-        for _, c in pairs(train.cargo_wagons) do
+        for _, c in pairs(train.carriages) do
           if c.name == "rail-tanker" then
             new.railtanker = true
-            break
+          end
+          if c.passenger and c.passenger.name ~= "fatcontroller" then
+            new.passengers = new.passengers + 1
           end
         end
         setmetatable(new, {__index = Train})
         new.type = new:getType()
+        new:check_filters()
         return new
       end
     end,
 
-    getType = function(self)
-      --local type = string.rep("L",#self.train.locomotives.front_movers).."-"..string.rep("C", #self.train.cargo_wagons).."-"..string.rep("L",#self.train.locomotives.back_movers)
+    check_filters = function(self)
+      self.has_filter = false
+      for _, c in pairs(self.train.cargo_wagons) do
+        for i=1, #c.get_inventory(1) do
+          if c.get_filter(i) then
+            self.has_filter = true
+            return true
+          end
+        end
+      end
+      return false
+    end,
 
-      local type = ""
+    getType = function(self)
       local parts = {}
       local found
       for _,c in pairs(self.train.carriages) do
@@ -61,7 +77,6 @@ Train = {
             for i, bm in pairs(self.train.locomotives.back_movers) do
               if bm == c then
                 table.insert(parts,'B')
-                found = true
                 break
               end
             end
@@ -156,14 +171,9 @@ Train = {
     end,
 
     startRefueling = function(self)
-      self.refueling = {nextCheck = game.tick + global.settings.depart.interval}
-      --debugDump({refuel= util.formattime(game.tick)},true)
-      local tick = self.refueling.nextCheck
-      if not global.ticks[tick] then
-        global.ticks[tick] = {self}
-      else
-        table.insert(global.ticks[tick], self)
-      end
+      local tick = game.tick + global.settings.intervals.write
+      self.refueling = {nextCheck = tick}
+      insertInTable(global.refueling, tick, self)
     end,
 
     isRefueling = function(self)
@@ -205,40 +215,34 @@ Train = {
         local force = self.waitForever or false
         self:resetCircuitSignal()
         self.waiting = false
+        self.update_cargo = false
         self:nextStation(force, index)
         --debugDump("waitForever unset")
         self.waitForever = false
+        --TODO remove copied rules 
       end
     end,
 
     get_rules = function(self)
-      return (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
-    end,
-
-    startWaitingForRules = function(self)
-      local rules = self:get_rules()
-      if rules and not self.waiting then
-        local current_tick = game.tick
-        local nextCheck = self.train.schedule.records[self.train.schedule.current].time_to_wait == 10 and current_tick + 9 or current_tick + global.settings.depart.minWait
-        self.waiting = {lastCheck = current_tick, nextCheck = nextCheck}
-        self.waitForever = false
-        if rules then
-          if rules.keepWaiting then
-            --debugDump(util.formattime(current_tick,true).." waitForever set",true)
-            self.waitForever = true
-          end
-          if rules.waitForCircuit then
-            self.waiting.nextCheck = current_tick + global.settings.circuit.interval
-          end
-          if rules.noChange then
-            self.waiting.cargo = self:cargoCount()
-            self.waiting.nextCargoCheck = current_tick + global.settings.depart.minWait
+      local rules = (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
+      if rules then
+        local defaultRule = {empty = true, full = true, noChange = true, waitForCircuit = false}
+        for k, _ in pairs(defaultRule) do
+          if rules[k] then
+            return rules
           end
         end
-        local tick = self.waiting.nextCheck
-        insertInTable(global.ticks, tick, self)
-        self:flyingText("waiting for rules", colors.YELLOW)
       end
+      return false
+    end,
+
+    get_rule = function(self, name)
+      local rules = self:get_rules()
+      if rules then
+        local defaultRule = {empty = true, full = true, noChange = true, waitForCircuit = false}
+        return rules[name]
+      end
+      return false
     end,
 
     isWaitingForRules = function(self)
@@ -251,16 +255,65 @@ Train = {
 
     -- return true when at a smart train stop
     setWaitingStation = function(self)
+      if self.waiting then
+        return
+      end
       local vehicle = (self.direction and self.direction == 0) and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
-      --self:flyingText("V", GREEN, {offset=vehicle.position})
-      local station = findSmartTrainStopByTrain(vehicle, self.train.schedule.records[self.train.schedule.current].station)
-      if station then
-        local smartStop = global.smartTrainstops[vehicle.force.name][stationKey(station)]
-        --self:flyingText("S", GREEN, {offset=station.position})
+      self.waitingStation = findSmartTrainStopByTrain(vehicle, self.train.schedule.records[self.train.schedule.current].station)
+      local current_tick = game.tick
+      local rules = self:get_rules()
+
+      if not self.waitingStation and rules and (rules.waitForCircuit or rules.jumpToCircuit) then
+        --TODO proper error message
+        debugDump("No smart trainstop with rule that requires one", true) --TODO localisation
+        return
+      end
+      LOGGERS.main.log(serpent.line(rules, {comment=false}))
+      local nextUpdate = current_tick + global.settings.intervals.write
+      local nextRulesCheck = current_tick + global.settings.intervals.read
+      local nextCargoRule = current_tick + global.settings.intervals.cargoRule
+      if self.train.schedule.records[self.train.schedule.current].time_to_wait == 10 then
+        nextUpdate = current_tick + 2
+        nextRulesCheck = current_tick + 9
+      end
+      self.waiting = {}
+      self.waitForever = false
+
+      -- update cargo (only if smart stop or full/empty/noChange rule set
+      -- write to combinator (only if smart stop)
+      local cargo
+      if (rules and ( rules.empty or rules.full or rules.noChange) ) or self.waitingStation then
+        cargo = self:cargoCount()
         self:setCircuitSignal()
-        self.updateTick = game.tick + global.settings.circuit.interval
-        insertInTable(global.updateTick,self.updateTick,self)
-        self.waitingStation = smartStop
+        log("insert cargo")
+        insertInTable(global.update_cargo, nextUpdate, self)
+        self.update_cargo = nextUpdate
+        if rules and rules.noChange then
+          self.waiting.cargo = cargo
+          self.waiting.nextCargoCheck = current_tick + global.settings.intervals.noChange
+          self.waiting.lastCargoCheck = current_tick
+        end
+      end
+
+      if rules then
+        if rules.keepWaiting then
+          --debugDump(util.formattime(current_tick,true).." waitForever set",true)
+          self.waitForever = true
+        end
+        -- read signal from lamp (only if smart stop and (waitForCircuit or goto signal)
+        -- read signal value from lamp (only if smart stop and (signal == true and ((waitForCircuit and not requireBoth) or (full/empty and goto signal))
+        -- check rules
+        if rules.waitForCircuit or rules.full or rules.empty or rules.noChange then
+          log("insert signal")
+          insertInTable(global.check_rules, nextRulesCheck, self)
+          self.waiting.nextCheck = nextRulesCheck
+          self.waiting.nextCargoRule = nextCargoRule
+        end
+        
+        if rules.empty or rules.full or rules.noChange or rules.waitForCircuit then
+          self:flyingText("waiting for rules", colors.YELLOW)
+        end
+        --TODO copy rules for that station to train
       end
     end,
 
@@ -288,18 +341,57 @@ Train = {
         --local output = cargoProxy.get_circuit_condition(1)
         local output = {parameters={}}
         local passenger = 0
+        --TODO move to on_driving_state_changed ?
         for _, carriage in pairs(self.train.carriages) do
           if carriage.passenger and carriage.passenger.name ~= "fatcontroller" then
             passenger = passenger + 1
-            break
           end
         end
         local min_fuel = self:lowestFuel()
         output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
+
+
         output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = passenger, index = 4}
         output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = 5}
+
+        local i=6
+        if self.line and global.trainLines[self.line] and global.trainLines[self.line].settings.number ~= 0 then
+          output.parameters[6]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].settings.number, index = 6}
+          i=7
+        end
+
+        local cargoCount = self:cargoCount(true)
+        for name, count in pairs(cargoCount) do
+          local type = "item"
+          if game.fluid_prototypes[name] then
+            type = "fluid"
+            count = math.floor(count)
+          end
+          output.parameters[i]={signal={type = type, name = name}, count=count, index = i}
+          i=i+1
+          if i>50 then break end
+        end
+        cargoProxy.set_circuit_condition(1,output)
+      end
+    end,
+
+    updateCircuitSignal = function(self)
+      if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
+        local cargoProxy = self.waitingStation.cargo
+        local output = cargoProxy.get_circuit_condition(1)
+        local passenger = 0
+        --TODO move to on_driving_state_changed ?
+        for _, carriage in pairs(self.train.carriages) do
+          if carriage.passenger and carriage.passenger.name ~= "fatcontroller" then
+            passenger = passenger + 1
+          end
+        end
+        local min_fuel = self:lowestFuel()
+
+        output.parameters[4].count = passenger
+        output.parameters[5].count = min_fuel
 
         local i=6
         if self.line and global.trainLines[self.line] and global.trainLines[self.line].settings.number ~= 0 then
@@ -330,26 +422,30 @@ Train = {
 
     --returns fuelvalue (in MJ)
     lowestFuel = function(self)
-      local minfuel
-      local c
-      local locos = self.train.locomotives
-      if locos ~= nil then
-        for _, carriage in pairs(locos.front_movers) do
-          c = self:calcFuel(carriage.get_inventory(1).get_contents())
-          if minfuel == nil or c < minfuel then
-            minfuel = c
+      --TODO cache result for ~1s?
+      if self.last_fuel_update +60 <= game.tick then
+        local minfuel
+        local c
+        local locos = self.train.locomotives
+        if locos ~= nil then
+          for _, carriage in pairs(locos.front_movers) do
+            c = self:calcFuel(carriage.get_inventory(1).get_contents())
+            if minfuel == nil or c < minfuel then
+              minfuel = c
+            end
           end
-        end
-        for _, carriage in pairs(locos.back_movers) do
-          c = self:calcFuel(carriage.get_inventory(1).get_contents())
-          if minfuel == nil or c < minfuel then
-            minfuel = c
+          for _, carriage in pairs(locos.back_movers) do
+            c = self:calcFuel(carriage.get_inventory(1).get_contents())
+            if minfuel == nil or c < minfuel then
+              minfuel = c
+            end
           end
+          self.minFuel = minfuel
+        else
+          self.minFuel = 0
         end
-        return minfuel
-      else
-        return 0
       end
+      return self.minFuel
     end,
 
     calcFuel = function(self, contents)
@@ -364,11 +460,13 @@ Train = {
     cargoCount = function(self, exact)
       local current_tick = game.tick
       if (not exact and self.cargoUpdated > current_tick - 12) or self.cargoUpdated == current_tick then -- update cargo only if older than 12 ticks (default circuit update rate)
-        --log(current_tick .. " cached cargo, from "..self.cargoUpdated)
+        --LOGGERS.main.log("cached cargo "..self.name)
+        log("cached cargo")
         return self.cargo
       end
-      if self.cargoUpdated + global.settings.circuit.interval <= current_tick then
-        --log(current_tick .. " new cargo, last Update: "..self.cargoUpdated)
+      if self.cargoUpdated + global.settings.intervals.write <= current_tick then
+        --log("new cargo")
+        --LOGGERS.main.log("update cargo "..self.name)
         local sum = {}
         local train = self.train
         if not self.railtanker and not self.proxy_chests then
@@ -412,13 +510,16 @@ Train = {
       c2 = c2 or {}
       --log("c1 "..serpent.line(c1))
       --log("c2 "..serpent.line(c2))
+      local abs = math.abs
       for l,_ in pairs(fluids) do
         liquids1[l], liquids2[l] = false, false
         if c1[l] ~= nil or c2[l] ~= nil then
           liquids1[l] = c1[l] or 0
           liquids2[l] = c2[l] or 0
           local flow = (liquids1[l] - liquids2[l])/(interval/60)
-          if math.abs(flow) >= minFlow then goodflow = true end
+          if abs(flow) >= minFlow then
+            goodflow = true
+          end
           --self:flyingText("flow: "..flow, colors.YELLOW, {offset=1})
           c1[l] = nil
           c2[l] = nil
@@ -485,7 +586,7 @@ Train = {
             return false
           end
         end
-        if wagon then
+        if wagon and self.has_filter then
           local filtered_item
           for i=1, #inv do
             filtered_item = wagon.get_filter(i)
@@ -556,6 +657,7 @@ Train = {
           if self.lineVersion >= 0 then
             self:flyingText("updating schedule", colors.YELLOW) --TODO localisation
           end
+          --TODO copy rule to train if waiting at a station
           local waitingAt = self.train.schedule.records[self.train.schedule.current] or {station="", time_to_wait=0}
           local schedule = {records={}}
           for i, record in pairs(trainLine.records) do

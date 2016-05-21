@@ -11,7 +11,8 @@ debug = false
 
 LOGGERS = {}
 
-LOGGERS.main = Logger.new("SmartTrains","main", debug)
+LOGGERS.main = Logger.new("SmartTrains","main", true)
+LOGGERS.update = Logger.new("SmartTrains", "updates", true)
 
 -- myevent = game.generateeventname()
 -- the name and tick are filled for the event automatically
@@ -30,10 +31,14 @@ require("Train")
 
 defaultTrainSettings = {autoRefuel = false}
 defaultSettings =
-  { refuel={station="Refuel", rangeMin = 25*8, rangeMax = 50*8, time = 600},
-    depart={minWait = 240, interval = 120, minFlow = 1},
-    circuit={interval = 12},
-    lines={forever=false}
+  { refuel = { station = "Refuel", rangeMin = 25*8, rangeMax = 50*8, time = 600 },
+    minFlow = 1, -- minimal liquid change to count as changed
+    intervals = {
+      write = 60, -- ticks between constant combinator updates
+      read = 12, -- ticks between reading signal
+      noChange = 120, --ticks between cargo comparison
+      cargoRule = 60 -- ticks between cargo rule checks (full/empty)
+    },
   }
 
 defaultRule = {
@@ -114,15 +119,18 @@ function setMetatables()
     resetMetatable(object, Train)
   end
 
-  for _, tick in pairs(global.updateTick) do
-    for _, object in pairs(tick) do
-      resetMetatable(object, Train)
+  if global.update_cargo then
+    for _, tick in pairs(global.update_cargo) do
+      for _, object in pairs(tick) do
+        resetMetatable(object, Train)
+      end
     end
   end
-
-  for _, tick in pairs(global.ticks) do
-    for _, object in pairs(tick) do
-      resetMetatable(object, Train)
+  if global.check_rules then
+    for _, tick in pairs(global.check_rules) do
+      for _, object in pairs(tick) do
+        resetMetatable(object, Train)
+      end
     end
   end
 end
@@ -133,9 +141,10 @@ function initGlob()
   global.trains = global.trains or {}
   global.trainLines = global.trainLines or {}
 
-  global.ticks = global.ticks or {}
-  global.updateTick = global.updateTick or {}
   global.scheduleUpdate = global.scheduleUpdate or {}
+  global.update_cargo = global.update_cargo or {}
+  global.check_rules = global.check_rules or {}
+  global.refueling = global.refueling or {}
 
   global.player_opened = global.player_opened or {}
   global.showFlyingText = global.showFlyingText or false
@@ -153,14 +162,16 @@ function initGlob()
   global.stationMap = global.stationMap or {}
 
   global.settings = global.settings or defaultSettings
-  global.settings.lines = global.settings.lines or {}
-
-  global.settings.lines.forever = false
 
   global.settings.stationsPerPage = stationsPerPage
   global.settings.linesPerPage = linesPerPage
   global.settings.rulesPerPage = rulesPerPage
   global.settings.mappingsPerPage = mappingsPerPage
+
+  global.settings.intervals = global.settings.intervals or {}
+  global.settings.intervals.write = global.settings.intervals.write or defaultSettings.intervals.write
+  global.settings.intervals.read = global.settings.intervals.read or defaultSettings.intervals.read
+  global.settings.intervals.noChange = global.settings.intervals.noChange or defaultSettings.intervals.noChange
 
   global.fuel_values = global.fuel_values or {}
   global.fuel_values["coal"] = game.item_prototypes["coal"].fuel_value/1000000
@@ -214,6 +225,7 @@ function oninit()
 end
 
 function onload()
+  log("on load")
   --initGlob()
   setMetatables()
   --local rem = removeInvalidTrains(false)
@@ -273,7 +285,132 @@ local function update_0_3_77()
       train.train.schedule = schedule
     end
   end
+  return "0.3.77"
 end
+
+local update_from_version = {
+  ["0.0.0"] = function()
+    return update_0_3_77()
+  end,
+  ["0.3.77"] = function() return "0.3.78" end,
+  ["0.3.78"] = function() return "0.3.79" end,
+  ["0.3.79"] = function() return "0.3.80" end,
+  ["0.3.80"] = function() return "0.3.81" end,
+  ["0.3.81"] = function() return "0.3.82" end,
+  ["0.3.82"] = function()
+    for _, line in pairs(global.trainLines) do
+      for _, rule in pairs(line.rules) do
+        if (rule.empty or rule.full) and rule.waitForCircuit then
+          rule.requireBoth = true
+        else
+          rule.requireBoth = false
+        end
+      end
+    end
+    local c = 0
+    for i, t in pairs(global.trains) do
+      t.dynamic = nil
+      if t.settings then
+        t.settings.autoDepart = nil
+      end
+      t.type = t:getType()
+      if t.waitingStation and t.waitingStation.station and t.waitingStation.station.valid then
+        t.waitingStation.key = stationKey(t.waitingStation.station)
+      end
+      local update
+      local line = t.line and global.trainLines[t.line]
+      if line then
+        update = t.lineVersion < global.trainLines[t.line].changed
+      elseif t.line and not global.trainLines[t.line] then
+        update = true
+      end
+
+      if update then
+        t.scheduleUpdate = game.tick + 60 + i
+        insertInTable(global.scheduleUpdate, t.scheduleUpdate, t)
+        c = c + 1
+        log(t.scheduleUpdate .. ": " .. i)
+      end
+    end
+    log(game.tick .. " Total: " .. c)
+    removeInvalidTrains(true,true)
+    global.stationCount = {}
+    global.smartTrainstops = {}
+    init_forces()
+    findStations()
+
+    for _, l in pairs(global.trainLines) do
+      l.settings.useMapping = false
+      l.settings.number = l.number or 0
+      l.number = nil
+      l.settings.autoDepart = nil
+    end
+    local smart_stop
+    local found
+    for _, t in pairs(global.trains) do
+      if t.waitingStation and t.waitingStation.key then
+        found = false
+        smart_stop = global.smartTrainstops[t.train.carriages[1].force.name][t.waitingStation.key]
+        t.waitingStation = smart_stop
+        for tick, trains in pairs(global.updateTick) do
+          for i, t2 in pairs(trains) do
+            if t.train == t2.train and not found then
+              --log("Uref found["..tick .."]["..i.."] "..t.name)
+              global.updateTick[tick][i] = t
+              t.updateTick = tick
+              found = true
+            end
+          end
+        end
+      end
+    end
+    return "0.3.9"
+  end,
+  ["0.3.9"] = function()
+    global.settings.intervals.write = global.settings.circuit.interval or defaultSettings.intervals.write
+    global.settings.intervals.read = global.settings.circuit.interval or defaultSettings.intervals.read
+    global.settings.intervals.noChange = defaultSettings.intervals.noChange
+    global.settings.intervals.cargoRule = defaultSettings.intervals.cargoRule
+    global.settings.minFlow = global.settings.depart.minFlow or defaultSettings.minFlow
+
+    global.settings.circuit = nil
+    global.settings.depart = nil
+
+    global.update_cargo = global.updateTick or {}
+    global.check_rules = global.ticks or {}
+    for _, t in pairs(global.trains) do
+      t.type = t:getType()
+      t.update_cargo = t.updateTick
+      t.updateTick = nil
+      t.last_fuel_update = 0
+      t:lowestFuel()
+      t:check_filters()
+
+      if t.waiting then
+        if t.waiting.lastCheck then
+          t.waiting.lastCargoCheck = t.waiting.lastCheck
+          t.waiting.nextCargoCheck = t.waiting.lastCheck + global.settings.intervals.noChange
+          t.waiting.nextCargoRule = t.waiting.lastCheck + global.settings.intervals.write
+          t.waiting.lastCheck = nil
+        end
+      end
+
+      if t.refueling then
+        insertInTable(global.refueling, t.refueling.nextCheck, t)
+      end
+
+      for _, c in pairs(t.train.cargo_wagons) do
+        if c.name == "rail-tanker" then
+          t.railtanker = true
+          break
+        end
+      end
+    end
+    global.updateTick = nil
+    global.ticks = nil
+    return "0.3.91"
+  end,
+}
 
 function on_configuration_changed(data)
   local status, err = pcall(function()
@@ -291,92 +428,15 @@ function on_configuration_changed(data)
       init_players()
       setMetatables()
       if old_version then
-        debugDump("SmartTrains version changed from "..old_version.." to "..new_version,true)
         saveGlob("PreUpdate"..old_version.."_"..game.tick)
-        if old_version < "0.3.77" then
-          update_0_3_77()
+        local ver = update_from_version[old_version] and old_version or "0.0.0"
+        while ver ~= "0.3.91" do
+          log(ver)
+          ver = update_from_version[ver]()
         end
-        if old_version < "0.3.9" then
-          for _, line in pairs(global.trainLines) do
-            for _, rule in pairs(line.rules) do
-              if (rule.empty or rule.full) and rule.waitForCircuit then
-                rule.requireBoth = true
-              else
-                rule.requireBoth = false
-              end
-            end
-          end
-          local c = 0
-          for i, t in pairs(global.trains) do
-            t.dynamic = nil
-            if t.settings then
-              t.settings.autoDepart = nil
-            end
-            t.type = t:getType()
-            if t.waitingStation and t.waitingStation.station and t.waitingStation.station.valid then
-              t.waitingStation.key = stationKey(t.waitingStation.station)
-            end
-            local update
-            local line = t.line and global.trainLines[t.line]
-            if line then
-              update = t.lineVersion < global.trainLines[t.line].changed
-            elseif t.line and not global.trainLines[t.line] then
-              update = true
-            end
-
-            if update then
-              t.scheduleUpdate = game.tick + 60 + i
-              insertInTable(global.scheduleUpdate, t.scheduleUpdate, t)
-              c = c + 1
-              log(t.scheduleUpdate .. ": " .. i)
-            end
-          end
-          log(game.tick .. " Total: " .. c)
-          removeInvalidTrains(true,true)
-          global.stationCount = {}
-          global.smartTrainstops = {}
-          init_forces()
-          findStations()
-          searched_stations = true
-
-          for _, l in pairs(global.trainLines) do
-            l.settings.useMapping = false
-            l.settings.number = l.number or 0
-            l.number = nil
-            l.settings.autoDepart = nil
-          end
-          local smart_stop
-          local found
-          for _, t in pairs(global.trains) do
-            if t.waitingStation and t.waitingStation.key then
-              found = false
-              smart_stop = global.smartTrainstops[t.train.carriages[1].force.name][t.waitingStation.key]
-              t.waitingStation = smart_stop
-              for tick, trains in pairs(global.updateTick) do
-                for i, t2 in pairs(trains) do
-                  if t.train == t2.train and not found then
-                    --log("Uref found["..tick .."]["..i.."] "..t.name)
-                    global.updateTick[tick][i] = t
-                    t.updateTick = tick
-                    found = true
-                  end
-                end
-              end
-            end
-          end
-        end
+        debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
       end
-      if old_version < "0.3.91" then
-        for _, t in pairs(global.trains) do
-          for _, c in pairs(t.train.cargo_wagons) do
-            if c.name == "rail-tanker" then
-              t.railtanker = true
-              break
-            end
-          end
-        end
-      end
-      if not old_version and not searched_stations then
+      if not old_version then
         findStations()
       end
       global.version = new_version
@@ -513,7 +573,9 @@ function findSmartTrainStopByTrain(vehicle, stationName)
     end
     if found then break end
   end
-  --end
+  if found then
+    found = global.smartTrainstops[vehicle.force.name][stationKey(found)] or false
+  end
   return found
 end
 
@@ -638,6 +700,7 @@ function on_train_changed_state(event)
       t.waiting = false
       t.refueling = false
       t.departAt = false
+      t.update_cargo = false
       t:updateLine()
       return
     end
@@ -650,7 +713,7 @@ function on_train_changed_state(event)
     local schedule = train.schedule
     if train.state == defines.trainstate.manual_control_stop or train.state == defines.trainstate.manual_control then
       local done = false
-      for _, trains in pairs(global.ticks) do
+      for _, trains in pairs(global.check_rules) do
         for i, trainData in pairs(trains) do
           if trainData == t then
             trainData:resetCircuitSignal()
@@ -676,17 +739,17 @@ function on_train_changed_state(event)
       LOGGERS.main.log("Train arrived at " .. t:currentStation() .. "\t\t  train: " .. t.name .. " Speed: " .. t.train.speed)
       t:updateLine()
       t:setWaitingStation()
+
       t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
       if settings.autoRefuel then
         if lowest_fuel >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
         end
-        if t:currentStation() == t:refuelStation() and #schedule.records == schedule.current then --TODO start refueling only if station is last in schedule?
+        if t:currentStation() == t:refuelStation() and #schedule.records == schedule.current then
           t:startRefueling()
           t:flyingText("refueling", colors.YELLOW)
         end
       end
-      t:startWaitingForRules()
     elseif train.state == defines.trainstate.arrive_station then
       if t.settings.autoRefuel then
         if lowest_fuel < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
@@ -734,18 +797,153 @@ end
 
 function on_tick(event)
   local current_tick = event.tick
-  if global.updateTick[current_tick] then
+
+  -- update cargo (setWaitingStation <- only if smart stop or full/empty/noChange rule set
+  -- write to combinator (setWaitingStation
+  if global.update_cargo[current_tick] then
     local status,err = pcall(function()
       local remove_invalid = false
-      for _, train in pairs(global.updateTick[current_tick]) do
+      for _, train in pairs(global.update_cargo[current_tick]) do
         if train.train and train.train.valid then
-          if train.waitingStation then
-            if train.updateTick == current_tick then
-              train:setCircuitSignal()
-              train.updateTick = current_tick+global.settings.circuit.interval
-              insertInTable(global.updateTick, train.updateTick, train)
-              --else
-              --log(game.tick .. " " .. train.name .. " invalid updatetick")
+          if train.update_cargo and train.update_cargo == current_tick then
+            --LOGGERS.main.log("tick cargo \t"..train.name)
+            --log(current_tick .. " set circuit")
+            train:setCircuitSignal()
+            --train:updateCircuitSignal()
+            --log("set circuit e")
+            train.update_cargo = current_tick + global.settings.intervals.write
+            insertInTable(global.update_cargo, train.update_cargo, train)
+            --else
+            --log(game.tick .. " " .. train.name .. " invalid updatetick")
+          else
+            LOGGERS.main.log("Invalid tick cargo \t"..train.name)
+            LOGGERS.main.log(serpent.block(train,{comment=false}))
+          end
+        else
+          remove_invalid = true
+        end
+      end
+      if remove_invalid then removeInvalidTrains(true) end
+    end)
+    if not status then
+      pauseError(err, "on_tick: update_cargo")
+    end
+    global.update_cargo[current_tick] = nil
+  end
+
+  -- read signal from lamp (only if smart stop and (waitForCircuit or goto signal)
+  -- read signal value from lamp (only if smart stop and (signal == true and ((waitForCircuit and not requireBoth) or (full/empty and goto signal))
+  -- check rules (only if rules set, only check necessary rules
+  if global.check_rules[current_tick] then
+    local status,err = pcall(function()
+      local remove_invalid = false
+      for _, train in pairs(global.check_rules[current_tick]) do
+        if train.train and train.train.valid then
+          --LOGGERS.main.log("tick signal \t"..train.name)
+          --debugLog(" tick s", game.tick)
+          train.lastMessage = train.lastMessage or 0
+          if train.departAt  and current_tick - train.lastMessage >= 120 then
+            local text
+            if train.waitForever then
+              text = "waiting forever"
+            else
+              text = "Leaving in "..util.formattime(train.departAt-current_tick)
+            end
+            train:flyingText(text, colors.RED,{offset=-2})
+          end
+
+          if train:isWaitingForRules() and current_tick == train.waiting.nextCheck then
+            local rules = train:get_rules()
+            --debugDump(rules,true)
+            local full = false
+            local empty = false
+            local noChange = false
+            local signal = false
+
+            -- fastest rule!?
+            if rules.waitForCircuit then
+              signal = train:getCircuitSignal()
+              --log(current_tick .. " signal valid "..serpent.line(signal,{comment=false}))
+            end
+
+            -- full/empty checks only if necessary
+            if not rules.requireBoth or (rules.requireBoth and signal) then
+              if current_tick >= train.waiting.nextCargoRule or (rules.requireBoth and signal) then
+                if rules.full then
+                  full = train:isCargoFull()
+                  --log(current_tick .. " cargo full "..serpent.line(full,{comment=false}))
+                  train.waiting.nextCargoRule = current_tick + global.settings.intervals.cargoRule
+                end
+                if rules.empty then
+                  empty = train:isCargoEmpty()
+                  --log(current_tick .. " cargo empty "..serpent.line(empty,{comment=false}))
+                  train.waiting.nextCargoRule = current_tick + global.settings.intervals.cargoRule
+                end
+              end
+            end
+            if rules.noChange and (current_tick >= train.waiting.nextCargoCheck) then
+              local cargo
+              cargo = train:cargoCount()
+              noChange = train:cargoEquals(cargo, train.waiting.cargo, global.settings.minFlow, current_tick - train.waiting.lastCargoCheck)
+              --log(current_tick .. " no change "..serpent.line(noChange,{comment=false}))
+              train.waiting.cargo = cargo
+              train.waiting.nextCargoCheck = current_tick + global.settings.intervals.noChange
+              train.waiting.lastCargoCheck = current_tick
+            end
+
+            local cargo_requirement = (rules.full and full) or (rules.empty and empty) or (rules.noChange and noChange)
+            local keepWaiting
+            if (rules.requireBoth and cargo_requirement and signal)
+              or (not rules.requireBoth and ( cargo_requirement or ( rules.waitForCircuit and signal )))
+            then
+              --LOGGERS.main.log("Train ready for departure from " .. train:currentStation() .. "\t\t  train: " .. train.name)
+              local signalValue = false
+              if rules.jumpToCircuit then
+                signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
+                log(current_tick .. " signal value "..serpent.line(signalValue, {comment=false}))
+              end
+              local use_mapping = global.trainLines[train.line] and global.trainLines[train.line].settings.useMapping or false
+              local jump
+              if use_mapping then
+                local jumpSignal, jumpTo
+                if signalValue then
+                  jumpSignal = train:get_first_matching_station(signalValue)
+                  log("jumpSignal:" .. serpent.line(jumpSignal, {comment=false}))
+                  --LOGGERS.main.log("Mapping signal \t" .. signalValue .. " to " .. (train:getStationName(jumpSignal) or " invalid index"))
+                end
+                if rules.jumpTo then
+                  jumpTo = train:get_first_matching_station(rules.jumpTo)
+                  log("jumpTo:" .. serpent.line(jumpTo, {comment=false}))
+                  --LOGGERS.main.log("Mapping station # \t" .. rules.jumpTo .. " to " .. (train:getStationName(jumpTo) or " invalid index"))
+                end
+                jump = jumpSignal or jumpTo or false
+
+              else
+                jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
+              end
+              train:waitingDone(true, jump)
+              keepWaiting = false
+            else
+              local txt = (rules.full and not full) and "not full" or "not empty"
+              txt = rules.waitForCircuit and "waiting for circuit" or txt
+              if rules.full or rules.empty or rules.waitForCircuit then
+                if current_tick - train.lastMessage >= 120 then
+                  train:flyingText(txt, colors.YELLOW, {offset=-1})
+                  train.lastMessage = current_tick
+                end
+              end
+              keepWaiting = true
+            end
+            if keepWaiting and train.train.speed == 0 then
+              local nextCheck = current_tick + global.settings.intervals.read
+              train.waiting.nextCheck = nextCheck
+              insertInTable(global.check_rules, nextCheck, train)
+            else
+              train:resetCircuitSignal()
+              train.waitingStation = false
+              train.waiting = false
+              train.waitForever = false
+              --TODO remove copied rules
             end
           end
         else
@@ -755,19 +953,19 @@ function on_tick(event)
       if remove_invalid then removeInvalidTrains(true) end
     end)
     if not status then
-      pauseError(err, "on_tick: updateCircuit")
+      pauseError(err, "on_tick: check_rules")
     end
-    global.updateTick[current_tick] = nil
+    global.check_rules[current_tick] = nil
   end
 
   if global.scheduleUpdate[current_tick] then
     local status,err = pcall(function()
-      log(current_tick .. " scheduleUpdate " .. #global.scheduleUpdate[current_tick])
+      --log(current_tick .. " scheduleUpdate " .. #global.scheduleUpdate[current_tick])
       local remove_invalid = false
       for _,train in pairs(global.scheduleUpdate[current_tick]) do
         if train.train and train.train.valid then
           if train.line and train.scheduleUpdate == current_tick and not train:updateLine() then
-            log(current_tick .. " retry " .. train.name)
+            --log(current_tick .. " retry " .. train.name)
             --line wasn't updated, retry in 1 second
             train.scheduleUpdate = current_tick + 60
             insertInTable(global.scheduleUpdate, train.scheduleUpdate, train)
@@ -782,132 +980,6 @@ function on_tick(event)
       pauseError(err, "on_tick: updateLine")
     end
     global.scheduleUpdate[current_tick] = nil
-  end
-
-  if global.ticks[current_tick] then
-    --debugLog(" tick s", game.tick)
-    local status,err = pcall(function()
-      for _,train in pairs(global.ticks[current_tick]) do
-        if train.train.valid then
-          train.lastMessage = train.lastMessage or 0
-          if train.departAt  and current_tick - train.lastMessage >= 120 then
-            local text
-            if train.waitForever then
-              text = "waiting forever"
-            else
-              text = "Leaving in "..util.formattime(train.departAt-current_tick)
-            end
-            train:flyingText(text, colors.RED,{offset=-2})
-          end
-
-          --for i,train in pairs(global.trains) do
-          if train:isRefueling() then
-            if current_tick >= train.refueling.nextCheck then
-              if train:lowestFuel() >= global.settings.refuel.rangeMax then
-                train:flyingText("Refueling done", colors.YELLOW)
-                train:refuelingDone(true)
-              else
-                local nextCheck = current_tick + global.settings.depart.interval
-                train.refueling.nextCheck = nextCheck
-                insertInTable(global.ticks, nextCheck, train)
-              end
-            end
-          end
-
-          if train:isWaitingForRules() and current_tick >= train.waiting.nextCheck then
-            local keepWaiting
-            local cargo
-            local rules
-            --Handle leave when full/empty rules here
-            --train:flyingText("checking full/empty rules", GREEN, {offset=-1})
-            rules = train:get_rules()
-            --debugDump(rules,true)
-            local full = false
-            local empty = false
-            local noChange = false
-            if rules.full then
-              full = train:isCargoFull()
-              --log(current_tick .. " full: "..serpent.line(full))
-            end
-            if rules.empty then
-              empty = train:isCargoEmpty()
-              --log(current_tick .. " empty: "..serpent.line(empty))
-            end
-            if rules.noChange and (current_tick >= train.waiting.nextCargoCheck) then
-              --log(game.tick .. " no change")
-              cargo = train:cargoCount()
-              local last = train.waiting.lastCheck
-              noChange = train:cargoEquals(cargo, train.waiting.cargo, global.settings.depart.minFlow, current_tick - last)
-              train.waiting.cargo = cargo
-              train.waiting.nextCargoCheck = current_tick + global.settings.depart.interval
-            end
-
-            local signal = train:getCircuitSignal()
-            local cargo_requirement = (rules.full and full) or (rules.empty and empty) or (rules.noChange and noChange)
-
-            if (rules.requireBoth and cargo_requirement and signal)
-              or (not rules.requireBoth and ( cargo_requirement or ( rules.waitForCircuit and signal )))
-            then
-              LOGGERS.main.log("Train ready for departure from " .. train:currentStation() .. "\t\t  train: " .. train.name)
-              local signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
-
-              local use_mapping = global.trainLines[train.line] and global.trainLines[train.line].settings.useMapping or false
-              local jump
-              if use_mapping then
-                local jumpSignal, jumpTo
-                if signalValue then
-                  jumpSignal = train:get_first_matching_station(signalValue)
-                  log("jumpSignal:" .. serpent.line(jumpSignal))
-                  LOGGERS.main.log("Mapping signal \t" .. signalValue .. " to " .. (train:getStationName(jumpSignal) or " invalid index"))
-                end
-                if rules.jumpTo then
-                  jumpTo = train:get_first_matching_station(rules.jumpTo)
-                  log("jumpTo:" .. serpent.line(jumpTo))
-                  LOGGERS.main.log("Mapping station # \t" .. rules.jumpTo .. " to " .. (train:getStationName(jumpTo) or " invalid index"))
-                end
-                jump = jumpSignal or jumpTo or false
-
-              else
-                jump = (signal and train:isValidScheduleIndex(signalValue)) or rules.jumpTo or false
-              end
-              train:waitingDone(true, jump)
-              keepWaiting = false
-            else
-              local txt = (rules.full and not full) and "not full" or "not empty"
-              txt = rules.waitForCircuit and "waiting for circuit" or txt
-              if rules.full or rules.empty or rules.waitForCircuit then
-                if not rules.waitForCircuit or (rules.waitForCircuit and current_tick - train.lastMessage >= 120) then
-                  train:flyingText(txt, colors.YELLOW, {offset=-1})
-                  train.lastMessage = current_tick
-                end
-              end
-              keepWaiting = true
-            end
-            if keepWaiting and train.train.speed == 0 then
-              train.waiting.lastCheck = current_tick
-              local nextCheck = current_tick + global.settings.depart.interval
-              if rules and rules.waitForCircuit then
-                nextCheck = current_tick + global.settings.circuit.interval
-              end
-              train.waiting.nextCheck = nextCheck
-              insertInTable(global.ticks, nextCheck, train)
-            else
-              train:resetCircuitSignal()
-              train.waitingStation = false
-              train.waiting = false
-              train.waitForever = false
-            end
-          end
-        else
-          removeInvalidTrains(true)
-        end
-      end
-    end)
-    if not status then
-      pauseError(err, "on_tick_trains")
-    end
-    global.ticks[current_tick] = nil
-    --debugLog(" tick e", game.tick)
   end
 
   if not use_EventsPlus or not remote.interfaces.EventsPlus and current_tick%10==9  then
@@ -957,14 +1029,18 @@ end
 
 function on_player_closed(event)
   if event.entity.valid and game.players[event.player_index].valid then
-    if event.entity.type == "locomotive" and event.entity.train then
-      GUI.destroy(event.player_index)
-      global.openedTrain[event.player_index] = nil
-      --set line version to -1, so it gets updated at the next station
+    if event.entity.type == "locomotive" or event.entity.type == "cargo-wagon" then
       local train = getTrainFromEntity(event.entity)
-      train.opened = nil
-      if train.line and train.lineVersion ~= 0 then
-        train.lineVersion = -1
+      if event.entity.type == "locomotive" then
+        GUI.destroy(event.player_index)
+        global.openedTrain[event.player_index] = nil
+        --set line version to -1, so it gets updated at the next station
+        train.opened = nil
+        if train.line and train.lineVersion ~= 0 then
+          train.lineVersion = -1
+        end
+      else
+        train:check_filters()
       end
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)
@@ -1440,8 +1516,7 @@ remote.add_interface("st",
         script.on_event(events.on_player_opened, nil)
         script.on_event(events.on_player_closed, nil)
       end
-      global.ticks = {}
-      global.updateTick = {}
+
       for _, t in pairs(global.trains) do
         if t:isWaiting() then
           t.waiting = false
@@ -1479,14 +1554,14 @@ remote.add_interface("st",
 
         --debugDump(train,true)
         if train.waitForever or train.waiting then
-          if train.waiting and global.ticks[train.waiting.nextCheck] then
+          if train.waiting and global.check_rules[train.waiting.nextCheck] then
             local id = false
-            for i, train2 in pairs(global.ticks[train.waiting.nextCheck]) do
+            for i, train2 in pairs(global.check_rules[train.waiting.nextCheck]) do
               if train2.train == train.train then
                 id = i
               end
             end
-            if id then global.ticks[train.waiting.nextCheck][id] = nil end
+            if id then global.check_rules[train.waiting.nextCheck][id] = nil end
           end
           train:resetCircuitSignal()
           train.waitingStation = false
@@ -1541,12 +1616,11 @@ remote.add_interface("st",
       local t = #global.trains
       local ticksC = 0
       local ticksU = 0
-      log(#global.trains/global.settings.depart.interval)
-      for tick, trains in pairs(global.ticks) do
+      for tick, trains in pairs(global.check_rules) do
         ticksC = ticksC + #trains
         log("tick " .. tick ..": " .. #trains)
       end
-      for _, trains in pairs(global.updateTick) do
+      for _, trains in pairs(global.update_cargo) do
         ticksU = ticksU + #trains
       end
       debugDump({t=t,c=ticksC,u=ticksU},true)

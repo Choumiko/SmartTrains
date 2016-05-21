@@ -144,38 +144,40 @@ GUI = {
   globalSettingsWindow = function(index, parent)
     local gui = parent or game.players[index].gui[GUI.position].stGui.rows
     if gui.globalSettings == nil then
-      gui.add({type = "frame", name="globalSettings", direction="horizontal", caption={"text-st-global-settings"}})
-      gui.globalSettings.add{type="table", name="tbl", colspan=5}
-      local tbl = gui.globalSettings.tbl
-
+      gui.add({type = "frame", name="globalSettings", direction="vertical", caption={"text-st-global-settings"}})
+      local refueling = gui.globalSettings.add({type = "frame", name="frm_refueling", direction="horizontal", style = "st_inner_frame", caption = {"stg-refueling"}})
+            
       local coal_min = fuel_value_to_coal(global.settings.refuel.rangeMin)
       local coal_max = fuel_value_to_coal(global.settings.refuel.rangeMax)
 
+      local tbl = refueling.add{type="table", name="tbl", colspan=4}
       GUI.addLabel(tbl, {"stg-refuel-below1"})
       GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield", text = global.settings.refuel.rangeMin})
       GUI.addLabel(tbl, {"", {"stg-MJ"}, " ("..coal_min.." ", game.item_prototypes["coal"].localised_name, ")",{"stg-refuel-below2"}})
       local r = GUI.add(tbl, {type="flow", name="row1", direction="horizontal"})
       GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield", text = global.settings.refuel.rangeMax})
       GUI.addLabel(r, {"", {"stg-MJ"}, " ("..coal_max.." ", game.item_prototypes["coal"].localised_name,")"})
-      GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"stg-max-refuel-time"})
       GUI.addTextfield(tbl, {name="refuelTime", style="st_textfield_small", text = global.settings.refuel.time / 60})
       GUI.addLabel(tbl,  {"stg-refuel-station"})
       GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_big", text = global.settings.refuel.station})
-      GUI.addPlaceHolder(tbl)
-
-      GUI.addLabel(tbl, {"stg-min-wait-time"})
-      GUI.addTextfield(tbl, {name="minWait", style="st_textfield_small", text = global.settings.depart.minWait / 60})
-      GUI.addLabel(tbl, {"stg-autodepart-interval"})
-      GUI.addTextfield(tbl, {name="departInterval", style="st_textfield_small", text = global.settings.depart.interval / 60})
-      GUI.addPlaceHolder(tbl)
 
       GUI.addLabel(tbl, {"stg-min-flow-rate"})
-      GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small", text = global.settings.depart.minFlow})
-      GUI.addLabel(tbl, {"stg-circuit-interval"})
-      GUI.addTextfield(tbl, {name="circuitInterval", style="st_textfield_small", text = global.settings.circuit.interval})
-      GUI.addPlaceHolder(tbl)
+      GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small", text = global.settings.minFlow})
+
+      local intervals = gui.globalSettings.add({type = "frame", name="frm_intervals", direction="horizontal", style = "st_inner_frame", caption = {"stg-intervals"}})
+      tbl = intervals.add{type="table", name="tbl", colspan=4, style="st_table"}
+
+      GUI.addLabel(tbl, {"stg-intervals-read"})
+      GUI.addTextfield(tbl, {name="intervals_read", style="st_textfield_small", text = global.settings.intervals.read})
+      GUI.addLabel(tbl, {"stg-intervals-write"}).style.left_padding = 10
+      GUI.addTextfield(tbl, {name="intervals_write", style="st_textfield_small", text = global.settings.intervals.write})
+
+      GUI.addLabel(tbl, {"stg-intervals-cargoRule"})
+      GUI.addTextfield(tbl, {name="intervals_cargoRule", style="st_textfield_small", text = global.settings.intervals.cargoRule})
+      GUI.addLabel(tbl, {"stg-intervals-noChange"}).style.left_padding = 10
+      GUI.addTextfield(tbl, {name="intervals_noChange", style="st_textfield_small", text = global.settings.intervals.noChange})
 
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
       local noStations, uniqueStations = 0,0
@@ -490,7 +492,7 @@ GUI = {
     if line and global.trainLines[line] then
       local records = global.trainLines[line].records
       local rules = guiData.rules
-      
+
       if rule_button and rule_button.valid then
         rule_button.style = "st_selected_button"
         guiData.rules_button = rule_button
@@ -791,22 +793,29 @@ on_gui_click = {
   end,
 
   globalSettingsSave = function(player)
-    local settings = player.gui[GUI.position].stGui.rows.globalSettings.tbl
-    local time = sanitizeNumber(settings.refuelTime.text, global.settings.refuel.time/60)*60
-    local min = sanitizeNumber(settings.refuelRangeMin.text, global.settings.refuel.rangeMin)
-    local max = sanitizeNumber(settings.row1.refuelRangeMax.text, global.settings.refuel.rangeMax)
-    local station = settings.refuelStation.text
+    local settings = player.gui[GUI.position].stGui.rows.globalSettings
+    
+    local refueling = settings.frm_refueling.tbl
+    local time = sanitizeNumber(refueling.refuelTime.text, global.settings.refuel.time/60)*60
+    local min = sanitizeNumber(refueling.refuelRangeMin.text, global.settings.refuel.rangeMin)
+    local max = sanitizeNumber(refueling.row1.refuelRangeMax.text, global.settings.refuel.rangeMax)
+    local station = refueling.refuelStation.text
     global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
 
-    local interval = sanitizeNumber(settings.departInterval.text, global.settings.depart.interval/60)*60
-    local minWait = sanitizeNumber(settings.minWait.text, global.settings.depart.minWait/60)*60
-    local minFlow = sanitizeNumber(settings.minFlow.text, global.settings.depart.minFlow)
-    local circuitInterval = sanitizeNumber(settings.circuitInterval.text,global.settings.circuit.interval)
-    if circuitInterval < 1 then circuitInterval = 1 end
+    local minFlow = sanitizeNumber(refueling.minFlow.text, global.settings.minFlow)
+        
+    local intervals = settings.frm_intervals.tbl
+    local i_noChange = sanitizeNumber(intervals.intervals_noChange.text, global.settings.intervals.noChange)
+    local i_write = sanitizeNumber(intervals.intervals_write.text, global.settings.intervals.write)
+    local i_read = sanitizeNumber(intervals.intervals_read.text, global.settings.intervals.read)
+    local i_cargoRule = sanitizeNumber(intervals.intervals_cargoRule.text, global.settings.intervals.cargoRule)
 
-    global.settings.depart = {interval = interval, minWait = minWait}
-    global.settings.depart.minFlow = minFlow
-    global.settings.circuit.interval = circuitInterval
+    if i_write < 1 then i_write = 1 end
+    if i_read < 1 then i_read = 1 end
+    if i_cargoRule < 1 then i_cargoRule = 1 end
+
+    global.settings.minFlow = minFlow
+    global.settings.intervals = {write = i_write, read = i_read, noChange = i_noChange, cargoRule = i_cargoRule}
 
     return true
   end,
