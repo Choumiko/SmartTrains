@@ -340,20 +340,14 @@ Train = {
         local cargoProxy = self.waitingStation.cargo
         --local output = cargoProxy.get_circuit_condition(1)
         local output = {parameters={}}
-        local passenger = 0
-        --TODO move to on_driving_state_changed ?
-        for _, carriage in pairs(self.train.carriages) do
-          if carriage.passenger and carriage.passenger.name ~= "fatcontroller" then
-            passenger = passenger + 1
-          end
-        end
+
         local min_fuel = self:lowestFuel()
         output.parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
         output.parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
         output.parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
 
 
-        output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = passenger, index = 4}
+        output.parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = self.passengers, index = 4}
         output.parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = 5}
 
         local i=6
@@ -381,16 +375,10 @@ Train = {
       if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
         local cargoProxy = self.waitingStation.cargo
         local output = cargoProxy.get_circuit_condition(1)
-        local passenger = 0
-        --TODO move to on_driving_state_changed ?
-        for _, carriage in pairs(self.train.carriages) do
-          if carriage.passenger and carriage.passenger.name ~= "fatcontroller" then
-            passenger = passenger + 1
-          end
-        end
+
         local min_fuel = self:lowestFuel()
 
-        output.parameters[4].count = passenger
+        output.parameters[4].count = self.passengers
         output.parameters[5].count = min_fuel
 
         local i=6

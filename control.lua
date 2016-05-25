@@ -126,6 +126,7 @@ function setMetatables()
       end
     end
   end
+
   if global.check_rules then
     for _, tick in pairs(global.check_rules) do
       for _, object in pairs(tick) do
@@ -147,6 +148,7 @@ function initGlob()
   global.refueling = global.refueling or {}
 
   global.player_opened = global.player_opened or {}
+  global.player_passenger = global.player_passenger or {}
   global.showFlyingText = global.showFlyingText or false
   global.playerPage = global.playerPage or {}
   global.playerRules = global.playerRules or {}
@@ -1161,7 +1163,7 @@ function getTrainKeyFromUI(index)
   end
 end
 
-function onbuiltentity(event)
+function on_built_entity(event)
   local status, err = pcall(function()
     local ent = event.created_entity
     local ctype = ent.type
@@ -1187,7 +1189,7 @@ function onbuiltentity(event)
   end
 end
 
-function onpreplayermineditem(event)
+function on_preplayer_mined_item(event)
   local status, err = pcall(function()
     local ent = event.entity
     local ctype = ent.type
@@ -1231,7 +1233,7 @@ function onpreplayermineditem(event)
   end
 end
 
-function onplayermineditem(event)
+function on_player_mined_item(event)
   local status, err = pcall(function()
     local name = event.item_stack.name
     local results = {}
@@ -1262,7 +1264,7 @@ function onplayermineditem(event)
   end
 end
 
-function onentitydied(event)
+function on_entity_died(event)
   local status, err = pcall(function()
     removeInvalidTrains(true)
     if event.entity.type == "locomotive" or event.entity.type == "cargo-wagon" then
@@ -1303,6 +1305,29 @@ function on_robot_pre_mined(event)
   end
   if event.entity.name == "smart-train-stop" then
     removeProxy(event.entity)
+  end
+end
+
+function on_player_driving_changed_state(event)
+  local player = game.players[event.player_index]
+  if not player.connected then
+    return
+  end
+  if player.vehicle ~= nil and player.character.name ~= "fatcontroller" and (player.vehicle.type == "locomotive" or player.vehicle.type == "cargo-wagon") then
+    global.player_passenger[player.index] = player.vehicle
+    local i = getTrainKeyByTrain(global.trains, player.vehicle.train)
+    local ti = i and global.trains[i] or false
+    if ti then
+      ti.passengers = ti.passengers + 1
+    end
+  end
+  if player.vehicle == nil and player.character.name ~= "fatcontroller" and global.player_passenger[player.index] then
+    local i = getTrainKeyByTrain(global.trains, global.player_passenger[player.index].train)
+    local ti = i and global.trains[i] or false
+    if ti then
+      ti.passengers = ti.passengers - 1
+    end
+    global.player_passenger[player.index] = nil
   end
 end
 
@@ -1413,10 +1438,12 @@ script.on_event(defines.events.on_force_created, on_force_created)
 --script.on_event(defines.events.on_forces_merging, on_forces_merging)
 
 script.on_event(defines.events.on_train_changed_state, on_train_changed_state)
-script.on_event(defines.events.on_player_mined_item, onplayermineditem)
-script.on_event(defines.events.on_preplayer_mined_item, onpreplayermineditem)
-script.on_event(defines.events.on_entity_died, onentitydied)
-script.on_event(defines.events.on_built_entity, onbuiltentity)
+script.on_event(defines.events.on_player_mined_item, on_player_mined_item)
+script.on_event(defines.events.on_preplayer_mined_item, on_preplayer_mined_item)
+script.on_event(defines.events.on_player_driving_changed_state, on_player_driving_changed_state)
+
+script.on_event(defines.events.on_entity_died, on_entity_died)
+script.on_event(defines.events.on_built_entity, on_built_entity)
 script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
 script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
 script.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
