@@ -174,11 +174,12 @@ GUI = {
       GUI.addLabel(tbl, {"stg-intervals-write"}).style.left_padding = 10
       GUI.addTextfield(tbl, {name="intervals_write", style="st_textfield_small", text = global.settings.intervals.write})
 
+      --[[
       GUI.addLabel(tbl, {"stg-intervals-cargoRule"})
       GUI.addTextfield(tbl, {name="intervals_cargoRule", style="st_textfield_small", text = global.settings.intervals.cargoRule})
       GUI.addLabel(tbl, {"stg-intervals-noChange"}).style.left_padding = 10
       GUI.addTextfield(tbl, {name="intervals_noChange", style="st_textfield_small", text = global.settings.intervals.noChange})
-
+      ]]--
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
       local noStations, uniqueStations = 0,0
       local force = game.players[index].force.name
@@ -805,10 +806,10 @@ on_gui_click = {
     local minFlow = sanitizeNumber(refueling.minFlow.text, global.settings.minFlow)
         
     local intervals = settings.frm_intervals.tbl
-    local i_noChange = sanitizeNumber(intervals.intervals_noChange.text, global.settings.intervals.noChange)
+    local i_noChange = 120 --sanitizeNumber(intervals.intervals_noChange.text, global.settings.intervals.noChange)
     local i_write = sanitizeNumber(intervals.intervals_write.text, global.settings.intervals.write)
     local i_read = sanitizeNumber(intervals.intervals_read.text, global.settings.intervals.read)
-    local i_cargoRule = sanitizeNumber(intervals.intervals_cargoRule.text, global.settings.intervals.cargoRule)
+    local i_cargoRule = i_read --sanitizeNumber(intervals.intervals_cargoRule.text, global.settings.intervals.cargoRule)
 
     if i_write < 1 then i_write = 1 end
     if i_read < 1 then i_read = 1 end

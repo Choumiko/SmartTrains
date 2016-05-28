@@ -37,7 +37,7 @@ defaultSettings =
       write = 60, -- ticks between constant combinator updates
       read = 12, -- ticks between reading signal
       noChange = 120, --ticks between cargo comparison
-      cargoRule = 60 -- ticks between cargo rule checks (full/empty), refuelcheck
+      cargoRule = 12 -- ticks between cargo rule checks (full/empty), refuelcheck
     },
   }
 
@@ -368,7 +368,7 @@ local update_from_version = {
     global.settings.intervals.write = global.settings.circuit.interval or defaultSettings.intervals.write
     global.settings.intervals.read = global.settings.circuit.interval or defaultSettings.intervals.read
     global.settings.intervals.noChange = defaultSettings.intervals.noChange
-    global.settings.intervals.cargoRule = defaultSettings.intervals.cargoRule
+    global.settings.intervals.cargoRule = global.settings.intervals.read --defaultSettings.intervals.cargoRule
     global.settings.minFlow = global.settings.depart.minFlow or defaultSettings.minFlow
 
     global.settings.circuit = nil
@@ -385,7 +385,7 @@ local update_from_version = {
       t:lowestFuel()
       t:check_filters()
       t.passengers = 0
-      
+
       if t.waiting then
         if t.waiting.lastCheck then
           t.waiting.lastCargoCheck = t.waiting.lastCheck
@@ -700,12 +700,7 @@ function on_train_changed_state(event)
     end
     t:updateState()
     if t.advancedState == trainstate.left_station then
-      t:resetCircuitSignal()
-      t.waitingStation = false
-      t.waiting = false
-      t.refueling = false
-      t.departAt = false
-      t.update_cargo = false
+      t:resetWaitingStation()
       t:updateLine()
       return
     end
@@ -721,10 +716,7 @@ function on_train_changed_state(event)
       for _, trains in pairs(global.check_rules) do
         for i, trainData in pairs(trains) do
           if trainData == t then
-            trainData:resetCircuitSignal()
-            trainData.waitingStation = false
-            trainData.waiting = false
-            trainData.refueling = false
+            t:resetWaitingStation()
             trains[i] = nil
             done = true
           end
@@ -733,10 +725,7 @@ function on_train_changed_state(event)
       if not done then
         for _, train_ in pairs(global.trains) do
           if train_ == t then
-            train_:resetCircuitSignal()
-            train_.waitingStation = false
-            train_.waiting = false
-            train_.refueling = false
+            t:resetWaitingStation()
           end
         end
       end
@@ -752,14 +741,15 @@ function on_train_changed_state(event)
         end
         if t:currentStation() == t:refuelStation() and #schedule.records == schedule.current then
           t:startRefueling()
-          t:flyingText("refueling", colors.YELLOW)
         end
       end
     elseif train.state == defines.trainstate.arrive_station then
       if t.settings.autoRefuel then
         if lowest_fuel < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
           train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
-          t:flyingText("Refuel station added", colors.YELLOW)
+          if global.showFlyingText then
+            t:flyingText("Refuel station added", colors.YELLOW)
+          end
         end
       end
       t.direction = t.train.speed < 0 and 1 or 0
@@ -810,16 +800,15 @@ function on_tick(event)
       for _, train in pairs(global.refueling[current_tick]) do
         if train.train and train.train.valid then
           if train.refueling and train.refueling == current_tick then
-              if train:lowestFuel() >= global.settings.refuel.rangeMax then
-                train:flyingText("Refueling done", colors.YELLOW)
-                train:refuelingDone(true)
-              else
-                train.refueling = current_tick + global.settings.intervals.cargoRule
-                insertInTable(global.refueling, train.refueling, train)
-              end
-          else
-            LOGGERS.main.log("Invalid tick refueling \t"..train.name)
-            LOGGERS.main.log(serpent.block(train,{comment=false}))
+            if train:lowestFuel() >= global.settings.refuel.rangeMax then
+              train:refuelingDone(true)
+            else
+              train.refueling = current_tick + global.settings.intervals.noChange
+              insertInTable(global.refueling, train.refueling, train)
+            end
+          --else
+            --LOGGERS.main.log("Invalid tick refueling \t"..train.name)
+            --LOGGERS.main.log(serpent.block(train,{comment=false}))
           end
         else
           remove_invalid = true
@@ -850,9 +839,9 @@ function on_tick(event)
             insertInTable(global.update_cargo, train.update_cargo, train)
             --else
             --log(game.tick .. " " .. train.name .. " invalid updatetick")
-          else
-            LOGGERS.main.log("Invalid tick cargo \t"..train.name)
-            LOGGERS.main.log(serpent.block(train,{comment=false}))
+          --else
+            --LOGGERS.main.log("Invalid tick cargo \t"..train.name)
+            --LOGGERS.main.log(serpent.block(train,{comment=false}))
           end
         else
           remove_invalid = true
@@ -876,17 +865,18 @@ function on_tick(event)
         if train.train and train.train.valid then
           --LOGGERS.main.log("tick signal \t"..train.name)
           --debugLog(" tick s", game.tick)
-          train.lastMessage = train.lastMessage or 0
-          if train.departAt  and current_tick - train.lastMessage >= 120 then
-            local text
-            if train.waitForever then
-              text = "waiting forever"
-            else
-              text = "Leaving in "..util.formattime(train.departAt-current_tick)
+          if global.showFlyingText then
+            train.lastMessage = train.lastMessage or 0
+            if train.departAt  and current_tick - train.lastMessage >= 120 then
+              local text
+              if train.waitForever then
+                text = "waiting forever"
+              else
+                text = "Leaving in "..util.formattime(train.departAt-current_tick)
+              end
+              train:flyingText(text, colors.RED,{offset=-2})
             end
-            train:flyingText(text, colors.RED,{offset=-2})
           end
-
           if train:isWaitingForRules() and current_tick == train.waiting.nextCheck then
             local rules = train:get_rules()
             --debugDump(rules,true)
@@ -906,12 +896,12 @@ function on_tick(event)
               if current_tick >= train.waiting.nextCargoRule or (rules.requireBoth and signal) then
                 if rules.full then
                   full = train:isCargoFull()
-                  --log(current_tick .. " cargo full "..serpent.line(full,{comment=false}))
+                  log(current_tick .. " cargo full "..serpent.line(full,{comment=false}))
                   train.waiting.nextCargoRule = current_tick + global.settings.intervals.cargoRule
                 end
                 if rules.empty then
                   empty = train:isCargoEmpty()
-                  --log(current_tick .. " cargo empty "..serpent.line(empty,{comment=false}))
+                  log(current_tick .. " cargo empty "..serpent.line(empty,{comment=false}))
                   train.waiting.nextCargoRule = current_tick + global.settings.intervals.cargoRule
                 end
               end
@@ -959,12 +949,14 @@ function on_tick(event)
               train:waitingDone(true, jump)
               keepWaiting = false
             else
-              local txt = (rules.full and not full) and "not full" or "not empty"
-              txt = rules.waitForCircuit and "waiting for circuit" or txt
-              if rules.full or rules.empty or rules.waitForCircuit then
-                if current_tick - train.lastMessage >= 120 then
-                  train:flyingText(txt, colors.YELLOW, {offset=-1})
-                  train.lastMessage = current_tick
+              if global.showFlyingText then
+                local txt = (rules.full and not full) and "not full" or "not empty"
+                txt = rules.waitForCircuit and "waiting for circuit" or txt
+                if rules.full or rules.empty or rules.waitForCircuit then
+                  if current_tick - train.lastMessage >= 120 then
+                    train:flyingText(txt, colors.YELLOW, {offset=-1})
+                    train.lastMessage = current_tick
+                  end
                 end
               end
               keepWaiting = true
@@ -974,10 +966,7 @@ function on_tick(event)
               train.waiting.nextCheck = nextCheck
               insertInTable(global.check_rules, nextCheck, train)
             else
-              train:resetCircuitSignal()
-              train.waitingStation = false
-              train.waiting = false
-              train.waitForever = false
+              train:resetWaitingStation()
               --TODO remove copied rules
             end
           end

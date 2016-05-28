@@ -118,7 +118,9 @@ Train = {
       if self.settings.autoRefuel then
         if self:lowestFuel() < (global.settings.refuel.rangeMin) and not inSchedule(self:refuelStation(), train.schedule) then
           train.schedule = addStation(self:refuelStation(), train.schedule, global.settings.refuel.time)
-          self:flyingText("Refuel station added", colors.YELLOW)
+          if global.showFlyingText then
+            self:flyingText("Refuel station added", colors.YELLOW)
+          end
         end
       end
       if train.manual_mode == false or force then
@@ -127,10 +129,11 @@ Train = {
         local tmp = (schedule.current % #schedule.records) + 1
         if index and index > 0 and index <= #schedule.records then
           tmp = index
-          self:flyingText("Going to "..schedule.records[index].station, colors.YELLOW, {offset = -1}) --TODO localisation
-        else
-          self:flyingText("leave station", colors.YELLOW, {offset=-1})
         end
+        if global.showFlyingText then
+          self:flyingText("Going to "..schedule.records[tmp].station, colors.YELLOW, {offset = -1}) --TODO localisation
+        end
+
         --all below is needed to make a train go to another station, don't change!
         train.manual_mode = true
         schedule.current = tmp
@@ -172,7 +175,10 @@ Train = {
     end,
 
     startRefueling = function(self)
-      local tick = game.tick + global.settings.intervals.cargoRule
+      if global.showFlyingText then
+        self:flyingText("refueling", colors.YELLOW)
+      end
+      local tick = game.tick + global.settings.intervals.noChange
       self.refueling = tick
       insertInTable(global.refueling, tick, self)
     end,
@@ -183,6 +189,9 @@ Train = {
 
     refuelingDone = function(self, done)
       if done then
+        if global.showFlyingText then
+          self:flyingText("Refueling done", colors.YELLOW)
+        end
         self.refueling = false
         self:nextStation()
       end
@@ -191,7 +200,9 @@ Train = {
     removeRefuelStation = function(self)
       if inSchedule(self:refuelStation(), self.train.schedule) and #self.train.schedule.records >= 3 then
         self.train.schedule = removeStation(self:refuelStation(), self.train.schedule)
-        self:flyingText("Refuel station removed", colors.YELLOW) --TODO localisation
+        if global.showFlyingText then
+          self:flyingText("Refuel station removed", colors.YELLOW) --TODO localisation
+        end
       end
     end,
 
@@ -278,7 +289,7 @@ Train = {
         nextRulesCheck = current_tick + 9
       end
       self.waiting = {}
-      self.waitForever = false
+      self.waitForever = false --TODO still needed?
 
       -- update cargo (only if smart stop or full/empty/noChange rule set
       -- write to combinator (only if smart stop)
@@ -311,11 +322,20 @@ Train = {
           self.waiting.nextCargoRule = nextCargoRule
         end
 
-        if rules.empty or rules.full or rules.noChange or rules.waitForCircuit then
+        if global.showFlyingText and (rules.empty or rules.full or rules.noChange or rules.waitForCircuit) then
           self:flyingText("waiting for rules", colors.YELLOW)
         end
         --TODO copy rules for that station to train
       end
+    end,
+
+    resetWaitingStation = function(self)
+      self:resetCircuitSignal()
+      self.waitingStation = false
+      self.waiting = false
+      self.refueling = false
+      self.departAt = false
+      self.update_cargo = false
     end,
 
     getCircuitSignal = function(self)
@@ -412,7 +432,9 @@ Train = {
     --returns fuelvalue (in MJ)
     lowestFuel = function(self)
       --TODO cache result for ~1s?
-      if self.last_fuel_update +60 <= game.tick then
+      if self.last_fuel_update + 60 <= game.tick then
+        self.last_fuel_update = game.tick
+        log(game.tick .. " lowest fuel")
         local minfuel
         local c
         local locos = self.train.locomotives
@@ -433,6 +455,8 @@ Train = {
         else
           self.minFuel = 0
         end
+      else
+      	log(game.tick .. "cached fuel")
       end
       return self.minFuel
     end,
@@ -633,7 +657,9 @@ Train = {
       local oldmode = self.train.manual_mode
       if self.line and global.trainLines[self.line] then
         if self.settings.autoRefuel and self.train.schedule.current == inSchedule(self:refuelStation(), self.train.schedule) and self.train.schedule.current == #self.train.schedule then
-          self:flyingText("Skipping line update, refueling", colors.YELLOW)
+          if global.showFlyingText then
+            self:flyingText("Skipping line update, refueling", colors.YELLOW)
+          end
           return false
         end
         local trainLine = global.trainLines[self.line]
@@ -643,7 +669,7 @@ Train = {
         if self.line then
           --debugDump("updating line "..self.line.." train: "..self.train.carriages[1].backer_name,true)
           local rules = trainLine.rules
-          if self.lineVersion >= 0 then
+          if global.showFlyingText and self.lineVersion >= 0 then
             self:flyingText("updating schedule", colors.YELLOW) --TODO localisation
           end
           --TODO copy rule to train if waiting at a station
@@ -662,8 +688,9 @@ Train = {
 
           local inLine = inSchedule(waitingAt.station,schedule)
           if self.train.state == defines.trainstate.wait_station and not inLine then
-            self:flyingText("Current station not in new schedule, skipping update", colors.RED) --TODO localisation
-            log(game.tick .. "Current station not in new schedule, skipping update")
+            if global.showFlyingText then
+              self:flyingText("Current station not in new schedule, skipping update", colors.RED) --TODO localisation
+            end
             return false
           end
           if inLine then
@@ -680,7 +707,9 @@ Train = {
           return true
         end
       elseif (self.line and not global.trainLines[self.line]) then
-        self:flyingText("Dettached from line", colors.RED) --TODO localisation
+        if global.showFlyingText then
+          self:flyingText("Dettached from line", colors.RED) --TODO localisation
+        end
         local schedule = self.train.schedule
         for _, record in pairs(schedule.records) do
           if record.time_to_wait == 2^32-1 then
