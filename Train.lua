@@ -68,7 +68,7 @@ Train = {
         if c.type == "locomotive" then
           for i, fm in pairs(self.train.locomotives.front_movers) do
             if fm == c then
-              table.insert(parts,'F')
+              table.insert(parts,'L')
               found = true
               break
             end
@@ -76,16 +76,18 @@ Train = {
           if not found then
             for i, bm in pairs(self.train.locomotives.back_movers) do
               if bm == c then
-                table.insert(parts,'B')
+                table.insert(parts,'L')
                 break
               end
             end
           end
         else
-          table.insert(parts, 'c')
+          table.insert(parts, 'C')
         end
       end
-      return table.concat(parts,'')
+      local type = table.concat(parts,'')
+      type = type:gsub("LC","L-C"):gsub("CL", "C-L")
+      return string.gsub(string.gsub(type, "^-", ""), "-$", "")
     end,
 
     printName = function(self)
@@ -147,37 +149,36 @@ Train = {
     refuelStation = function(self)
       local station = global.settings.refuel.station
       local lType = self:getType()
-      local locos = string.match(lType,"^(L*)-*C*$")
+      local locos = string.match(lType,"^(L*)-*C*$") --only matches single headed
+      --debugDump("locos: " .. serpent.line(locos,{comment=false}),true)
       local refuelStation = station.." "..lType
       local match = false
       local force = self.train.carriages[1].force.name
-      for name, c in pairs(global.stationCount[force]) do
-        if name == refuelStation and c > 0 then
-          return refuelStation
-        end
-        if locos then
+      local full_match = global.stationCount[force][refuelStation] and global.stationCount[force][refuelStation] > 0
+      if full_match then
+        return refuelStation
+      end
+
+      if locos then
+        for name, c in pairs(global.stationCount[force]) do
           --debugDump(name..": "..station.." "..locos,true)
-          --debugDump(string.starts_with(name,station.." "..locos),true)
+          --debugDump(string.starts_with(name, station.." "..locos),true)
           if string.starts_with(name, station.." "..locos) and string.match(name,"^"..station.."%s(L*)") == locos then
-            match = name
+            return name
           end
         end
       end
-      if match then
-        return match
-      else
-        return station
-      end
+      return station
     end,
 
     startRefueling = function(self)
-      local tick = game.tick + global.settings.intervals.write
-      self.refueling = {nextCheck = tick}
+      local tick = game.tick + global.settings.intervals.cargoRule
+      self.refueling = tick
       insertInTable(global.refueling, tick, self)
     end,
 
     isRefueling = function(self)
-      return type(self.refueling) == "table" and self.settings.autoRefuel
+      return self.refueling and self.settings.autoRefuel
     end,
 
     refuelingDone = function(self, done)
@@ -219,7 +220,7 @@ Train = {
         self:nextStation(force, index)
         --debugDump("waitForever unset")
         self.waitForever = false
-        --TODO remove copied rules 
+        --TODO remove copied rules
       end
     end,
 
@@ -309,7 +310,7 @@ Train = {
           self.waiting.nextCheck = nextRulesCheck
           self.waiting.nextCargoRule = nextCargoRule
         end
-        
+
         if rules.empty or rules.full or rules.noChange or rules.waitForCircuit then
           self:flyingText("waiting for rules", colors.YELLOW)
         end

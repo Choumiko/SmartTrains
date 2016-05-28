@@ -37,7 +37,7 @@ defaultSettings =
       write = 60, -- ticks between constant combinator updates
       read = 12, -- ticks between reading signal
       noChange = 120, --ticks between cargo comparison
-      cargoRule = 60 -- ticks between cargo rule checks (full/empty)
+      cargoRule = 60 -- ticks between cargo rule checks (full/empty), refuelcheck
     },
   }
 
@@ -179,10 +179,6 @@ function initGlob()
   global.fuel_values["coal"] = game.item_prototypes["coal"].fuel_value/1000000
 
   global.blueprinted_proxies = global.blueprinted_proxies or {}
-
-  if not global.settings.circuit then
-    global.settings.circuit = util.table.deepcopy(defaultSettings.circuit)
-  end
 
   setMetatables()
 end
@@ -380,6 +376,7 @@ local update_from_version = {
 
     global.update_cargo = global.updateTick or {}
     global.check_rules = global.ticks or {}
+
     for _, t in pairs(global.trains) do
       t.type = t:getType()
       t.update_cargo = t.updateTick
@@ -387,7 +384,8 @@ local update_from_version = {
       t.last_fuel_update = 0
       t:lowestFuel()
       t:check_filters()
-
+      t.passengers = 0
+      
       if t.waiting then
         if t.waiting.lastCheck then
           t.waiting.lastCargoCheck = t.waiting.lastCheck
@@ -398,13 +396,18 @@ local update_from_version = {
       end
 
       if t.refueling then
-        insertInTable(global.refueling, t.refueling.nextCheck, t)
+        local tick = type(t.refueling) == "table" and t.refueling.nextCheck or t.refueling
+        insertInTable(global.refueling, tick, t)
+        t.refueling = tick
       end
 
-      for _, c in pairs(t.train.cargo_wagons) do
+      for _, c in pairs(t.train.carriages) do
         if c.name == "rail-tanker" then
           t.railtanker = true
-          break
+        end
+        if c.passenger ~= nil and c.passenger.connected and c.passenger.character.name ~= "fatcontroller" then
+          t.passengers = t.passengers + 1
+          global.player_passenger[c.passenger.index] = c
         end
       end
     end
@@ -799,6 +802,36 @@ end
 
 function on_tick(event)
   local current_tick = event.tick
+
+
+  if global.refueling[current_tick] then
+    local status,err = pcall(function()
+      local remove_invalid = false
+      for _, train in pairs(global.refueling[current_tick]) do
+        if train.train and train.train.valid then
+          if train.refueling and train.refueling == current_tick then
+              if train:lowestFuel() >= global.settings.refuel.rangeMax then
+                train:flyingText("Refueling done", colors.YELLOW)
+                train:refuelingDone(true)
+              else
+                train.refueling = current_tick + global.settings.intervals.cargoRule
+                insertInTable(global.refueling, train.refueling, train)
+              end
+          else
+            LOGGERS.main.log("Invalid tick refueling \t"..train.name)
+            LOGGERS.main.log(serpent.block(train,{comment=false}))
+          end
+        else
+          remove_invalid = true
+        end
+      end
+      if remove_invalid then removeInvalidTrains(true) end
+    end)
+    if not status then
+      pauseError(err, "on_tick: refueling")
+    end
+    global.refueling[current_tick] = nil
+  end
 
   -- update cargo (setWaitingStation <- only if smart stop or full/empty/noChange rule set
   -- write to combinator (setWaitingStation
