@@ -54,7 +54,14 @@ Todo: add text
 - **Update intervals:** Number of ticks between checking the rules/updating the constant combinators at smart trainstops. For most saves the default values should be fine.
 
 ### Using train circuit output
-Todo.
+- **Signals when a train is at a smart trainstop:**
+ - ![Signal cargo wagons](/graphics/signal_cargowagons.png?raw=true "Signal cargo wagons") : Number of cargo wagons
+ - ![Signal locomotives](/graphics/signal_locomotives.png?raw=true "Signal locomotives") : Number of locomotives
+ - ![Signal passengers](/graphics/signal_passenger.png?raw=true "Signal passengers") : Number of players in the train
+ - ![Signal train at station](/graphics/signal_train_at_station.png?raw=true "Signal train at station") : 1 if a train is at the station, 0 otherwise
+ - ![Signal line #](/graphics/signal_line.png?raw=true "Signal line #") : The line number assigned to the trains line, 0 if not on a line
+ - ![Signal lowest fuel](/graphics/signal_lowest_fuel.png?raw=true "Signal lowest fuel") : The lowest fuel in a locomotive of a train (in MJ)
+ - Additionally it outputs the trains cargo
 
 ### Using train signal lamp
 Todo.
