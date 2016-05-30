@@ -1138,6 +1138,7 @@ function on_station_rename(station, oldName)
         global.stationMap[force][i] = nil
       end
     end
+    global.stationCount[force][oldName] = nil
   end
   increaseStationCount(force,station.backer_name)
 end

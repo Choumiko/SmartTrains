@@ -433,7 +433,7 @@ GUI = {
         c = c+1
       end
     end
-    local dirty = 0
+    local dirty = 1
     local spp = global.settings.mappingsPerPage
     local start = (page-1) * spp + 1
     local max = start + spp - 1
@@ -442,7 +442,6 @@ GUI = {
     local c1 = 1
 
     for name, count in pairsByKeys(global.stationCount[player.force.name], sortByName) do
-      dirty= dirty+1
       if dirty >= start and dirty <= max and count > 0 then
         GUI.add( tbl, { type = "label", name = "station_map_label_" .. c1, caption = name } )
         local text = global.guiData[player_index].mapping[name] or ""
@@ -451,6 +450,7 @@ GUI = {
           GUI.add( tbl, { type = "label", caption = "   "})
         end
         c1 = c1 + 1
+        dirty= dirty+1
       end
     end
 
