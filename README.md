@@ -12,7 +12,8 @@ Todo.
 
 ### Line Rules
 ![Line Rules UI](/readme_content/line_rules.png?raw=true "Line Rules UI")
-- **Line #**: Outputs the assigned line number at a smart train stop.
+- **Line #:** Outputs the assigned line number at a smart train stop.
+- **use station mapping:** Maps the numbers passed via Signal # or Station # to different stations
 - **Departure Conditions**
    - **Empty:** The train will depart the station when all cargo\tanker wagons are empty.
    - **Full:** The train will depart the station when all cargo\tanker wagons are full.
@@ -30,6 +31,8 @@ Todo.
      - **Note:** If the train leaves due to the waiting time passed, it will always go to the next station.
 - **Wait ∞:** The train will ignore the normal departure time and wait indefinitely until the departure conditions are met.
 
+### Station Mapping
+Todo.
 ### Global Settings UI
 Todo.
 
