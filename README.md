@@ -5,10 +5,15 @@ SmartTrains
 Todo.
 
 ### Train UI
-Todo.
+![Train UI](/readme_content/train_ui.png?raw=true "Train UI")
+- **Train: Choumiko (L-CCC-L):** The name and type of the train. In this case: 3 wagons (C) with a locomotive (L) at the front and end. The type is used to determine the refueling station for Autorefuel.
+- Displays an overview of the trains schedule and rules
+- **Read from UI:** Todo: rename to "Remove from line", cause that's all it does..
+- **Save as line:** Saves the trains schedule as a line.
 
 ### Trainlines UI
-Todo.
+![Trainlines UI](/readme_content/trainline_ui.png?raw=true "Trainlines UI")
+Todo: add text
 
 ### Line Rules
 ![Line Rules UI](/readme_content/line_rules.png?raw=true "Line Rules UI")
@@ -32,9 +37,21 @@ Todo.
 - **Wait ∞:** The train will ignore the normal departure time and wait indefinitely until the departure conditions are met.
 
 ### Station Mapping
-Todo.
+![Station Mapping](/readme_content/station_mapping.png?raw=true "Station Mapping")
+- Accessible when opening a station GUI.
+- Allows stations to be assigned a number. If a line has "Use station mapping" selected, it will try and go to the station with the corresponding number when used with the Signal # or Station # rule. (As opposed to going to the station at the number in the schedule)
+- Todo: make that description less confusing..
+
+### Refuel
+- Checking Refuel in the trainline or train UI will add a refueling station to the end of the trains schedule, once that train needs refueling and remove it once it is done.
+- The refueling stations name is "Refuel L-CCC-L" for a train with type L-CCC-L. If no such station exists, it will use "Refuel" as the station name.
+- Trains like L-CCC, L-CCCCCCCCCCC will look for a station named "Refuel L"
+
 ### Global Settings UI
-Todo.
+![Global Settings](/readme_content/global_settings.png?raw=true "Global Settings")
+- **Refueling:** Sets the lower and upper limits for available fuel. If any locomotive of a train is below the lower limit, it will add the refueling station, if all are above the upper limit again it will get removed.
+- **Min flow rate:** Used for the railtanker mod with the "No change" rule. If the amount of liquid in a tanker has changed by less than that rate, it is considered to be equal. With default settings: If it doesn't change by more than 2 units in 2 seconds the "No change" rule is considered true.
+- **Update intervals:** Number of ticks between checking the rules/updating the constant combinators at smart trainstops. For most saves the default values should be fine.
 
 ### Using train circuit output
 Todo.
