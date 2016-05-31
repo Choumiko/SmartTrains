@@ -11,8 +11,8 @@ debug = false
 
 LOGGERS = {}
 
-LOGGERS.main = Logger.new("SmartTrains","main", true)
-LOGGERS.update = Logger.new("SmartTrains", "updates", true)
+--LOGGERS.main = Logger.new("SmartTrains","main", true)
+--LOGGERS.update = Logger.new("SmartTrains", "updates", true)
 
 -- myevent = game.generateeventname()
 -- the name and tick are filled for the event automatically
@@ -382,6 +382,7 @@ local update_from_version = {
       t.update_cargo = t.updateTick
       t.updateTick = nil
       t.last_fuel_update = 0
+      t.min_fuel = nil
       t:lowestFuel()
       t:check_filters()
       t.passengers = 0
@@ -426,17 +427,18 @@ function on_configuration_changed(data)
     if data.mod_changes.SmartTrains then
       local old_version = data.mod_changes.SmartTrains.old_version
       local new_version = data.mod_changes.SmartTrains.new_version
-      LOGGERS.main.log("Updating SmartTrains from " .. serpent.line(old_version, {comment=false}) .. " to " .. new_version)
+      --LOGGERS.main.log("Updating SmartTrains from " .. serpent.line(old_version, {comment=false}) .. " to " .. new_version)
+      if old_version then
+        saveGlob("PreUpdate"..old_version.."_"..game.tick)
+      end
       local searched_stations = false
       initGlob()
       init_forces()
       init_players()
       setMetatables()
       if old_version then
-        saveGlob("PreUpdate"..old_version.."_"..game.tick)
         local ver = update_from_version[old_version] and old_version or "0.0.0"
         while ver ~= "0.3.91" do
-          log(ver)
           ver = update_from_version[ver]()
         end
         debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
@@ -448,8 +450,8 @@ function on_configuration_changed(data)
       if old_version then
         saveGlob("PostUpdate"..old_version.."_"..game.tick)
       end
-      LOGGERS.main.log("Updating to " .. new_version .." done, tick: " .. game.tick)
-      LOGGERS.main.write()
+      --LOGGERS.main.log("Updating to " .. new_version .." done, tick: " .. game.tick)
+      --LOGGERS.main.write()
     end
     --update fuelvalue cache, in case the values changed
     for item, _ in pairs(global.fuel_values) do
@@ -457,7 +459,7 @@ function on_configuration_changed(data)
     end
   end)
   if not status then
-    LOGGERS.main.write()
+    --LOGGERS.main.write()
     error(err, 2)
   end
 end
@@ -709,7 +711,6 @@ function on_train_changed_state(event)
     end
     local settings = global.trains[trainKey].settings
     local lowest_fuel = t:lowestFuel()
-    t.min_fuel = lowest_fuel
     local schedule = train.schedule
     if train.state == defines.trainstate.manual_control_stop or train.state == defines.trainstate.manual_control then
       local done = false
@@ -730,7 +731,7 @@ function on_train_changed_state(event)
         end
       end
     elseif train.state == defines.trainstate.wait_station then
-      LOGGERS.main.log("Train arrived at " .. t:currentStation() .. "\t\t  train: " .. t.name .. " Speed: " .. t.train.speed)
+      --LOGGERS.main.log("Train arrived at " .. t:currentStation() .. "\t\t  train: " .. t.name .. " Speed: " .. t.train.speed)
       t:updateLine()
       t:setWaitingStation()
 
@@ -806,7 +807,7 @@ function on_tick(event)
               train.refueling = current_tick + global.settings.intervals.noChange
               insertInTable(global.refueling, train.refueling, train)
             end
-          --else
+            --else
             --LOGGERS.main.log("Invalid tick refueling \t"..train.name)
             --LOGGERS.main.log(serpent.block(train,{comment=false}))
           end
@@ -839,7 +840,7 @@ function on_tick(event)
             insertInTable(global.update_cargo, train.update_cargo, train)
             --else
             --log(game.tick .. " " .. train.name .. " invalid updatetick")
-          --else
+            --else
             --LOGGERS.main.log("Invalid tick cargo \t"..train.name)
             --LOGGERS.main.log(serpent.block(train,{comment=false}))
           end
@@ -910,7 +911,7 @@ function on_tick(event)
               local cargo
               cargo = train:cargoCount()
               noChange = train:cargoEquals(cargo, train.waiting.cargo, global.settings.minFlow, current_tick - train.waiting.lastCargoCheck)
-              --log(current_tick .. " no change "..serpent.line(noChange,{comment=false}))
+              log(current_tick .. " no change "..serpent.line(noChange,{comment=false}))
               train.waiting.cargo = cargo
               train.waiting.nextCargoCheck = current_tick + global.settings.intervals.noChange
               train.waiting.lastCargoCheck = current_tick
@@ -1434,7 +1435,7 @@ function findStations()
   global.smartTrainstops = {}
   global.stationCount = {}
   init_forces()
-  LOGGERS.main.log("Searching smart trainstops...")
+  --LOGGERS.main.log("Searching smart trainstops...")
   log("Searching smart trainstops...")
   local results = Surface.find_all_entities({ type = 'train-stop', surface = 'nauvis' })
 
@@ -1449,7 +1450,7 @@ function findStations()
     end
     global.stationCount[force][station.backer_name] = global.stationCount[force][station.backer_name] + 1
   end
-  LOGGERS.main.log("Found " .. #results .. " smart trainstops (all forces)")
+  --LOGGERS.main.log("Found " .. #results .. " smart trainstops (all forces)")
   log("Found " .. #results .. " smart trainstops (all forces)")
 end
 

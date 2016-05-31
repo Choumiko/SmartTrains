@@ -280,7 +280,7 @@ Train = {
         debugDump("No smart trainstop with rule that requires one", true) --TODO localisation
         return
       end
-      LOGGERS.main.log(serpent.line(rules, {comment=false}))
+      --LOGGERS.main.log(serpent.line(rules, {comment=false}))
       local nextUpdate = current_tick + global.settings.intervals.write
       local nextRulesCheck = current_tick + global.settings.intervals.read
       local nextCargoRule = current_tick + global.settings.intervals.cargoRule
@@ -297,7 +297,6 @@ Train = {
       if (rules and ( rules.empty or rules.full or rules.noChange) ) or self.waitingStation then
         cargo = self:cargoCount()
         self:setCircuitSignal()
-        log("insert cargo")
         insertInTable(global.update_cargo, nextUpdate, self)
         self.update_cargo = nextUpdate
         if rules and rules.noChange then
@@ -316,7 +315,6 @@ Train = {
         -- read signal value from lamp (only if smart stop and (signal == true and ((waitForCircuit and not requireBoth) or (full/empty and goto signal))
         -- check rules
         if rules.waitForCircuit or rules.full or rules.empty or rules.noChange then
-          log("insert signal")
           insertInTable(global.check_rules, nextRulesCheck, self)
           self.waiting.nextCheck = nextRulesCheck
           self.waiting.nextCargoRule = nextCargoRule
@@ -434,7 +432,6 @@ Train = {
       --TODO cache result for ~1s?
       if self.last_fuel_update + 60 <= game.tick then
         self.last_fuel_update = game.tick
-        log(game.tick .. " lowest fuel")
         local minfuel
         local c
         local locos = self.train.locomotives
@@ -455,8 +452,6 @@ Train = {
         else
           self.minFuel = 0
         end
-      else
-      	log(game.tick .. "cached fuel")
       end
       return self.minFuel
     end,
@@ -474,7 +469,6 @@ Train = {
       local current_tick = game.tick
       if (not exact and self.cargoUpdated > current_tick - 12) or self.cargoUpdated == current_tick then -- update cargo only if older than 12 ticks (default circuit update rate)
         --LOGGERS.main.log("cached cargo "..self.name)
-        log("cached cargo")
         return self.cargo
       end
       if self.cargoUpdated + global.settings.intervals.write <= current_tick then
@@ -703,7 +697,7 @@ Train = {
           self.train.manual_mode = true
           self.train.schedule = schedule
           self.train.manual_mode = oldmode
-          LOGGERS.main.log("Train updated schedule for line " .. self.line .. "\t\t train: " .. self.name)
+          --LOGGERS.main.log("Train updated schedule for line " .. self.line .. "\t\t train: " .. self.name)
           return true
         end
       elseif (self.line and not global.trainLines[self.line]) then
@@ -716,7 +710,7 @@ Train = {
             record.time_to_wait = 200*60
           end
         end
-        LOGGERS.main.log("Train detached from line " .. self.line .. "\t\t train: " .. self.name)
+        --LOGGERS.main.log("Train detached from line " .. self.line .. "\t\t train: " .. self.name)
         self.waitForever = false
         self.line = false
         self.lineVersion = false

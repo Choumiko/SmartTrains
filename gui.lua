@@ -484,7 +484,7 @@ GUI = {
           guiData.rules_button.style = "st_button_style_bold"
         end
         if not stay_opened then
-          log("not stay open")
+          --log("not stay open")
           guiData.line = false
           return
         end
@@ -750,7 +750,7 @@ on_gui_click = {
         end
       end
     end
-    log("Added " .. c .. " trains to be updated")
+    --log("Added " .. c .. " trains to be updated")
   end,
 
   on_gui_click = function(event)
@@ -760,7 +760,7 @@ on_gui_click = {
       local refresh = false
       local element = event.element
       local trainInfo = global.trains[getTrainKeyFromUI(event.player_index)]
-      log("click " .. elementName)
+      --log("click " .. elementName)
       if on_gui_click[element.name] then
         refresh = on_gui_click[element.name](player)
       else
@@ -913,7 +913,7 @@ on_gui_click = {
     if guiData.rules_button and guiData.rules_button.valid then
       guiData.rules_button.style = "st_button_style_bold"
     end
-    log("write rules to guiData")
+    --log("write rules to guiData")
     guiData.rules = table.deepcopy(global.trainLines[option2].rules)
     global.playerRules[player.index].page = 1
     GUI.showDynamicRules(player.index, option2, element)
