@@ -311,7 +311,7 @@ GUI = {
       end
     end
     local btns = GUI.add(tableRows,{type="table", name="btns", colspan=2})
-    GUI.addButton(btns, {name="readSchedule__"..trainKey..lineKey, caption={"lbl-read-from-ui"}})
+    --GUI.addButton(btns, {name="readSchedule__"..trainKey..lineKey, caption={"lbl-read-from-ui"}})
     local pages = GUI.add(btns, {type="flow", name="pages", direction="horizontal"})
     if #records > spp then
       if page > 1 then
@@ -328,6 +328,7 @@ GUI = {
     else
       GUI.addPlaceHolder(pages)
     end
+    GUI.addPlaceHolder(btns)
     GUI.addButton(btns, {name="saveAsLine__"..trainKey..lineKey, caption={"lbl-save-as-line"}})
     local line_ = GUI.addTextfield(btns, {name="saveAslineName", text="", style="st_textfield_big"})
     if trainLine then
@@ -936,15 +937,6 @@ on_gui_click = {
     global.playerRules[player.index].page = 1
     debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
     GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
-    return true
-  end,
-
-  readSchedule = function(_, option2)
-    option2 = tonumber(option2)
-    if global.trains[option2] ~= nil and global.trains[option2].train.valid then
-      global.trains[option2].line = false
-      global.trains[option2].lineVersion = false
-    end
     return true
   end,
 
