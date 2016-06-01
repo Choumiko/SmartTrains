@@ -443,7 +443,7 @@ GUI = {
     local c1 = 1
 
     for name, count in pairsByKeys(global.stationCount[player.force.name], sortByName) do
-      if dirty >= start and dirty <= max and count > 0 then
+      if dirty >= start and dirty <= max then
         GUI.add( tbl, { type = "label", name = "station_map_label_" .. c1, caption = name } )
         local text = global.guiData[player_index].mapping[name] or ""
         GUI.add( tbl, { type = "textfield", name = "station_map_" .. c1, style = "st_textfield_small", text = text } )
@@ -451,8 +451,8 @@ GUI = {
           GUI.add( tbl, { type = "label", caption = "   "})
         end
         c1 = c1 + 1
-        dirty= dirty+1
       end
+      dirty= dirty+1
     end
 
     local btns = GUI.add(gui, {type="table", name="btns", colspan=4})
