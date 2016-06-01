@@ -416,6 +416,7 @@ local update_from_version = {
     global.ticks = nil
     return "0.3.91"
   end,
+  ["0.3.91"] = function() return "0.3.92" end,
 }
 
 function on_configuration_changed(data)
