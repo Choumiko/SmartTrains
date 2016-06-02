@@ -567,19 +567,32 @@ local function recreateProxy(trainstop)
   end
 end
 
-function findSmartTrainStopByTrain(vehicle, stationName)
+function round(num, idp)
+  local mult = 10 ^ (idp or 0)
+  return math.floor(num*mult +0.5)/mult
+end
+
+function findSmartTrainStopByTrain(vehicle, rail, stationName)
   local surface = vehicle.surface
   local found = false
+  local trainDir = round(vehicle.orientation*8,0) % 8
+  --[raildir][traindir]
+  --debugDump("o: " .. trainDir .. "r: " .. rail.position.x .."|"..rail.position.y,true)
+  local offsets = {
+    [0] = {
+      [0] = {position = { x = 2, y = 0}, direction = 0},
+      [4] = {position = { x = -2, y = 0}, direction = 4}
+    },
+    [2] = {
+      [2] = {position = { x = 0, y = 2}, direction = 2},
+      [6] = {position = { x = 0, y = -2}, direction = 6}
+    },
+  }
 
-  local area = Position.expand_to_area(vehicle.position, 3)
-  --for _,area in pairs(areas) do
-  for _, station in pairs(surface.find_entities_filtered{area=area, name="smart-train-stop"}) do
-    --flyingText("S", GREEN, station.position, true)
-    if station.backer_name == stationName then
-      found = station
-      break
-    end
-    if found then break end
+  local station = surface.find_entity("smart-train-stop", Position.add(rail.position,offsets[rail.direction][trainDir].position))
+  if station and station.backer_name == stationName then
+    flyingText("S", colors.GREEN, station.position, true, surface)
+    found = station
   end
   if found then
     found = global.smartTrainstops[vehicle.force.name][stationKey(found)] or false
@@ -754,7 +767,9 @@ function on_train_changed_state(event)
           end
         end
       end
-      t.direction = t.train.speed < 0 and 1 or 0
+      if t.train.speed ~= 0 then --only update direction when train is moving: prevents direction being lost when train is stopped/started at a station
+        t.direction = t.train.speed < 0 and 1 or 0
+      end
     end
   end)
   if not status then
@@ -1370,7 +1385,7 @@ function debugDump(var, force)
   end
 end
 
-function flyingText(line, color, pos, show)
+function flyingText(line, color, pos, show, surface)
   if show or debug then
     color = color or colors.RED
     if not pos then
@@ -1378,6 +1393,10 @@ function flyingText(line, color, pos, show)
         p.surface.create_entity({name="flying-text", position=p.position, text=line, color=color})
       end
       return
+    else
+      if surface then
+        surface.create_entity({name="flying-text", position=pos, text=line, color=color})
+      end
     end
   end
 end

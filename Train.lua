@@ -271,7 +271,8 @@ Train = {
         return
       end
       local vehicle = (self.direction and self.direction == 0) and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
-      self.waitingStation = findSmartTrainStopByTrain(vehicle, self.train.schedule.records[self.train.schedule.current].station)
+      local rail = (self.direction and self.direction == 0) and self.train.front_rail or self.train.back_rail
+      self.waitingStation = findSmartTrainStopByTrain(vehicle, rail, self.train.schedule.records[self.train.schedule.current].station)
       local current_tick = game.tick
       local rules = self:get_rules()
 
