@@ -440,9 +440,9 @@ function on_configuration_changed(data)
       init_forces()
       init_players()
       setMetatables()
-      if old_version then
+      if old_version and new_version then
         local ver = update_from_version[old_version] and old_version or "0.0.0"
-        while ver ~= "0.3.91" do
+        while ver ~= new_version do
           ver = update_from_version[ver]()
         end
         debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
