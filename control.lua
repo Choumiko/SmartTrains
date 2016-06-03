@@ -155,7 +155,6 @@ function initGlob()
 
   global.guiData = global.guiData or {}
   global.openedName = global.openedName or {}
-  global.openedTrain = global.openedTrain or {}
 
   -- by force
   global.stationCount = global.stationCount or {}
@@ -417,6 +416,10 @@ local update_from_version = {
     return "0.3.91"
   end,
   ["0.3.91"] = function() return "0.3.92" end,
+  ["0.3.92"] = function()
+    global.openedTrain = nil
+    return "0.3.93"
+  end,
 }
 
 function on_configuration_changed(data)
@@ -913,12 +916,12 @@ function on_tick(event)
               if current_tick >= train.waiting.nextCargoRule or (rules.requireBoth and signal) then
                 if rules.full then
                   full = train:isCargoFull()
-                  log(current_tick .. " cargo full "..serpent.line(full,{comment=false}))
+                  --log(current_tick .. " cargo full "..serpent.line(full,{comment=false}))
                   train.waiting.nextCargoRule = current_tick + global.settings.intervals.cargoRule
                 end
                 if rules.empty then
                   empty = train:isCargoEmpty()
-                  log(current_tick .. " cargo empty "..serpent.line(empty,{comment=false}))
+                  --log(current_tick .. " cargo empty "..serpent.line(empty,{comment=false}))
                   train.waiting.nextCargoRule = current_tick + global.settings.intervals.cargoRule
                 end
               end
@@ -927,7 +930,7 @@ function on_tick(event)
               local cargo
               cargo = train:cargoCount()
               noChange = train:cargoEquals(cargo, train.waiting.cargo, global.settings.minFlow, current_tick - train.waiting.lastCargoCheck)
-              log(current_tick .. " no change "..serpent.line(noChange,{comment=false}))
+              --log(current_tick .. " no change "..serpent.line(noChange,{comment=false}))
               train.waiting.cargo = cargo
               train.waiting.nextCargoCheck = current_tick + global.settings.intervals.noChange
               train.waiting.lastCargoCheck = current_tick
@@ -942,7 +945,7 @@ function on_tick(event)
               local signalValue = false
               if rules.jumpToCircuit then
                 signalValue = rules.jumpToCircuit and train:getCircuitValue() or false
-                log(current_tick .. " signal value "..serpent.line(signalValue, {comment=false}))
+                --log(current_tick .. " signal value "..serpent.line(signalValue, {comment=false}))
               end
               local use_mapping = global.trainLines[train.line] and global.trainLines[train.line].settings.useMapping or false
               local jump
@@ -950,12 +953,12 @@ function on_tick(event)
                 local jumpSignal, jumpTo
                 if signalValue then
                   jumpSignal = train:get_first_matching_station(signalValue)
-                  log("jumpSignal:" .. serpent.line(jumpSignal, {comment=false}))
+                  --log("jumpSignal:" .. serpent.line(jumpSignal, {comment=false}))
                   --LOGGERS.main.log("Mapping signal \t" .. signalValue .. " to " .. (train:getStationName(jumpSignal) or " invalid index"))
                 end
                 if rules.jumpTo then
                   jumpTo = train:get_first_matching_station(rules.jumpTo)
-                  log("jumpTo:" .. serpent.line(jumpTo, {comment=false}))
+                  --log("jumpTo:" .. serpent.line(jumpTo, {comment=false}))
                   --LOGGERS.main.log("Mapping station # \t" .. rules.jumpTo .. " to " .. (train:getStationName(jumpTo) or " invalid index"))
                 end
                 jump = jumpSignal or jumpTo or false
@@ -1054,7 +1057,6 @@ function on_player_opened(event)
       removeInvalidTrains(true,true)
       GUI.create_or_update(trainInfo, event.player_index)
       global.guiData[event.player_index] = {rules={}}
-      global.openedTrain[event.player_index] = event.entity.train
       if trainInfo then
         trainInfo.opened = true
       end
@@ -1068,16 +1070,28 @@ function on_player_opened(event)
   end
 end
 
+function schedule_changed(s1, s2)
+  if #s1.records ~= #s2.records then return true end
+  local records1 = s1.records
+  local records2 = s2.records
+
+  for i, record in pairs(records1) do
+    if record.station ~= records2[i].station or record.time_to_wait ~= records2[i].time_to_wait then
+      return true
+    end
+  end
+  return false
+end
+
 function on_player_closed(event)
   if event.entity.valid and game.players[event.player_index].valid then
     if event.entity.type == "locomotive" or event.entity.type == "cargo-wagon" then
       local train = getTrainFromEntity(event.entity)
       if event.entity.type == "locomotive" then
         GUI.destroy(event.player_index)
-        global.openedTrain[event.player_index] = nil
         --set line version to -1, so it gets updated at the next station
         train.opened = nil
-        if train.line and train.lineVersion ~= 0 then
+        if train.line and global.trainLines[train.line] and schedule_changed(global.trainLines[train.line], event.entity.train.schedule) and train.lineVersion ~= 0 then
           train.lineVersion = -1
         end
       else

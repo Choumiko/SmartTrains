@@ -730,7 +730,8 @@ Train = {
         s = tbl.show or s
         offset = tbl.offset or offset
       end
-      local pos = self.train.carriages[1].position
+      local vehicle = (self.direction and self.direction == 0) and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
+      local pos = vehicle.position
       if type(offset) == "table" then
         pos = offset
       elseif type(offset) == "number" then
