@@ -1,4 +1,9 @@
-require "defines"
+if not defines then
+  require "defines"
+else
+  defines.trainstate = defines.train_state
+end
+
 require "util"
 require 'stdlib.area.position'
 require 'stdlib.surface'
@@ -383,7 +388,7 @@ local update_from_version = {
       t.last_fuel_update = 0
       t.min_fuel = nil
       t:lowestFuel()
-      t:check_filters()
+      t:check_filters() --TODO remove 0.13
       t.passengers = 0
 
       if t.waiting then
@@ -514,6 +519,7 @@ function createProxy(trainstop)
   if signalProxy.valid and cargoProxy.valid then
     cargoProxy.operable = false
     cargoProxy.destructible = false
+    --TODO 0.13 cargoProxy.get_or_create_control_behavior().parameters = nil
     cargoProxy.set_circuit_condition(1, {parameters={}})
     signalProxy.destructible = false
     if not global.smartTrainstops[force][key] then
@@ -1095,7 +1101,7 @@ function on_player_closed(event)
           train.lineVersion = -1
         end
       else
-        train:check_filters()
+        train:check_filters() --TODO remove 0.13
       end
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)

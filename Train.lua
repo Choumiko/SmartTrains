@@ -15,7 +15,7 @@ Train = {
           last_fuel_update = 0,
           direction = 0, -- 0 = front, 1 back
           railtanker = false, -- has a railtanker wagon
-          has_filter = false, -- has a filter set in one of the wagons,
+          has_filter = false, --TODO remove 0.13 has a filter set in one of the wagons, 
           passengers = 0,
         --manualMode = train.manual_mode
         }
@@ -42,11 +42,12 @@ Train = {
         end
         setmetatable(new, {__index = Train})
         new.type = new:getType()
-        new:check_filters()
+        new:check_filters() --TODO remove 0.13
         return new
       end
     end,
 
+    --TODO remove 0.13
     check_filters = function(self)
       self.has_filter = false
       for _, c in pairs(self.train.cargo_wagons) do
@@ -338,14 +339,24 @@ Train = {
     end,
 
     getCircuitSignal = function(self)
-      if self.waitingStation and self.waitingStation.signalProxy and self.waitingStation.signalProxy.valid then
-        return self.waitingStation.signalProxy.get_circuit_condition(1).fulfilled and self.waitingStation.signalProxy.energy > 0
+      if self.waitingStation and self.waitingStation.signalProxy and self.waitingStation.signalProxy.valid and self.waitingStation.signalProxy.energy > 0 then
+        --TODO 0.13 return self.waitingStation.get_or_create_control_behavior().circuit_condition.fulfilled
+        return self.waitingStation.signalProxy.get_circuit_condition(1).fulfilled
       end
       return false
     end,
 
     getCircuitValue = function(self)
       if self.waitingStation and self.waitingStation.signalProxy and self.waitingStation.signalProxy.valid then
+        --TODO 0.13
+        --        local behavior = self.waitingStation.signalProxy.get_or_create_control_behavior()
+        --        local condition = behavior.circuit_condition.condition
+        --        local signal = (condition and condition.first_signal and condition.first_signal.name) and condition.condition.first_signal or false
+        --        if signal and signal.name then
+        --          local sum = behavior.get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.lamp).get_signal(signal.name)
+        --          sum = sum + behavior.get_circuit_network(defines.wire_type.green, defines.circuit_connector_id.lamp).get_signal(signal.name)
+        --          return sum
+        --        end
         local condition = self.waitingStation.signalProxy.get_circuit_condition(1)
         local signal = (condition.condition and condition.condition.first_signal and condition.condition.first_signal.name) and condition.condition.first_signal or false
         if signal and signal.name then
@@ -387,6 +398,7 @@ Train = {
           i=i+1
           if i>50 then break end
         end
+        --TODO 0.13 cargoProxy.get_or_create_control_behavior().parameters = output.parameters
         cargoProxy.set_circuit_condition(1,output)
       end
     end,
@@ -394,6 +406,7 @@ Train = {
     updateCircuitSignal = function(self)
       if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
         local cargoProxy = self.waitingStation.cargo
+        --TODO 0.13 local output = cargoProxy.get_or_create_control_behavior()
         local output = cargoProxy.get_circuit_condition(1)
 
         local min_fuel = self:lowestFuel()
@@ -418,12 +431,14 @@ Train = {
           i=i+1
           if i>50 then break end
         end
+        --TODO 0.13 cargoProxy.get_or_create_control_behavior().parameters = output.parameters
         cargoProxy.set_circuit_condition(1,output)
       end
     end,
 
     resetCircuitSignal = function(self)
       if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
+        --TODO 0.13 self.waitingStation.cargo.get_or_create_control_behavior().parameters = nil
         self.waitingStation.cargo.set_circuit_condition(1, {parameters={}})
       end
     end,
@@ -594,9 +609,11 @@ Train = {
             return false
           end
         end
+        --TODO 0.13 if inv.has_filters() then
         if wagon and self.has_filter then
           local filtered_item
           for i=1, #inv do
+            --TODO 0.13 filtered_item = inv.get_filter(i)
             filtered_item = wagon.get_filter(i)
             if filtered_item then
               if inv.can_insert{name=filtered_item, count=1} then return false end
