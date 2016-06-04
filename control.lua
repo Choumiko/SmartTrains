@@ -425,6 +425,7 @@ local update_from_version = {
     global.openedTrain = nil
     return "0.3.93"
   end,
+  ["0.3.93"] = function() return "0.3.94" end,
 }
 
 function on_configuration_changed(data)
@@ -700,7 +701,7 @@ end
 
 function on_train_changed_state(event)
   --debugDump(game.tick.." "..getKeyByValue(defines.trainstate, event.train.state),true)
-  --log("state change : ".. util.getKeyByValue(defines.trainstate, event.train.state))
+  --log(game.tick .. " state change : ".. util.getKeyByValue(defines.trainstate, event.train.state))
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
@@ -1099,6 +1100,9 @@ function on_player_closed(event)
         train.opened = nil
         if train.line and global.trainLines[train.line] and schedule_changed(global.trainLines[train.line], event.entity.train.schedule) and train.lineVersion ~= 0 then
           train.lineVersion = -1
+          if train.train.state == defines.trainstate.manual_control then
+            train:updateLine()
+          end
         end
       else
         train:check_filters() --TODO remove 0.13

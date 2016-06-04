@@ -146,7 +146,7 @@ GUI = {
     if gui.globalSettings == nil then
       gui.add({type = "frame", name="globalSettings", direction="vertical", caption={"text-st-global-settings"}})
       local refueling = gui.globalSettings.add({type = "frame", name="frm_refueling", direction="horizontal", style = "st_inner_frame", caption = {"stg-refueling"}})
-            
+
       local coal_min = fuel_value_to_coal(global.settings.refuel.rangeMin)
       local coal_max = fuel_value_to_coal(global.settings.refuel.rangeMax)
 
@@ -798,7 +798,7 @@ on_gui_click = {
 
   globalSettingsSave = function(player)
     local settings = player.gui[GUI.position].stGui.rows.globalSettings
-    
+
     local refueling = settings.frm_refueling.tbl
     local time = sanitizeNumber(refueling.refuelTime.text, global.settings.refuel.time/60)*60
     local min = sanitizeNumber(refueling.refuelRangeMin.text, global.settings.refuel.rangeMin)
@@ -807,7 +807,7 @@ on_gui_click = {
     global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
 
     local minFlow = sanitizeNumber(refueling.minFlow.text, global.settings.minFlow)
-        
+
     local intervals = settings.frm_intervals.tbl
     local i_noChange = 120 --sanitizeNumber(intervals.intervals_noChange.text, global.settings.intervals.noChange)
     local i_write = sanitizeNumber(intervals.intervals_write.text, global.settings.intervals.write)
@@ -852,13 +852,13 @@ on_gui_click = {
     local line = guiData.line
     local maxPage = page_count(#global.trainLines[line].records, global.settings.rulesPerPage)
     local page = global.playerRules[player.index].page
-    
+
     local rulesFlow = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow
     local textfield = rulesFlow["lineNumber__"..line]
-    guiData.line_number = math.floor(sanitizeNumber(textfield.text,0))    
+    guiData.line_number = math.floor(sanitizeNumber(textfield.text,0))
     local use_mapping = rulesFlow["useMapping__" .. line].state
     guiData.use_mapping = use_mapping
-    
+
     guiData.rules = sanitize_rules(player,line,guiData.rules, page)
     page = page < maxPage and page + 1 or page
     global.playerRules[player.index].page = page
@@ -870,13 +870,13 @@ on_gui_click = {
     local guiData = global.guiData[player.index]
     local line = guiData.line
     local page = global.playerRules[player.index].page
-    
+
     local rulesFlow = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow
     local textfield = rulesFlow["lineNumber__"..line]
     guiData.line_number = math.floor(sanitizeNumber(textfield.text,0))
     local use_mapping = rulesFlow["useMapping__" .. line].state
-    guiData.use_mapping = use_mapping    
-    
+    guiData.use_mapping = use_mapping
+
     guiData.rules = sanitize_rules(player,line,guiData.rules, page)
     page =  page > 1 and page - 1 or 1
     global.playerRules[player.index].page = page
@@ -933,7 +933,7 @@ on_gui_click = {
     --log("write rules to guiData")
     local line = global.trainLines[option2]
 
-    guiData.line_number = line.settings.number    
+    guiData.line_number = line.settings.number
     guiData.use_mapping = line.settings.useMapping
     guiData.rules = table.deepcopy(line.rules)
     global.playerRules[player.index].page = 1
@@ -1066,11 +1066,13 @@ on_gui_click = {
       t.line = false
       local schedule = t.train.schedule
       local rules = global.trainLines[li].rules
-      for i, record in pairs(schedule.records) do
-        if record.time_to_wait == 2^32-1 then
-          record.time_to_wait = 200*60
-          if rules and rules[i] then
-            record.time_to_wait = rules[i].original_time or record.time_to_wait
+      if t.train.schedule.records and type(t.train.schedule.records) == "table" then
+        for i, record in pairs(schedule.records) do
+          if record.time_to_wait == 2^32-1 then
+            record.time_to_wait = 200*60
+            if rules and rules[i] then
+              record.time_to_wait = rules[i].original_time or record.time_to_wait
+            end
           end
         end
       end

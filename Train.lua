@@ -701,17 +701,21 @@ Train = {
           local inLine = inSchedule(waitingAt.station,schedule)
           if self.train.state == defines.trainstate.wait_station and not inLine then
             if global.showFlyingText then
-              self:flyingText("Current station not in new schedule, skipping update", colors.RED) --TODO localisation
+              self:flyingText("Current station not in new schedule, skipping update", colors.RED, {offset=2}) --TODO localisation
             end
             return false
           end
+          
+          self.settings.autoRefuel = trainLine.settings.autoRefuel
+          self.lineVersion = trainLine.changed
+          
           if inLine then
             schedule.current = inLine
+            self.train.schedule = schedule
+            return true
           else
             schedule.current = 1
           end
-          self.settings.autoRefuel = trainLine.settings.autoRefuel
-          self.lineVersion = trainLine.changed
           self.train.manual_mode = true
           self.train.schedule = schedule
           self.train.manual_mode = oldmode
