@@ -487,6 +487,8 @@ GUI = {
         if not stay_opened then
           --log("not stay open")
           guiData.line = false
+          guiData.line_number = false
+          guiData.use_mapping = false
           return
         end
       end
@@ -501,8 +503,8 @@ GUI = {
       end
       guiData.line = line
       local lineName = global.trainLines[line].name
-      local line_number = global.trainLines[line].settings.number
-      local use_mapping = global.trainLines[line].settings.useMapping
+      local line_number = guiData.line_number
+      local use_mapping = guiData.use_mapping
 
       gui = GUI.add(gui, {type="frame", name="dynamicRules", direction="vertical", style="st_frame"})
       gui = GUI.add(gui, {type="frame", name="frm", direction="vertical", style="st_inner_frame"})
@@ -850,6 +852,13 @@ on_gui_click = {
     local line = guiData.line
     local maxPage = page_count(#global.trainLines[line].records, global.settings.rulesPerPage)
     local page = global.playerRules[player.index].page
+    
+    local rulesFlow = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow
+    local textfield = rulesFlow["lineNumber__"..line]
+    guiData.line_number = math.floor(sanitizeNumber(textfield.text,0))    
+    local use_mapping = rulesFlow["useMapping__" .. line].state
+    guiData.use_mapping = use_mapping
+    
     guiData.rules = sanitize_rules(player,line,guiData.rules, page)
     page = page < maxPage and page + 1 or page
     global.playerRules[player.index].page = page
@@ -861,6 +870,13 @@ on_gui_click = {
     local guiData = global.guiData[player.index]
     local line = guiData.line
     local page = global.playerRules[player.index].page
+    
+    local rulesFlow = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow
+    local textfield = rulesFlow["lineNumber__"..line]
+    guiData.line_number = math.floor(sanitizeNumber(textfield.text,0))
+    local use_mapping = rulesFlow["useMapping__" .. line].state
+    guiData.use_mapping = use_mapping    
+    
     guiData.rules = sanitize_rules(player,line,guiData.rules, page)
     page =  page > 1 and page - 1 or 1
     global.playerRules[player.index].page = page
@@ -915,7 +931,11 @@ on_gui_click = {
       guiData.rules_button.style = "st_button_style_bold"
     end
     --log("write rules to guiData")
-    guiData.rules = table.deepcopy(global.trainLines[option2].rules)
+    local line = global.trainLines[option2]
+
+    guiData.line_number = line.settings.number    
+    guiData.use_mapping = line.settings.useMapping
+    guiData.rules = table.deepcopy(line.rules)
     global.playerRules[player.index].page = 1
     GUI.showDynamicRules(player.index, option2, element)
   end,
