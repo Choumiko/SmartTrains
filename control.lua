@@ -493,7 +493,7 @@ function createProxy(trainstop)
   if global.blueprinted_proxies[keySignal] then
     local signal = global.blueprinted_proxies[keySignal]
     if signal and signal.valid then
-      debugDump("signal: "..serpent.line(signal.position),true)
+      --debugDump("signal: "..serpent.line(signal.position),true)
       signal.revive()
     end
     global.blueprinted_proxies[keySignal] = nil
@@ -501,7 +501,7 @@ function createProxy(trainstop)
   if global.blueprinted_proxies[keyCargo] then
     local cargo = global.blueprinted_proxies[keyCargo]
     if cargo and cargo.valid then
-      debugDump("cargo: "..serpent.line(cargo.position),true)
+      --debugDump("cargo: "..serpent.line(cargo.position),true)
       cargo.revive()
     end
     global.blueprinted_proxies[keyCargo] = nil
