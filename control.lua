@@ -1,7 +1,6 @@
 if not defines then
   require "defines"
-else
-  defines.trainstate = defines.train_state
+  defines.train_state = defines.trainstate
 end
 
 require "util"
@@ -71,7 +70,7 @@ colors = {
 }
 
 
-trainstate = {left_station = 11}
+train_state = {left_station = 11}
 
 function insertInTable(tableA, key, value)
   if not tableA[key] then tableA[key] = {} end
@@ -582,7 +581,7 @@ function round(num, idp)
   return math.floor(num*mult +0.5)/mult
 end
 
-function findSmartTrainStopByTrain(vehicle, rail, stationName)
+function findTrainStopByTrain(vehicle, rail)
   local surface = vehicle.surface
   local found = false
   local trainDir = round(vehicle.orientation*8,0) % 8
@@ -598,16 +597,18 @@ function findSmartTrainStopByTrain(vehicle, rail, stationName)
       [6] = {position = { x = 0, y = -2}, direction = 6}
     },
   }
+  local pos = Position.add(rail.position,offsets[rail.direction][trainDir].position)
+  return surface.find_entity("smart-train-stop", pos) or surface.find_entity("train-stop", pos)
+end
 
-  local station = surface.find_entity("smart-train-stop", Position.add(rail.position,offsets[rail.direction][trainDir].position))
-  if station and station.backer_name == stationName then
-    flyingText("S", colors.GREEN, station.position, true, surface)
-    found = station
+function findSmartTrainStopByTrain(vehicle, rail, stationName)
+  local station = findTrainStopByTrain(vehicle, rail)
+
+  if station and station.name == "smart-train-stop" and station.backer_name == stationName then
+    flyingText("S", colors.GREEN, station.position, true, station.surface)
+    return global.smartTrainstops[vehicle.force.name][stationKey(station)]
   end
-  if found then
-    found = global.smartTrainstops[vehicle.force.name][stationKey(found)] or false
-  end
-  return found
+  return false
 end
 
 function removeInvalidTrains(show)
@@ -700,8 +701,8 @@ function addInventoryContents(invA, invB)
 end
 
 function on_train_changed_state(event)
-  --debugDump(game.tick.." "..getKeyByValue(defines.trainstate, event.train.state),true)
-  --log(game.tick .. " state change : ".. util.getKeyByValue(defines.trainstate, event.train.state))
+  --debugDump(game.tick.." "..getKeyByValue(defines.train_state, event.train.state),true)
+  --log(game.tick .. " state change : ".. util.getKeyByValue(defines.train_state, event.train.state))
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
@@ -725,18 +726,18 @@ function on_train_changed_state(event)
       return
     end
     t:updateState()
-    if t.advancedState == trainstate.left_station then
+    if t.advancedState == train_state.left_station then
       t:resetWaitingStation()
       t:updateLine()
       return
     end
-    if train.state == defines.trainstate.wait_signal or train.state == defines.trainstate.arrive_signal then
+    if train.state == defines.train_state.wait_signal or train.state == defines.train_state.arrive_signal then
       return
     end
     local settings = global.trains[trainKey].settings
     local lowest_fuel = t:lowestFuel()
     local schedule = train.schedule
-    if train.state == defines.trainstate.manual_control_stop or train.state == defines.trainstate.manual_control then
+    if train.state == defines.train_state.manual_control_stop or train.state == defines.train_state.manual_control then
       local done = false
       for _, trains in pairs(global.check_rules) do
         for i, trainData in pairs(trains) do
@@ -754,7 +755,7 @@ function on_train_changed_state(event)
           end
         end
       end
-    elseif train.state == defines.trainstate.wait_station then
+    elseif train.state == defines.train_state.wait_station then
       --LOGGERS.main.log("Train arrived at " .. t:currentStation() .. "\t\t  train: " .. t.name .. " Speed: " .. t.train.speed)
       t:updateLine()
       t:setWaitingStation()
@@ -768,7 +769,7 @@ function on_train_changed_state(event)
           t:startRefueling()
         end
       end
-    elseif train.state == defines.trainstate.arrive_station then
+    elseif train.state == defines.train_state.arrive_station then
       if t.settings.autoRefuel then
         if lowest_fuel < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
           train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
@@ -1100,7 +1101,7 @@ function on_player_closed(event)
         train.opened = nil
         if train.line and global.trainLines[train.line] and schedule_changed(global.trainLines[train.line], event.entity.train.schedule) and train.lineVersion ~= 0 then
           train.lineVersion = -1
-          if train.train.state == defines.trainstate.manual_control then
+          if train.train.state == defines.train_state.manual_control then
             train:updateLine()
           end
         end

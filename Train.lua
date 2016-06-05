@@ -15,7 +15,7 @@ Train = {
           last_fuel_update = 0,
           direction = 0, -- 0 = front, 1 back
           railtanker = false, -- has a railtanker wagon
-          has_filter = false, --TODO remove 0.13 has a filter set in one of the wagons, 
+          has_filter = false, --TODO remove 0.13 has a filter set in one of the wagons,
           passengers = 0,
         --manualMode = train.manual_mode
         }
@@ -216,7 +216,8 @@ Train = {
     end,
 
     getStationName = function(self, index)
-      if self.train.valid and self:isValidScheduleIndex(index) and type(self.train.schedule.records) == "table" then
+      index = index or self.train.schedule.current
+      if self.train.valid and index and self:isValidScheduleIndex(index) and type(self.train.schedule.records) == "table" then
         return self.train.schedule.records[index].station
       else
         return false
@@ -238,7 +239,7 @@ Train = {
 
     get_rules = function(self)
       local rules = (self.line and global.trainLines[self.line] and global.trainLines[self.line].rules) and global.trainLines[self.line].rules[self.train.schedule.current] or false
-      if rules then
+      if rules and rules.station == self:getStationName() then
         local defaultRule = {empty = true, full = true, noChange = true, waitForCircuit = false}
         for k, _ in pairs(defaultRule) do
           if rules[k] then
@@ -273,13 +274,19 @@ Train = {
       end
       local vehicle = (self.direction and self.direction == 0) and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
       local rail = (self.direction and self.direction == 0) and self.train.front_rail or self.train.back_rail
-      self.waitingStation = findSmartTrainStopByTrain(vehicle, rail, self.train.schedule.records[self.train.schedule.current].station)
       local current_tick = game.tick
+      self.waitingStation = findSmartTrainStopByTrain(vehicle, rail, self:getStationName())
       local rules = self:get_rules()
 
+      local station = findTrainStopByTrain(vehicle, rail)
+      if station and station.backer_name ~= self:getStationName() then
+        log(game.tick .. " station name mismatch")
+        return
+      end
+      
       if not self.waitingStation and rules and (rules.waitForCircuit or rules.jumpToCircuit) then
         --TODO proper error message
-        debugDump("No smart trainstop with rule that requires one", true) --TODO localisation
+        debugDump("No smart trainstop with rule that requires one. Line: " .. self.line .. " @ station " .. self.train.schedule.records[self.train.schedule.current].station, true) --TODO localisation
         return
       end
       --LOGGERS.main.log(serpent.line(rules, {comment=false}))
@@ -648,11 +655,11 @@ Train = {
     end,
 
     updateState = function(self)
-      --debugDump(util.formattime(game.tick,true).."@ "..getKeyByValue(defines.trainstate, self.train.state),true)
+      --debugDump(util.formattime(game.tick,true).."@ "..getKeyByValue(defines.train_state, self.train.state),true)
       self.previousState = self.state
       self.state = self.train.state
-      if self.previousState == defines.trainstate.wait_station and self.state == defines.trainstate.on_the_path then
-        self.advancedState = trainstate.left_station
+      if self.previousState == defines.train_state.wait_station and self.state == defines.train_state.on_the_path then
+        self.advancedState = train_state.left_station
         --debugDump(game.tick.." left_station",true)
       else
         self.advancedState = false
@@ -662,7 +669,7 @@ Train = {
     --- Update a trainline
     -- @return #boolean whether the line was updated
     updateLine = function(self)
-      if self.train.speed ~= 0 or self.opened or self.train.state == defines.trainstate.arrive_signal or self.train.state == defines.trainstate.wait_signal then
+      if (self.train.speed ~= 0 and self.train.state ~= defines.train_state.manual_control) or self.opened or self.train.state == defines.train_state.arrive_signal or self.train.state == defines.train_state.wait_signal then
         return false
       end
       --log(game.tick .. " update line")
@@ -699,16 +706,16 @@ Train = {
           end
 
           local inLine = inSchedule(waitingAt.station,schedule)
-          if self.train.state == defines.trainstate.wait_station and not inLine then
+          if self.train.state == defines.train_state.wait_station and not inLine and self.train.schedule.records and #self.train.schedule.records > 1 then
             if global.showFlyingText then
               self:flyingText("Current station not in new schedule, skipping update", colors.RED, {offset=2}) --TODO localisation
             end
             return false
           end
-          
+
           self.settings.autoRefuel = trainLine.settings.autoRefuel
           self.lineVersion = trainLine.changed
-          
+
           if inLine then
             schedule.current = inLine
             self.train.schedule = schedule

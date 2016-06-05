@@ -1060,7 +1060,10 @@ on_gui_click = {
       t.line = li
       t.lineVersion = -1
       if t.train.speed == 0 then
-        t:updateLine()
+        if not t:updateLine() then
+          t.scheduleUpdate = game.tick + 60
+          insertInTable(global.scheduleUpdate, t.scheduleUpdate, t)
+        end
       end
     else
       t.line = false
