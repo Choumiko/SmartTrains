@@ -227,10 +227,7 @@ end
 
 function onload()
   log("on load")
-  --initGlob()
   setMetatables()
-  --local rem = removeInvalidTrains(false)
-  --if rem > 0 then debugDump("You should never see this! Removed "..rem.." invalid trains") end
 end
 
 local function updateSetting(setting, defaults, old_keys)
@@ -409,9 +406,10 @@ local update_from_version = {
         if c.name == "rail-tanker" then
           t.railtanker = true
         end
-        if c.passenger ~= nil and c.passenger.connected and c.passenger.character.name ~= "fatcontroller" then
-          t.passengers = t.passengers + 1
-          global.player_passenger[c.passenger.index] = c
+        if c.passenger and c.passenger.connected and c.passenger.character.name ~= "fatcontroller" then
+          --if c.passenger ~= nil and c.passenger.connected and c.passenger.character.name ~= "fatcontroller" then
+            t.passengers = t.passengers + 1
+            global.player_passenger[c.passenger.index] = c
         end
       end
     end

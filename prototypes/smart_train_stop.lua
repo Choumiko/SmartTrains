@@ -1,6 +1,6 @@
 local item = copyPrototype("item","train-stop", "smart-train-stop")
 item.icon = "__SmartTrains__/graphics/smart-train-stop-icon.png"
-item.order = "a[train-system]-c[train-stop]"
+item.order = "a[train-system]-cb[train-stop]"
 
 local recipe = copyPrototype("recipe","train-stop", "smart-train-stop")
 recipe.ingredients = {
@@ -36,6 +36,12 @@ table.insert(st_proxyc_i.flags, "hidden")
 
 data:extend({smart_train_stop,item,recipe, st_proxy, st_proxy_i,})
 data:extend({st_proxyc,st_proxyc_i})
+
+table.insert(data.raw["technology"]["automated-rail-transportation"].effects,
+{
+  type="unlock-recipe",
+  recipe = "smart-train-stop"
+})
 
 local signalStop = copyPrototype("virtual-signal", "signal-1", "signal-train-at-station")
 signalStop.icon = "__SmartTrains__/graphics/signal_train_at_station.png"
