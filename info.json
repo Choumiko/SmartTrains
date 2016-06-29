@@ -1,9 +1,10 @@
 {
   "name": "SmartTrains",
-  "version": "{{VERSION}}",
+  "version": "0.3.96",
   "title": "Smarter Trains",
   "author": "Choumiko",
   "homepage": " ",
   "description": "Train lines, automated refueling and departure",
-  "dependencies": ["base >= 0.12.27", "? RailTanker >= 1.1.1", "? 5dim_trains"]
+  "dependencies": ["base >= 0.13", "? RailTanker >= 1.1.1", "? 5dim_trains"],
+  "factorio_version": "0.13"
 }
