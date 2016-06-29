@@ -96,7 +96,7 @@ data.raw["gui-style"].default["st_textfield_big"] =
 data.raw["gui-style"].default["st_button"] =
   {
     type = "button_style",
-    parent = "default",
+    parent = "button_style",
     font = "st-small-bold"
   }
 

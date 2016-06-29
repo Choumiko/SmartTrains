@@ -1,3 +1,5 @@
+require "lib"
+
 function page_count(item_count, items_per_page)
   return math.floor((item_count - 1) / (items_per_page)) + 1
 end
@@ -249,7 +251,8 @@ GUI = {
       for i=start, max do
         local s = records[i]
         GUI.addLabel(tbl1, i.." "..s.station)
-        local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (s.time_to_wait > 12010 and {"lbl-forever"}) or math.floor(s.time_to_wait/60)
+        local wt = get_waiting_time(s)
+        local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (wt > 12010 and {"lbl-forever"}) or math.floor(wt/60)
         GUI.addLabel(tbl1, time)
 
         local chunks = {}

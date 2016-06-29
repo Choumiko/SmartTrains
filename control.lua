@@ -1,6 +1,6 @@
 if not defines then
-  require "defines"
-  defines.train_state = defines.trainstate
+  
+  defines.train_state = defines.train_state
 end
 
 require "util"
@@ -423,6 +423,8 @@ local update_from_version = {
     return "0.3.93"
   end,
   ["0.3.93"] = function() return "0.3.94" end,
+  ["0.3.94"] = function() return "0.3.95" end,
+  ["0.3.95"] = function() return "0.3.96" end,
 }
 
 function on_configuration_changed(data)
@@ -584,18 +586,31 @@ function findTrainStopByTrain(vehicle, rail)
   local found = false
   local trainDir = round(vehicle.orientation*8,0) % 8
   --[raildir][traindir]
-  --debugDump("o: " .. trainDir .. "r: " .. rail.position.x .."|"..rail.position.y,true)
   local offsets = {
     [0] = {
-      [0] = {position = { x = 2, y = 0}, direction = 0},
-      [4] = {position = { x = -2, y = 0}, direction = 4}
+      [0] = {position = { x = 2, y = -2}, direction = 0},
+      [4] = {position = { x = -2, y = 2}, direction = 4}
     },
     [2] = {
-      [2] = {position = { x = 0, y = 2}, direction = 2},
-      [6] = {position = { x = 0, y = -2}, direction = 6}
+      [2] = {position = { x = 2, y = 2}, direction = 2},
+      [6] = {position = { x = -2, y = -2}, direction = 6}
     },
   }
+  
+--  for dx=-5,5 do
+--    for dy=-5,5 do
+--      position = { x = dx, y = dy}
+--      local pos = Position.add(rail.position,position)
+--      local ent = surface.find_entity("smart-train-stop", pos) or surface.find_entity("train-stop", pos)
+--      if ent ~= nil then debugDump("Nalezeno: x:"..dx..", y:"..dy,true) 
+--      else
+--        debugDump("Nenalezeno: x:"..dx..", y:"..dy) 
+--      end
+--    end
+--  end
+  
   local pos = Position.add(rail.position,offsets[rail.direction][trainDir].position)
+--  debugDump("o: " .. trainDir .. "r: " .. rail.position.x .."|"..rail.position.y.." rdir: "..rail.direction,true)
   return surface.find_entity("smart-train-stop", pos) or surface.find_entity("train-stop", pos)
 end
 
@@ -606,6 +621,10 @@ function findSmartTrainStopByTrain(vehicle, rail, stationName)
     flyingText("S", colors.GREEN, station.position, true, station.surface)
     return global.smartTrainstops[vehicle.force.name][stationKey(station)]
   end
+  
+  debugDump("Nenalezeno: " .. stationName,true)
+  if (station == nil) then debugDump("Neni station",true) end
+  
   return false
 end
 
@@ -662,7 +681,7 @@ end
 
 function addStation(station, schedule, wait, after)
   wait = wait or 600
-  local tmp = {time_to_wait = wait, station = station}
+  local tmp = {wait_conditions = {{type = "time", ticks = wait, compare_type = "and"}, station = station}}
   if after then
     table.insert(schedule.records, after+1, tmp)
   else
@@ -758,7 +777,7 @@ function on_train_changed_state(event)
       t:updateLine()
       t:setWaitingStation()
 
-      t.departAt = event.tick + schedule.records[schedule.current].time_to_wait
+      t.departAt = event.tick + get_waiting_time(schedule.records[schedule.current])
       if settings.autoRefuel then
         if lowest_fuel >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
@@ -1082,7 +1101,7 @@ function schedule_changed(s1, s2)
   local records2 = s2.records
 
   for i, record in pairs(records1) do
-    if record.station ~= records2[i].station or record.time_to_wait ~= records2[i].time_to_wait then
+    if record.station ~= records2[i].station or get_waiting_time(record) ~= get_waiting_time(records2[i]) then
       return true
     end
   end
@@ -1543,6 +1562,153 @@ if remote.interfaces.logistics_railway then
     end
   end)
 end
+
+local function compare_condition(val1, val2, comparator)
+  if comparator == "<" then
+    return (val1 < val2)
+  elseif comparator == "=" then
+    return (val1 == val2)
+  else
+    return (val1 > val2)  
+  end
+end
+
+local function get_logistic_condition_state(entity,condition) 
+	local signal = condition.condition.first_signal	
+	if signal == nil or signal.name == nil then return(nil)	end
+	
+-- game.players[1].print( "cond=("  .. signal.name .. ")" )
+	
+	local network = entity.logistic_network
+	
+	if network == nil then return(nil) end
+	
+	local val = network.get_item_count(signal.name)
+  
+	local signal2 = condition.condition.second_signal	
+  
+  local comp_val = 0
+  
+  if (signal2 == nil or signal2.name == nil) then
+    comp_val = condition.condition.constant
+  else
+    comp_val = network.get_item_count(signal2.name)
+  end
+  
+  local result = false
+
+  result = compare_condition(val,comp_val,condition.condition.comparator)
+  
+--  game.players[1].print( comp_val )
+  
+  return result
+end
+
+function get_signal_value(network_r,network_g,signal)
+  local result = 0
+  if (network_r ~= nil) then result = network_r.get_signal(signal) end
+  if (network_g ~= nil) then result = result + network_g.get_signal(signal) end
+  return result  
+end
+
+local function get_signals(network_r,network_g)
+  local result = {}
+  local sign_id = nil
+  if network_r ~= nil then 
+  	for _,signal in pairs(network_r.signals) do
+      result[signal.signal.name] = signal.count
+    end
+  end  
+  if network_r ~= nil then 
+  	for _,signal in pairs(network_g.signals) do
+      if (result[signal.signal.name] == nil) then 
+        result[signal.signal.name] = signal.count
+      else
+        result[signal.signal.name] = result[signal.signal.name] + signal.count
+      end
+    end
+  end
+  
+  return result  
+end
+
+local function get_circuit_condition_state(entity,condition) 
+	local signal = condition.condition.first_signal	
+	if signal == nil or signal.name == nil then return(nil)	end
+	
+--	game.players[1].print( "cond=("  .. signal.name .. ")" )
+	
+	local network_r = entity.get_circuit_network(defines.wire_type.red)
+	
+    local network_g = entity.get_circuit_network(defines.wire_type.green)
+	
+	if network_g == nil and network_r == nil then return(nil) end
+	
+	local val = get_signal_value(network_r,network_g, signal)
+  
+	local signal2 = condition.condition.second_signal	
+  
+  local comp_val = 0
+  
+  if (signal2 == nil or signal2.name == nil) then
+    comp_val = condition.condition.constant
+  else
+    comp_val = get_signal_value(network_r,network_g,signal2)
+  end
+  
+  local result = false
+
+  if (signal.name == "signal-everything") then
+    signals = get_signals(network_g,network_r);
+  
+    result = true
+		for signal_name,signal_count in pairs(signals) do
+      if compare_condition(signal_count,comp_val,condition.condition.comparator) == false then
+        result = false
+        break
+      end
+    end
+    
+  elseif (signal.name == "signal-anything") then
+    signals = get_signals(network_g,network_r);
+		for signal_name,signal_count in pairs(signals) do
+      if compare_condition(signal_count,comp_val,condition.condition.comparator) == true then
+        result = true
+        break
+      end
+    end
+  else
+    result = compare_condition(val,comp_val,condition.condition.comparator)
+  end  
+  
+--  game.players[1].print( comp_val )
+  
+  return result
+end
+
+function get_condition_state(entity)
+	local behavior = entity.get_control_behavior()
+	if behavior == nil then	return(nil)	end
+	
+	local condition = behavior.circuit_condition
+	if condition == nil then
+    return(nil) 
+  end
+
+  local result = nil
+
+  result = get_circuit_condition_state(entity,condition)
+  
+  if (result ~= false and behavior.connect_to_logistic_network) then
+	  condition = behavior.logistic_condition
+  	if condition ~= nil then
+      result = get_logistic_condition_state(entity,condition)  
+    end
+  end
+  
+  return result
+end
+
 
 remote.add_interface("st",
   {
