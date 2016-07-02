@@ -174,12 +174,6 @@ GUI = {
       GUI.addLabel(tbl, {"stg-intervals-write"}).style.left_padding = 10
       GUI.addTextfield(tbl, {name="intervals_write", style="st_textfield_small", text = global.settings.intervals.write})
 
-      --[[
-      GUI.addLabel(tbl, {"stg-intervals-cargoRule"})
-      GUI.addTextfield(tbl, {name="intervals_cargoRule", style="st_textfield_small", text = global.settings.intervals.cargoRule})
-      GUI.addLabel(tbl, {"stg-intervals-noChange"}).style.left_padding = 10
-      GUI.addTextfield(tbl, {name="intervals_noChange", style="st_textfield_small", text = global.settings.intervals.noChange})
-      ]]--
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
       local noStations, uniqueStations = 0,0
       local force = game.players[index].force.name
@@ -231,75 +225,69 @@ GUI = {
       rules = trainLine.rules
       lineKey = "__"..trainLine.name
     end
-    local tbl1 = GUI.add(tableRows, {type="table", name="tbl1", colspan=4, style="st_table"})
+    local tbl1 = GUI.add(tableRows, {type="table", name="tbl1", colspan=3, style="st_table"})
     local spp = global.settings.stationsPerPage
     local page = global.playerPage[player_index].schedule or 1
-    if #records > 0 then
+    if records and #records > 0 then
       GUI.addLabel(tbl1, {"lbl-station"})
-      GUI.addLabel(tbl1, {"lbl-time"})
-      if line and rules then
-        GUI.addLabel(tbl1, {"lbl-leave-when"})
-      else
-        GUI.addPlaceHolder(tbl1)
-      end
+      GUI.addLabel(tbl1, {"lbl-leave-when"})
       GUI.addPlaceHolder(tbl1)
       local start = (page-1) * spp + 1
       local max = start + spp - 1
       if max > #records then max = #records end
       for i=start, max do
         local s = records[i]
-        GUI.addLabel(tbl1, i.." "..s.station)
-        local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (s.time_to_wait > 12010 and {"lbl-forever"}) or math.floor(s.time_to_wait/60)
-        GUI.addLabel(tbl1, time)
 
+        local time = {"lbl-forever"}
         local chunks = {}
-        if line and rules and rules[i] then
-          local chunk = {}
+        local chunk = {}
 
-          if rules[i].full or rules[i].empty or rules[i].noChange then
-            local condition = rules[i].full and {"lbl-full"} or rules[i].empty and {"lbl-empty"} or rules[i].noChange and "no change"
-            table.insert(chunk, condition)
-            table.insert(chunk, " ")
+        GUI.addLabel(tbl1, i.." "..s.station)
+        if s.wait_conditions then
+          for c_index, condition in pairs(s.wait_conditions) do
+            if c_index > 1 then
+              table.insert(chunk, " ")
+              table.insert(chunk, condition.compare_type == "or" and {"lbl-or"} or "&")
+              table.insert(chunk, " ")
+            end
+            if condition.type == "time" then
+              time = math.floor(condition.ticks/60)
+              table.insert(chunk, {"lbl-time", time})
+            elseif condition.type == "circuit" then
+              table.insert(chunk, {"lbl-wait-for-circuit"})
+            else
+              table.insert(chunk, {"lbl-"..condition.type})
+            end
 
-            if rules[i].waitForCircuit then
-              if rules[i].requireBoth then
-                table.insert(chunk, "& ")
-              else
-                table.insert(chunk, {"lbl-or"})
-                table.insert(chunk, " ")
-              end
+          end
+        end
+        --local time = (trainLine and rules[i] and rules[i].keepWaiting) and {"lbl-forever"} or (s.time_to_wait > 12010 and {"lbl-forever"}) or math.floor(s.time_to_wait/60)
+        table.insert(chunks, chunk)
+        if rules then
+          local rule = rules[i]
+          if rule.jumpToCircuit or rule.jumpTo then
+            table.insert(chunk, ": ")
+          end
+
+          if rule.jumpToCircuit then
+            table.insert(chunk, {"lbl-jump-to-signal"})
+            if rule.jumpTo then
+              table.insert(chunk, " or ")
             end
           end
 
-          if rules[i].waitForCircuit then
-            table.insert(chunk, {"lbl-wait-for-circuit"})
-            table.insert(chunk, " ")
-          end
-
-          table.insert(chunks, chunk)
-
-          if rules[i].jumpToCircuit then
-            table.insert(chunks, {{"lbl-jump-to-signal"}})
-          end
-
-          if rules[i].jumpTo and rules[i].jumpTo <= #records then
-            table.insert(chunks, {{"lbl-jump-to"}, "", rules[i].jumpTo})
-          elseif rules[i].jumpTo then
+          if rule.jumpTo and rule.jumpTo <= #records then
+            table.insert(chunks, {{"lbl-jump-to"}, "", rule.jumpTo})
+          elseif rule.jumpTo then
             table.insert(chunks, {"invalid #"}) --TODO: localisation
           end
-
           local text = {""}
           local chunk_count = #chunks
-          for j, chunk_ in pairs(chunks) do
+          for _, chunk_ in pairs(chunks) do
             for _, bit in pairs(chunk_) do
               table.insert(text, bit)
             end
-
-            if j < chunk_count then
-              table.insert(text, ", ")
-            end
           end
-
           GUI.addLabel(tbl1, text)
           GUI.addPlaceHolder(tbl1)
 
@@ -313,7 +301,7 @@ GUI = {
     local btns = GUI.add(tableRows,{type="table", name="btns", colspan=2})
     --GUI.addButton(btns, {name="readSchedule__"..trainKey..lineKey, caption={"lbl-read-from-ui"}})
     local pages = GUI.add(btns, {type="flow", name="pages", direction="horizontal"})
-    if #records > spp then
+    if records and #records > spp then
       if page > 1 then
         GUI.addButton(pages, {name="prevPageTrain__"..page, caption="<", style="st_button_style_bold"})
       else
@@ -379,6 +367,7 @@ GUI = {
         dirty= dirty+1
         if dirty >= start and dirty <= max then
           c_trains = trainCount[l.name] or 0
+          --log(serpent.block(l,{comment=false}))
           GUI.addLabel(tbl, l.name)
           GUI.addLabel(tbl, l.records[1].station)
           GUI.addLabel(tbl, #l.records)
@@ -494,7 +483,7 @@ GUI = {
       end
     end
     if line and global.trainLines[line] then
-      local records = global.trainLines[line].records
+      local records = guiData.records
       local rules = guiData.rules
 
       if rule_button and rule_button.valid then
@@ -514,36 +503,19 @@ GUI = {
       GUI.addTextfield( flow, {name="lineNumber__"..line, style="st_textfield_small", text=line_number})
       GUI.add( flow, { type = "checkbox", name = "useMapping__" .. line, style = "st_checkbox", caption = "use station mapping", state = use_mapping } ) --TODO localisation
 
-      local tbl = GUI.add(gui,{type="table", name="tbltophdr", colspan=4, style="st_table"})
+      local tbl = GUI.add(gui,{type="table", name="tbltophdr", colspan=3, style="st_table"})
 
       GUI.addPlaceHolder(tbl,1)
-      local top_hdr = GUI.add(tbl, {name="tophdr_flow1", type="flow", direction="horizontal"})
-      GUI.addLabel(top_hdr, {caption="        "})
-      GUI.addLabel(top_hdr, {caption={"lbl-wait-for-header"}, style="st_label_bold"})
-      GUI.addLabel(tbl, {caption={"", "   ", {"lbl-seperator"},"       "}})
+      GUI.add(tbl, {name="tophdr_flow1", type="flow", direction="horizontal"})
+
       local top_hdr2 = GUI.add(tbl, {name="tophdr_flow2", type="flow", direction="horizontal"})
       GUI.addLabel(top_hdr2, {caption="    "})
       GUI.addLabel(top_hdr2, {caption={"lbl-go-to-header"}, style="st_label_bold"})
 
 
       GUI.addPlaceHolder(tbl,1)
-      local test_table = GUI.add(tbl, {name="tophdr_flow3", type="flow", direction="horizontal"})
+      GUI.add(tbl, {name="tophdr_flow3", type="flow", direction="horizontal"})
 
-      GUI.addLabel(test_table, {caption={"lbl-empty-header"}, style="st_label_bold"})
-      GUI.addLabel(test_table, {caption="   "})
-
-      GUI.addLabel(test_table, {caption={"lbl-full-header"}, style="st_label_bold"})
-      GUI.addLabel(test_table, {caption="   "})
-
-      GUI.addLabel(test_table, {caption="No change", style="st_label_bold"}) --TODO localisation
-      GUI.addLabel(test_table, {caption="   "})
-
-      GUI.addLabel(test_table, {caption={"lbl-and-header"}, style="st_label_bold"})
-      GUI.addLabel(test_table, {caption="   "})
-
-      GUI.addLabel(test_table, {caption={"lbl-wait-for-circuit-header"}, style="st_label_bold"})
-
-      GUI.addLabel(tbl, {caption={"","   ",{"lbl-seperator"}, "   "}})
       local test_table2 = GUI.add(tbl, {name="tophdr_flow4", type="flow", direction="horizontal"})
 
       GUI.addLabel(test_table2, {caption={"lbl-jump-to-signal-header"}, style="st_label_bold"})
@@ -552,51 +524,25 @@ GUI = {
       GUI.addLabel(test_table2, {caption={"lbl-jump-to-header"}, style="st_label_bold"})
       GUI.addLabel(test_table2, {caption="   "})
 
-      GUI.addLabel(test_table2, {caption={"lbl-keepWaiting"}, style="st_label_bold"})
-
       local page = global.playerRules[index].page or 1
       local upper = page*global.settings.rulesPerPage
       local lower = page*global.settings.rulesPerPage-global.settings.rulesPerPage
       for i,s in pairs(records) do
         if i>lower and i<=upper then
+          local rule = rules[i]
           local states = {
-            full = (rules[i] and rules[i].full ~= nil) and rules[i].full or false,
-            empty = (rules[i] and rules[i].empty ~= nil) and rules[i].empty or false,
-            keepWaiting = rules[i] and rules[i].keepWaiting or false,
-            waitForCircuit = rules[i] and rules[i].waitForCircuit or false,
-            requireBoth = rules[i] and rules[i].requireBoth or false,
-            jumpToCircuit = rules[i] and rules[i].jumpToCircuit or false,
-            jumpTo = (rules[i] and rules[i].jumpTo) and rules[i].jumpTo or "",
-            noChange = rules[i] and rules[i].noChange or false
+            jumpToCircuit = rule and rule.jumpToCircuit or false,
+            jumpTo = (rule and rule.jumpTo) and rule.jumpTo or "",
           }
 
           GUI.addLabel(tbl, {caption="#" .. i .. " " .. s.station, style="st_label_bold"})
-          local record1 = GUI.add(tbl, {name="rules_flow_a"..i, type="flow", direction="horizontal"})
+          GUI.add(tbl, {name="rules_flow_a"..i, type="flow", direction="horizontal"})
 
-          GUI.add(record1, {type="checkbox", name="leaveEmpty__"..i, style="st_radio", state=states.empty, left_padding=13})--, top_padding=true})
-          GUI.addLabel(record1, {caption="     "})
-
-          GUI.add(record1, {type="checkbox", name="leaveFull__"..i, style="st_radio", state=states.full, left_padding=7})--, top_padding=true})
-          GUI.addLabel(record1, {caption="         "})
-
-          GUI.add(record1, {type="checkbox", name="leaveNoChange__"..i, style="st_radio", state=states.noChange, left_padding=7})--, top_padding=true})
-          GUI.addLabel(record1, {caption="          "})
-
-          GUI.add(record1, {type="checkbox", name="requireBoth__"..i, style="st_checkbox", state=states.requireBoth, left_padding=7})
-          GUI.addLabel(record1, {caption="     "})
-
-          GUI.add(record1, {type="checkbox", name="waitForCircuit__"..i, style="st_checkbox", state=states.waitForCircuit, left_padding=11})
-
-          GUI.addLabel(tbl, {caption={"","   ",{"lbl-seperator"},"   "}})
-
-          record1 = GUI.add(tbl, {name="rules_flow_b"..i, type="flow", direction="horizontal"})
+          local record1 = GUI.add(tbl, {name="rules_flow_b"..i, type="flow", direction="horizontal"})
           GUI.add(record1,{type="checkbox", name="jumpToCircuit__"..i, style="st_checkbox", state=states.jumpToCircuit, left_padding=15})
           GUI.addLabel(record1, {caption="           "})
 
           GUI.addTextfield(record1, {name="jumpTo__"..i, text=states.jumpTo, style="st_textfield_small", left_padding=8})
-          GUI.addLabel(record1, {caption="       "})
-
-          GUI.add(record1, {type="checkbox", name="keepWaiting__"..i, style="st_checkbox", state=states.keepWaiting, left_padding=9})
         end
       end
 
@@ -627,14 +573,8 @@ GUI = {
 
   get_station_options = function(e, option2)
     return {
-      leaveEmpty      = GUI.find_relative(e, "leaveEmpty__", option2, "a"),
-      leaveFull       = GUI.find_relative(e, "leaveFull__", option2, "a"),
-      leaveNoChange     = GUI.find_relative(e, "leaveNoChange__", option2 ,"a"),
-      requireBoth     = GUI.find_relative(e, "requireBoth__", option2, "a"),
-      waitForCircuit  = GUI.find_relative(e, "waitForCircuit__", option2, "a"),
       jumpToCircuit   = GUI.find_relative(e, "jumpToCircuit__", option2, "b"),
       jumpTo          = GUI.find_relative(e, "jumpTo__", option2, "b"),
-      keepWaiting     = GUI.find_relative(e, "keepWaiting__", option2, "b"),
     }
   end,
 
@@ -665,26 +605,8 @@ GUI = {
 
   save_station_options = function(opts, index, option2)
 
-    if  opts.leaveFull.state == false and
-      opts.leaveEmpty.state == false and
-      opts.leaveNoChange.state == false and
-      opts.waitForCircuit.state == false
-    then
-      opts.keepWaiting.state = false
-    end
-
-    if not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state and not opts.leaveNoChange.state) then
-      opts.requireBoth.state = false
-    end
-
     local rules = global.guiData[index].rules[tonumber(option2)] or {}
 
-    rules.empty = opts.leaveEmpty.state
-    rules.full = opts.leaveFull.state
-    rules.noChange = opts.leaveNoChange.state
-    rules.requireBoth = opts.requireBoth.state
-    rules.waitForCircuit = opts.waitForCircuit.state
-    rules.keepWaiting = opts.keepWaiting.state
     rules.jumpToCircuit = opts.jumpToCircuit.state
 
     rules.jumpTo = opts.jumpTo.text
@@ -708,52 +630,44 @@ function sanitizeName(name_)
 end
 
 function sanitizeNumber(number, default)
-  return tonumber(number) or default
+  number = tonumber(number)
+  return (number ~= "" and number) or default
 end
 
-function sanitize_rules(player, line, _, page)
+function sanitize_rules(player, line, rules, page)
   --local page = global.playerRules[player.index].page or 1
   local upper = page*global.settings.rulesPerPage
   local lower = page*global.settings.rulesPerPage-global.settings.rulesPerPage
 
   local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbltophdr
-  local tmp = {}
-  for i,rule in pairs(global.trainLines[line].records) do
-    if global.guiData[player.index].rules[i] then
-      tmp[i] = global.guiData[player.index].rules[i]
-      if i>lower and i<=upper then
-        tmp[i].jumpTo = sanitizeNumber(gui["rules_flow_b"..i]["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false) or false
-
-        if not (tmp[i].empty or tmp[i].full or tmp[i].waitForCircuit) then
-          tmp[i].keepWaiting = false
-        end
-        tmp[i].station = rule.station
-      end
-    else
-      tmp[i] = util.table.deepcopy(defaultRule)
+  for i, rule in pairs(rules) do
+    if i>lower and i<=upper  and gui["rules_flow_b"..i] then
+      rule.jumpTo = sanitizeNumber(gui["rules_flow_b"..i]["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false) or false
+      rule.station = global.trainLines[line].records[i].station
     end
   end
-  return tmp
+
+  return rules
 end
 
 on_gui_click = {
   add_trains_to_update = function(line)
-    -- add trains for that line to be updated
-    local trains = global.trains
-    local tick = game.tick
-    local train
-    local c = 0
-    for i=1, #trains do
-      train = trains[i]
-      if train and train.line and train.line == line and train.train.valid then
-        if not train.scheduleUpdate or train.scheduleUpdate < tick + 60 then
-          train.scheduleUpdate = tick + 60 + i
-          insertInTable(global.scheduleUpdate, train.scheduleUpdate, train)
-          c = c +1
-        end
-      end
-    end
-    --log("Added " .. c .. " trains to be updated")
+  -- add trains for that line to be updated
+  --    local trains = global.trains
+  --    local tick = game.tick
+  --    local train
+  --    local c = 0
+  --    for i=1, #trains do
+  --      train = trains[i]
+  --      if train and train.line and train.line == line and train.train.valid and not train.opened then
+  --        if not train.scheduleUpdate or train.scheduleUpdate < tick + 60 then
+  --          train.scheduleUpdate = tick + 60 + i
+  --          insertInTable(global.scheduleUpdate, train.scheduleUpdate, train)
+  --          c = c +1
+  --        end
+  --      end
+  --    end
+  --    log("Added " .. c .. " trains to be updated")
   end,
 
   on_gui_click = function(event)
@@ -763,7 +677,6 @@ on_gui_click = {
       local refresh = false
       local element = event.element
       local trainInfo = global.trains[getTrainKeyFromUI(event.player_index)]
-      --log("click " .. elementName)
       if on_gui_click[element.name] then
         refresh = on_gui_click[element.name](player)
       else
@@ -809,7 +722,7 @@ on_gui_click = {
     local minFlow = sanitizeNumber(refueling.minFlow.text, global.settings.minFlow)
 
     local intervals = settings.frm_intervals.tbl
-    local i_noChange = 120 --sanitizeNumber(intervals.intervals_noChange.text, global.settings.intervals.noChange)
+    local i_inactivity = 120 --sanitizeNumber(intervals.intervals_inactivity.text, global.settings.intervals.inactivity)
     local i_write = sanitizeNumber(intervals.intervals_write.text, global.settings.intervals.write)
     local i_read = sanitizeNumber(intervals.intervals_read.text, global.settings.intervals.read)
     local i_cargoRule = i_read --sanitizeNumber(intervals.intervals_cargoRule.text, global.settings.intervals.cargoRule)
@@ -819,7 +732,7 @@ on_gui_click = {
     if i_cargoRule < 1 then i_cargoRule = 1 end
 
     global.settings.minFlow = minFlow
-    global.settings.intervals = {write = i_write, read = i_read, noChange = i_noChange, cargoRule = i_cargoRule}
+    global.settings.intervals = {write = i_write, read = i_read, inactivity = i_inactivity, cargoRule = i_cargoRule}
 
     return true
   end,
@@ -935,6 +848,7 @@ on_gui_click = {
 
     guiData.line_number = line.settings.number
     guiData.use_mapping = line.settings.useMapping
+    guiData.records = table.deepcopy(line.records)
     guiData.rules = table.deepcopy(line.rules)
     global.playerRules[player.index].page = 1
     GUI.showDynamicRules(player.index, option2, element)
@@ -942,21 +856,25 @@ on_gui_click = {
 
   saveRules = function(player, option2)
     local line = option2
+    local trainline = global.trainLines[line]
     --local gui = player.gui[GUI.position].stGui.dynamicRules.frm.tbl
     local rulesFlow = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow
     local textfield = rulesFlow["lineNumber__"..line]
-    global.trainLines[line].settings.number = math.floor(sanitizeNumber(textfield.text,0))
+    trainline.settings.number = math.floor(sanitizeNumber(textfield.text,0))
 
     local use_mapping = rulesFlow["useMapping__" .. line].state
-    global.trainLines[line].settings.useMapping = use_mapping
+    trainline.settings.useMapping = use_mapping
 
-    global.guiData[player.index].rules = sanitize_rules(player,line,global.guiData[player.index].rules, global.playerRules[player.index].page)
-    global.trainLines[line].rules = table.deepcopy(global.guiData[player.index].rules)
+    trainline.rules = table.deepcopy(sanitize_rules(player, line, global.guiData[player.index].rules, global.playerRules[player.index].page))
+    trainline.changed = game.tick
+
 
     global.guiData[player.index] = {}
     global.playerRules[player.index].page = 1
     debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
     GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
+
+    on_gui_click.add_trains_to_update(line)
     return true
   end,
 
@@ -972,61 +890,59 @@ on_gui_click = {
         local records = util.table.deepcopy(t.train.schedule.records)
         --new train line
         if not global.trainLines[name] then
-          global.trainLines[name] = {name=name, rules={}, settings = {autoRefuel = false, useMapping = false, number = 0} }
-          local rules = global.trainLines[name].rules
-          for s_index, record in pairs(records) do
-            local rule = table.deepcopy(defaultRule)
-            record.time_to_wait = record.time_to_wait == 0 and 10 or record.time_to_wait
-            rule.original_time = record.time_to_wait
+          global.trainLines[name] = {name=name, settings = {autoRefuel = false, useMapping = false, number = 0} }
+        end
+        local trainline = global.trainLines[name]
+        local rules = trainline and util.table.deepcopy(trainline.rules) or {}
+        for s_index, record in pairs(records) do
+          rules[s_index] = rules[s_index] or {}
 
-            rule.station = record.station
-            rules[s_index] = rule
+          rules[s_index].empty = nil
+          rules[s_index].full = nil
+          rules[s_index].circuit = nil
+          rules[s_index].inactivity = nil
+
+          for c_index, condition in pairs(record.wait_conditions) do
+            if condition.type == "full" then
+              rules[s_index].full = true
+            end
+            if condition.type == "empty" then
+              rules[s_index].empty = true
+            end
+            if condition.type == "inactivity" then
+              rules[s_index].inactivity = true
+            end
+            if condition.type == "circuit" then
+              rules[s_index].circuit = true
+            end
+          end
+        end
+
+        --remove/add rules if needed
+        if #rules > #records then
+          for i=#rules, #records+1 do
+            rules[i] = nil
           end
         end
 
         local changed = game.tick
-        global.trainLines[name].settings.autoRefuel = t.settings.autoRefuel
-        global.trainLines[name].settings.useMapping = false
-        global.trainLines[name].settings.number = 0
-        global.trainLines[name].records = records
-        global.trainLines[name].changed = changed
+        trainline.settings.autoRefuel = t.settings.autoRefuel
+        trainline.settings.useMapping = false
+        trainline.settings.number = 0
+        trainline.records = records
+        trainline.rules = table.deepcopy(rules)
+
+        trainline.changed = changed
 
         if is_copy then
-          global.trainLines[name].rules = table.deepcopy(global.trainLines[t.line].rules)
-          global.trainLines[name].settings = table.deepcopy(global.trainLines[t.line].settings)
-        end
-
-        --remove/add rules if needed
-        -- update original_time if time ~= 2^32-1
-        records = global.trainLines[name].records
-        for _, record in pairs(records) do
-          record.time_to_wait = record.time_to_wait == 0 and 10 or record.time_to_wait
-        end
-
-        for r_index, rule in pairs(global.trainLines[name].rules) do
-          if records[r_index] and records[r_index].time_to_wait ~= 2^32-1 then
-            rule.original_time = records[r_index].time_to_wait
-          end
-        end
-        local max_record = #global.trainLines[name].records+1
-        local max_rules = #global.trainLines[name].rules+1
-        for i=max_rules,max_record,-1 do
-          if global.trainLines[name].rules[i] and not global.trainLines[name].records[i] then
-            global.trainLines[name].rules[i] = nil
-          end
-        end
-        --add missing rules
-        for i, record in pairs(records) do
-          if not global.trainLines[name].rules[i] then
-            local rule = table.deepcopy(defaultRule)
-            rule.original_time = record.time_to_wait
-            rule.station = record.station
-            global.trainLines[name].rules[i] = rule
-          end
+          trainline.records = table.deepcopy(global.trainLines[t.line].records)
+          trainline.rules = table.deepcopy(global.trainLines[t.line].rules)
+          trainline.settings = table.deepcopy(global.trainLines[t.line].settings)
         end
 
         t.line = name
         t.lineVersion = changed
+        t.rules = table.deepcopy(trainline.rules)
 
         on_gui_click.add_trains_to_update(name)
       end
@@ -1068,17 +984,6 @@ on_gui_click = {
     else
       t.line = false
       local schedule = t.train.schedule
-      local rules = global.trainLines[li].rules
-      if t.train.schedule.records and type(t.train.schedule.records) == "table" then
-        for i, record in pairs(schedule.records) do
-          if record.time_to_wait == 2^32-1 then
-            record.time_to_wait = 200*60
-            if rules and rules[i] then
-              record.time_to_wait = rules[i].original_time or record.time_to_wait
-            end
-          end
-        end
-      end
       t.train.schedule = schedule
     end
     t.lineVersion = -1
@@ -1148,60 +1053,6 @@ on_gui_click = {
     end
     player.print("Saved station mapping") --TODO localisation
     return false
-  end,
-
-  leaveFull = function(player, option2, _, element)
-    local opts = GUI.get_station_options(element, option2)
-
-    if element.state == true then
-      if opts.leaveEmpty.state == true then
-        opts.leaveEmpty.state = false
-      end
-    end
-
-    GUI.save_station_options(opts, player.index, option2)
-  end,
-
-  leaveEmpty = function(player, option2, _, element)
-    local opts = GUI.get_station_options(element, option2)
-
-    if element.state == true then
-      if opts.leaveFull.state == true then
-        opts.leaveFull.state = false
-      end
-    end
-
-    GUI.save_station_options(opts, player.index, option2)
-  end,
-
-  leaveNoChange = function(player, option2, _, element)
-    local opts = GUI.get_station_options(element, option2)
-
-    GUI.save_station_options(opts, player.index, option2)
-  end,
-
-  keepWaiting = function(player, option2, _, element)
-    local opts = GUI.get_station_options(element, option2)
-
-    GUI.save_station_options(opts, player.index, option2)
-  end,
-
-  requireBoth = function(player, option2, _, element)
-    local opts = GUI.get_station_options(element, option2)
-
-    if opts.leaveEmpty.state or opts.leaveFull.state or opts.leaveNoChange.state then
-      opts.waitForCircuit.state = true
-    elseif not opts.waitForCircuit.state or (not opts.leaveEmpty.state and not opts.leaveFull.state and not opts.leaveNoChange.state) then
-      opts.requireBoth.state = false
-    end
-
-    GUI.save_station_options(opts, player.index, option2)
-  end,
-
-  waitForCircuit = function(player, option2, _, element)
-    local opts = GUI.get_station_options(element, option2)
-
-    GUI.save_station_options(opts, player.index, option2)
   end,
 
   jumpToCircuit = function(player, option2, _, element)

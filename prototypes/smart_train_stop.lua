@@ -73,4 +73,14 @@ signalLine.icon = "__SmartTrains__/graphics/signal_line.png"
 signalLine.subgroup = "virtual-signal"
 signalLine.order = "e[smarttrains]-f[line]"
 
-data:extend({signalStop, signalLoco, signalCargo, signalPassenger, signalFuel, signalLine})
+local signalStation = copyPrototype("virtual-signal", "signal-1", "signal-station-number")
+signalStation.icon = "__base__/graphics/icons/signal/signal_S.png"
+signalStation.subgroup = "virtual-signal"
+signalStation.order = "e[smarttrains]-g[stationnumber]"
+
+local signalDestination = copyPrototype("virtual-signal", "signal-1", "signal-destination")
+signalDestination.icon = "__base__/graphics/icons/signal/signal_D.png"
+signalDestination.subgroup = "virtual-signal"
+signalDestination.order = "e[smarttrains]-h[destination]"
+
+data:extend({signalStop, signalLoco, signalCargo, signalPassenger, signalFuel, signalLine, signalStation, signalDestination})

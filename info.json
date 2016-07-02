@@ -1,6 +1,7 @@
 {
   "name": "SmartTrains",
   "version": "{{VERSION}}",
+  "factorio_version": "0.13",
   "title": "Smarter Trains",
   "author": "Choumiko",
   "homepage": " ",
