@@ -951,7 +951,7 @@ end
 
 function on_tick(event)
   local current_tick = event.tick
-  
+
   if global.reset_signals[current_tick] then
     for _, cargo_proxy in pairs(global.reset_signals[current_tick]) do
       log(game.tick .. " reset signal")
@@ -1110,7 +1110,7 @@ function schedule_changed(s1, s2)
         local c2 = condition2.condition
         if c1.comparator ~= c2.comparator or
           c1.constant ~= c2.constant then
-                  log(serpent.line(c1,{comment=false}) .. " ~= " .. serpent.line(c2,{comment=false}))
+          log(serpent.line(c1,{comment=false}) .. " ~= " .. serpent.line(c2,{comment=false}))
           return true
         end
         if type(c1.first_signal) ~= type(c2.first_signal) then return true end
@@ -1157,7 +1157,7 @@ function on_player_closed(event)
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)
       if event.entity.backer_name ~= global.openedName[event.player_index] then
-        on_station_rename(event.entity, global.openedName[event.player_index])
+        on_station_rename(event.entity.force.name, event.entity.backer_name, global.openedName[event.player_index])
       end
     end
   end
@@ -1214,11 +1214,10 @@ function renameStation(newName, oldName)
   end
 end
 
-function on_station_rename(station, oldName)
-  local force = station.force.name
+function on_station_rename(force, newName, oldName)
   local oldc = decreaseStationCount(force, oldName)
   if oldc == 0 then
-    renameStation(station.backer_name, oldName)
+    renameStation(newName, oldName)
     global.stationMapping[force][oldName] = nil
     for i, stations in pairs(global.stationMap[force]) do
       stations[oldName] = nil
@@ -1228,8 +1227,38 @@ function on_station_rename(station, oldName)
     end
     global.stationCount[force][oldName] = nil
   end
-  increaseStationCount(force,station.backer_name)
+  increaseStationCount(force, newName)
 end
+
+
+-- on_pre_entity_settings_pasted and on_entity_settings_pasted
+function on_pre_entity_settings_pasted(event)
+  if event.source.type == "train-stop" then
+    on_station_rename(event.destination.force.name, event.source.backer_name, event.destination.backer_name)
+  end
+end
+
+function on_entity_settings_pasted(event)
+  if event.source.type == "train-stop" then
+    if event.destination.name == "smart-train-stop" and event.source.name == "smart-train-stop" then
+      local k_source = stationKey(event.source)
+      local k_dest = stationKey(event.destination)
+      local proxy_source = global.smartTrainstops[event.source.force.name][k_source].signalProxy
+      local proxy_dest = global.smartTrainstops[event.destination.force.name][k_dest].signalProxy
+      if proxy_source and proxy_source.valid and proxy_dest and proxy_dest.valid then
+        local behavior_source = proxy_source.get_control_behavior()
+        if behavior_source then
+          local behavior_dest = proxy_dest.get_or_create_control_behavior()
+          local cond = behavior_source.circuit_condition
+          behavior_dest.circuit_condition = cond
+        end
+      end
+    end
+  end
+end
+
+script.on_event(defines.events.on_pre_entity_settings_pasted, on_pre_entity_settings_pasted)
+script.on_event(defines.events.on_entity_settings_pasted, on_entity_settings_pasted)
 
 if use_EventsPlus and remote.interfaces.EventsPlus then
   script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
