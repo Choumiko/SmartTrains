@@ -926,9 +926,6 @@ on_gui_click = {
         end
 
         local changed = game.tick
-        trainline.settings.autoRefuel = t.settings.autoRefuel
-        trainline.settings.useMapping = false
-        trainline.settings.number = 0
         trainline.records = records
         trainline.rules = table.deepcopy(rules)
 

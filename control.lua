@@ -503,6 +503,7 @@ local update_from_version = {
     return "0.3.97"
   end,
   ["0.3.97"] = function() return "0.3.98" end,
+  ["0.3.98"] = function() return "0.3.99" end,
 }
 
 function on_configuration_changed(data)
@@ -900,7 +901,7 @@ function on_train_changed_state(event)
 
 
       t.current = nil
-      t:resetWaitingStation()
+      t:resetWaitingStation(true)
       log(" ")
       return
     end
@@ -964,6 +965,7 @@ function on_tick(event)
   
   if global.reset_signals[current_tick] then
     for _, cargo_proxy in pairs(global.reset_signals[current_tick]) do
+      log(game.tick .. " reset signal")
       cargo_proxy.get_or_create_control_behavior().parameters = nil
     end
     global.reset_signals[current_tick] = nil

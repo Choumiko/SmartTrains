@@ -288,8 +288,8 @@ Train = {
       end
     end,
 
-    resetWaitingStation = function(self)
-      self:resetCircuitSignal()
+    resetWaitingStation = function(self, destination)
+      self:resetCircuitSignal(destination)
       self.waitingStation = false
       self.waiting = false
       self.rules = false
@@ -328,13 +328,13 @@ Train = {
       return false
     end,
 
-    setCircuitSignal = function(self)
+    setCircuitSignal = function(self, destination)
       if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
         local cargoProxy = self.waitingStation.cargo
-        --local output = cargoProxy.get_circuit_condition(1)
+        local behavior = self.waitingStation.cargo.get_or_create_control_behavior()
         local parameters={}
 
-        local min_fuel = self:lowestFuel()
+        local min_fuel = self:lowestFuel(true)
         parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
         parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
         parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
@@ -343,12 +343,18 @@ Train = {
         parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = 5}
         parameters[6]={signal={type = "virtual", name = "signal-station-number"}, count = self.train.schedule.current, index = 6}
 
-        local i=7
+        local i = 7
         if self.line and global.trainLines[self.line] and global.trainLines[self.line].settings.number ~= 0 then
-          parameters[7]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].settings.number, index = 6}
-          i=8
+          parameters[i]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].settings.number, index = i}
+          i=i + 1
         end
 
+        if destination then
+          log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. self.train.schedule.current)
+          parameters[i]={signal={type = "virtual", name = "signal-destination"}, count = self.train.schedule.current, index = i}
+          i = i + 1
+        end
+        
         local cargoCount = self:cargoCount(true)
         for name, count in pairs(cargoCount) do
           local type = "item"
@@ -369,17 +375,15 @@ Train = {
 
     resetCircuitSignal = function(self, destination)
       if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
-        local parameters = {}
-        parameters[1]={signal={type = "virtual", name = "signal-destination"}, count = self.train.schedule.current, index = 1}
-        self.waitingStation.cargo.get_or_create_control_behavior().parameters = {parameters = parameters}
+        self:setCircuitSignal(destination)
         global.reset_signals[game.tick+1] = global.reset_signals[game.tick+1] or {}
         table.insert(global.reset_signals[game.tick+1], self.waitingStation.cargo)
       end
     end,
 
     --returns fuelvalue (in MJ)
-    lowestFuel = function(self)
-      if self.last_fuel_update + 60 <= game.tick then
+    lowestFuel = function(self, exact)
+      if self.last_fuel_update + 60 <= game.tick or exact then
         self.last_fuel_update = game.tick
         local minfuel
         local c
@@ -582,7 +586,9 @@ Train = {
       --debugDump(util.formattime(game.tick,true).."@ "..getKeyByValue(defines.train_state, self.train.state),true)
       self.previousState = self.state
       self.state = self.train.state
-      if self.previousState == defines.train_state.wait_station and self.state == defines.train_state.on_the_path then
+      if self.previousState == defines.train_state.wait_station and
+        (self.state == defines.train_state.on_the_path or self.state == defines.train_state.path_lost)
+      then
         self.advancedState = train_state.left_station
         --debugDump(game.tick.." left_station",true)
       else
@@ -636,7 +642,7 @@ Train = {
       --debugDump("updating line "..self.line.." train: "..self.train.carriages[1].backer_name,true)
       if global.showFlyingText and self.lineVersion >= 0 then
         self:flyingText("updating schedule", colors.YELLOW) --TODO localisation
-        log(self.name .. " Updating line")	
+        log(self.name .. " Updating line")
       end
 
       local waitingAt = self.train.schedule.records and self.train.schedule.records[self.train.schedule.current] or {station=""}

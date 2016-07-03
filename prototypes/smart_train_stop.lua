@@ -11,6 +11,7 @@ recipe.enabled = false
 
 local smart_train_stop = copyPrototype("train-stop", "train-stop", "smart-train-stop")
 smart_train_stop.icon = "__SmartTrains__/graphics/smart-train-stop-icon.png"
+smart_train_stop.selection_box = {{-0.6, -0.6}, {0.6, 0.6}}
 
 local st_proxy = copyPrototype("lamp", "small-lamp","smart-train-stop-proxy")
 st_proxy.icon = "__SmartTrains__/graphics/lamp/icon.png"
