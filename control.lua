@@ -25,13 +25,11 @@ LOGGERS = {}
 -- the name and tick are filled for the event automatically
 -- this event is raised with extra parameter foo with value "bar"
 --game.raiseevent(myevent, {foo="bar"})
-use_EventsPlus = false
 
-if not use_EventsPlus or not remote.interfaces.EventsPlus then
-  events = {}
-  events["on_player_opened"] = script.generate_event_name()
-  events["on_player_closed"] = script.generate_event_name()
-end
+events = {}
+events["on_player_opened"] = script.generate_event_name()
+events["on_player_closed"] = script.generate_event_name()
+
 
 require("gui")
 require("Train")
@@ -156,6 +154,7 @@ function initGlob()
   global.smartTrainstops = global.smartTrainstops or {}
   global.stationMapping = global.stationMapping or {}
   global.stationMap = global.stationMap or {}
+  global.stationNumbers = global.stationNumbers or {}
 
   global.settings = global.settings or defaultSettings
 
@@ -193,6 +192,7 @@ local function init_force(force)
   global.smartTrainstops[force.name] = global.smartTrainstops[force.name] or {}
   global.stationMapping[force.name] = global.stationMapping[force.name] or {}
   global.stationMap[force.name] = global.stationMap[force.name] or {}
+  global.stationNumbers[force.name] = global.stationNumbers[force.name] or {}
 end
 
 local function init_forces()
@@ -274,6 +274,40 @@ local function update_0_3_77()
     end
   end
   return "0.3.77"
+end
+
+
+
+function get_station_number(force_name, station_name)
+  if global.stationMap[force_name][station_name] then
+    return global.stationMapping[force_name][station_name]
+  end
+
+  local count_lines = 0
+  local station_number = 0
+  for line, line_data in pairs(global.trainLines) do
+    for index, record in pairs(line_data.records) do
+      if record.station == station_name then
+        count_lines = count_lines + 1
+        station_number = index
+      end
+    end
+  end
+  if count_lines > 1 then
+    station_number = 0
+  end
+  return station_number
+end
+
+function update_station_numbers()
+  for force, smartTrainstops in pairs(global.smartTrainstops) do
+    global.stationNumbers[force] = {}
+    for key, station in pairs(smartTrainstops) do
+      if station.station and station.station.valid then
+        global.stationNumbers[force][station.station.backer_name] = get_station_number(force,station.station.backer_name)
+      end
+    end
+  end
 end
 
 local update_from_version = {
@@ -502,6 +536,10 @@ local update_from_version = {
   end,
   ["0.3.97"] = function() return "0.3.98" end,
   ["0.3.98"] = function() return "0.3.99" end,
+  ["0.3.99"] = function()
+    update_station_numbers()
+    return "0.4.0"
+  end,
 }
 
 function on_configuration_changed(data)
@@ -953,9 +991,18 @@ function on_tick(event)
   local current_tick = event.tick
 
   if global.reset_signals[current_tick] then
-    for _, cargo_proxy in pairs(global.reset_signals[current_tick]) do
+    for _, station in pairs(global.reset_signals[current_tick]) do
       log(game.tick .. " reset signal")
-      cargo_proxy.get_or_create_control_behavior().parameters = nil
+      local behavior = station.cargo.get_or_create_control_behavior()
+      if behavior then
+        local station_number = global.stationNumbers[station.station.force.name][station.station.backer_name] or false
+        if station_number and station_number ~= 0 then
+          local params = {{signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = 1}}
+          behavior.parameters = {parameters = params}
+        else
+          behavior.parameters = nil
+        end
+      end
     end
     global.reset_signals[current_tick] = nil
   end
@@ -1044,25 +1091,23 @@ function on_tick(event)
   --    global.scheduleUpdate[current_tick] = nil
   --  end
 
-  if not use_EventsPlus or not remote.interfaces.EventsPlus and current_tick%10==9  then
-    if current_tick%10==9  then
-      local status,err = pcall(function()
-        for pi, player in pairs(game.players) do
-          if player.connected then
-            if player.opened ~= nil and not global.player_opened[player.name] then
-              game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
-              global.player_opened[player.name] = player.opened
-            end
-            if global.player_opened[player.name] and player.opened == nil then
-              game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
-              global.player_opened[player.name] = nil
-            end
+  if current_tick%10==9  then
+    local status,err = pcall(function()
+      for pi, player in pairs(game.players) do
+        if player.connected then
+          if player.opened ~= nil and not global.player_opened[player.name] then
+            game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
+            global.player_opened[player.name] = player.opened
+          end
+          if global.player_opened[player.name] and player.opened == nil then
+            game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
+            global.player_opened[player.name] = nil
           end
         end
-      end)
-      if not status then
-        pauseError(err, "on_tick_players")
       end
+    end)
+    if not status then
+      pauseError(err, "on_tick_players")
     end
   end
 end
@@ -1260,13 +1305,8 @@ end
 script.on_event(defines.events.on_pre_entity_settings_pasted, on_pre_entity_settings_pasted)
 script.on_event(defines.events.on_entity_settings_pasted, on_entity_settings_pasted)
 
-if use_EventsPlus and remote.interfaces.EventsPlus then
-  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_opened"), on_player_opened)
-  script.on_event(remote.call("EventsPlus", "getEvent", "on_player_closed"), on_player_closed)
-else
-  script.on_event(events.on_player_opened, on_player_opened)
-  script.on_event(events.on_player_closed, on_player_closed)
-end
+script.on_event(events.on_player_opened, on_player_opened)
+script.on_event(events.on_player_closed, on_player_closed)
 
 function getTrainFromEntity(ent)
   for _,trainInfo in pairs(global.trains) do

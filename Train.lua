@@ -335,15 +335,23 @@ Train = {
         local parameters={}
 
         local min_fuel = self:lowestFuel(true)
-        parameters[1]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = 1}
-        parameters[2]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers+#self.train.locomotives.back_movers, index = 2}
-        parameters[3]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = 3}
+        local i = 1
+        local station_number = global.stationNumbers[cargoProxy.force.name][self.waitingStation.station.backer_name] or false
+        if station_number and station_number ~= 0 then
+          parameters[i]={signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = i}
+          i=i + 1
+        end
+        parameters[i]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = i}
+        i=i + 1
+        parameters[i]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers + #self.train.locomotives.back_movers, index = i}
+        i=i + 1
+        parameters[i]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = i}
+        i=i + 1
+        parameters[i]={signal={type = "virtual", name = "signal-passenger"}, count = self.passengers, index = i}
+        i=i + 1
+        parameters[i]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = i}
+        i=i + 1
 
-        parameters[4]={signal={type = "virtual", name = "signal-passenger"}, count = self.passengers, index = 4}
-        parameters[5]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = 5}
-        parameters[6]={signal={type = "virtual", name = "signal-station-number"}, count = self.train.schedule.current, index = 6}
-
-        local i = 7
         if self.line and global.trainLines[self.line] and global.trainLines[self.line].settings.number ~= 0 then
           parameters[i]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].settings.number, index = i}
           i=i + 1
@@ -354,7 +362,7 @@ Train = {
           parameters[i]={signal={type = "virtual", name = "signal-destination"}, count = self.train.schedule.current, index = i}
           i = i + 1
         end
-        
+
         local cargoCount = self:cargoCount(true)
         for name, count in pairs(cargoCount) do
           local type = "item"
@@ -375,9 +383,11 @@ Train = {
 
     resetCircuitSignal = function(self, destination)
       if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
-        self:setCircuitSignal(destination)
+        if self.train and self.train.valid then
+          self:setCircuitSignal(destination)
+        end
         global.reset_signals[game.tick+1] = global.reset_signals[game.tick+1] or {}
-        table.insert(global.reset_signals[game.tick+1], self.waitingStation.cargo)
+        table.insert(global.reset_signals[game.tick+1], {cargo = self.waitingStation.cargo, station = self.waitingStation.station})
       end
     end,
 
@@ -387,8 +397,8 @@ Train = {
         self.last_fuel_update = game.tick
         local minfuel
         local c
-        local locos = self.train.locomotives
-        if locos ~= nil then
+        local locos = (self.train and self.train.valid) and self.train.locomotives or false
+        if locos then
           for _, carriage in pairs(locos.front_movers) do
             c = self:calcFuel(carriage.get_inventory(1).get_contents())
             if minfuel == nil or c < minfuel then

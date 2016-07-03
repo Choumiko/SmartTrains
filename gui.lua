@@ -757,6 +757,7 @@ on_gui_click = {
       end
     end
     global.playerPage[player.index].line = 1
+    update_station_numbers()
     return true
   end,
 
@@ -826,8 +827,10 @@ on_gui_click = {
       else
         debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true) --TODO localisation
       end
+      update_station_numbers()
       return true
     end
+    update_station_numbers()
     return false
   end,
 
@@ -940,7 +943,7 @@ on_gui_click = {
         t.line = name
         t.lineVersion = changed
         t.rules = table.deepcopy(trainline.rules)
-
+        update_station_numbers()
         on_gui_click.add_trains_to_update(name)
       end
     else
@@ -1049,6 +1052,7 @@ on_gui_click = {
       end
     end
     player.print("Saved station mapping") --TODO localisation
+    update_station_numbers()
     return false
   end,
 
