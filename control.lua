@@ -420,8 +420,6 @@ local update_from_version = {
         local behavior = stop.signalProxy.get_control_behavior()
         if behavior then
           smart_conditions[stop.station.backer_name] = behavior.circuit_condition.condition
-          stop.signalProxy.connect_neighbour{target_entity = stop.station, wire = defines.wire_type.red}
-          stop.signalProxy.connect_neighbour{target_entity = stop.station, wire = defines.wire_type.green}
         end
       end
     end
@@ -551,13 +549,6 @@ function on_configuration_changed(data)
   end
 end
 
-local function connect_wires(a, b)
-  if a.valid and b.valid then
-    a.connect_neighbour{target_entity = b, wire = defines.wire_type.red}
-    a.connect_neighbour{target_entity = b, wire = defines.wire_type.green}
-  end
-end
-
 local function getProxyPositions(trainstop)
   local offset = {
     [0] = {x=-0.5,y=-0.5},
@@ -588,7 +579,6 @@ function createProxy(trainstop)
     if signal and signal.valid then
       --debugDump("signal: "..serpent.line(signal.position),true)
       signal.revive()
-      connect_wires(trainstop, signal)
     end
     global.blueprinted_proxies[keySignal] = nil
   end
@@ -604,7 +594,6 @@ function createProxy(trainstop)
   signalProxy = trainstop.surface.find_entity("smart-train-stop-proxy", positions.signalProxy)
   if not signalProxy then
     signalProxy = trainstop.surface.create_entity(proxy)
-    connect_wires(trainstop, signalProxy)
   end
 
   cargoProxy = trainstop.surface.find_entity("smart-train-stop-proxy-cargo", positions.cargo)
