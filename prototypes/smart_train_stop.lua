@@ -75,12 +75,12 @@ signalLine.subgroup = "virtual-signal"
 signalLine.order = "e[smarttrains]-f[line]"
 
 local signalStation = copyPrototype("virtual-signal", "signal-1", "signal-station-number")
-signalStation.icon = "__base__/graphics/icons/signal/signal_S.png"
+signalStation.icon = "__SmartTrains__/graphics/signal_station_number.png"
 signalStation.subgroup = "virtual-signal"
 signalStation.order = "e[smarttrains]-g[stationnumber]"
 
 local signalDestination = copyPrototype("virtual-signal", "signal-1", "signal-destination")
-signalDestination.icon = "__base__/graphics/icons/signal/signal_D.png"
+signalDestination.icon = "__SmartTrains__/graphics/signal_destination.png"
 signalDestination.subgroup = "virtual-signal"
 signalDestination.order = "e[smarttrains]-h[destination]"
 
