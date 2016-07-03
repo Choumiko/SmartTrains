@@ -6,5 +6,5 @@
   "author": "Choumiko",
   "homepage": " ",
   "description": "Train lines, automated refueling and departure",
-  "dependencies": ["base >= 0.12.27", "? RailTanker >= 1.1.1", "? 5dim_trains"]
+  "dependencies": ["base >= 0.13.0", "? RailTanker >= 1.1.1", "? 5dim_trains"]
 }
