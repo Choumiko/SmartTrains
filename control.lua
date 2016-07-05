@@ -299,12 +299,37 @@ function get_station_number(force_name, station_name)
   return station_number
 end
 
+function add_or_update_parameter(behavior, signal, index)
+  if behavior then
+    local parameters = behavior.parameters.parameters
+    if not parameters[index] or (not parameters[index].signal.name or parameters[index].signal.name == signal.signal.name)then
+      parameters[index] = signal
+      behavior.parameters = {parameters = parameters}
+    else
+      for i, param in pairs(parameters) do
+        if not param.signal or not param.signal.name then
+          parameters[i] = signal
+          parameters[i].index = i
+          behavior.parameters = {parameters = parameters}
+          return
+        end
+      end
+    end
+  end
+end
+
 function update_station_numbers()
   for force, smartTrainstops in pairs(global.smartTrainstops) do
     global.stationNumbers[force] = {}
     for key, station in pairs(smartTrainstops) do
       if station.station and station.station.valid then
-        global.stationNumbers[force][station.station.backer_name] = get_station_number(force,station.station.backer_name)
+        local number = get_station_number(force,station.station.backer_name)
+        global.stationNumbers[force][station.station.backer_name] = number
+        local signal = {signal={type = "virtual", name = "signal-station-number"}, count = number, index = 1}
+        if number == 0 then
+          signal = {signal={type = "item"}, count = 1, index = 1}
+        end
+        add_or_update_parameter(station.cargo.get_or_create_control_behavior(), signal, 1)
       end
     end
   end
@@ -540,6 +565,10 @@ local update_from_version = {
     update_station_numbers()
     return "0.4.0"
   end,
+  ["0.4.0"] = function()
+    update_station_numbers()
+    return "0.4.1"
+  end,
 }
 
 function on_configuration_changed(data)
@@ -600,7 +629,7 @@ local function getProxyPositions(trainstop)
     [6]={x=-0.5,y=-0.5}}
   local pos = Position.add(trainstop.position, offset[trainstop.direction])
   local poscargo = Position.add(trainstop.position, offsetcargo[trainstop.direction])
-  return {signalProxy = pos, cargo = poscargo}
+  return {signalProxy = poscargo, cargo = pos}
 end
 
 function createProxy(trainstop)
@@ -611,7 +640,7 @@ function createProxy(trainstop)
   local signalProxy, cargoProxy
   local force = trainstop.force.name
   local proxy = {name="smart-train-stop-proxy", direction = 0, force=trainstop.force, position=positions.signalProxy}
-  local proxycargo = {name="smart-train-stop-proxy-cargo", direction = (trainstop.direction+2)%8, force=trainstop.force, position=positions.cargo}
+  local proxycargo = {name="smart-train-stop-proxy-cargo", direction = trainstop.direction, force=trainstop.force, position=positions.cargo}
   if global.blueprinted_proxies[keySignal] then
     local signal = global.blueprinted_proxies[keySignal]
     if signal and signal.valid then
@@ -722,7 +751,12 @@ function findTrainStopByTrain(vehicle, rail)
   }
   local off = offsets
   local pos = Position.add(rail.position, off[rail.direction][trainDir].position)
-  return surface.find_entity("smart-train-stop", pos) or surface.find_entity("train-stop", pos)
+  local stops = surface.find_entities_filtered{type="train-stop", area = Position.expand_to_area(pos, 0.25)}
+  if #stops == 0 then
+    pos = Position.translate(pos, trainDir, -2)
+    stops = surface.find_entities_filtered{type="train-stop", area = Position.expand_to_area(pos, 0.25)}
+  end
+  return stops[1]
 end
 
 function findSmartTrainStopByTrain(vehicle, rail, stationName)
@@ -973,7 +1007,7 @@ function on_train_changed_state(event)
           t:removeRefuelStation()
         end
       end
-      log(t.name .. "updating")
+      log(t.name .. " updating")
       t:updateLine()
       if t.train.speed ~= 0 then --only update direction when train is moving: prevents direction being lost when train is stopped/started at a station
         t.direction = t.train.speed < 0 and 1 or 0
@@ -1273,6 +1307,7 @@ function on_station_rename(force, newName, oldName)
     global.stationCount[force][oldName] = nil
   end
   increaseStationCount(force, newName)
+  update_station_numbers()
 end
 
 
