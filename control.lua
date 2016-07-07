@@ -376,10 +376,8 @@ local update_from_version = {
         t.scheduleUpdate = game.tick + 60 + i
         insertInTable(global.scheduleUpdate, t.scheduleUpdate, t)
         c = c + 1
-        log(t.scheduleUpdate .. ": " .. i)
       end
     end
-    log(game.tick .. " Total: " .. c)
     removeInvalidTrains(true,true)
     global.stationCount = {}
     global.smartTrainstops = {}
@@ -533,26 +531,32 @@ local update_from_version = {
         if #wait_conditions > 0 then
           record.wait_conditions[1].compare_type = "and"
         end
-        log(serpent.line(tmp[i], {comment=false}))
       end
       trainline.records = records
       trainline.rules = table.deepcopy(tmp)
       tmp = {}
     end
 
+    local remove_invalid = false
     for _, train in pairs(global.trains) do
-      train.current = train.train.schedule.current
-      local schedule
-      if train.line and global.trainLines[train.line] then
-        local line = global.trainLines[train.line]
-        train.rules = table.deepcopy(line.rules)
-        train.lineVersion = line.changed
-        schedule = train.train.schedule
-        schedule.records = global.trainLines[train.line].records
-        train.train.schedule = schedule
+      if train.train and train.train.valid then
+        train.current = train.train.schedule.current
+        local schedule
+        if train.line and global.trainLines[train.line] then
+          local line = global.trainLines[train.line]
+          train.rules = table.deepcopy(line.rules)
+          train.lineVersion = line.changed
+          schedule = train.train.schedule
+          schedule.records = global.trainLines[train.line].records
+          train.train.schedule = schedule
+        end
+      else
+        remove_invalid = true
       end
     end
-
+    if remove_invalid then
+      removeInvalidTrains(true)
+    end
     return "0.3.96"
   end,
   ["0.3.96"] = function()
@@ -569,6 +573,7 @@ local update_from_version = {
     update_station_numbers()
     return "0.4.1"
   end,
+  ["0.4.1"] = function() return "0.4.2" end,
 }
 
 function on_configuration_changed(data)
@@ -897,7 +902,9 @@ function on_train_changed_state(event)
     t:updateState()
 
     if t.advancedState == train_state.left_station then
-      log(t.name .. ": Leaving station #" .. t.current .. " " .. t.train.schedule.records[t.current].station .. "  @tick: "..event.tick)
+      if t.current then
+        log(t.name .. ": Leaving station #" .. t.current .. " " .. t.train.schedule.records[t.current].station .. "  @tick: "..event.tick)
+      end
       if (event.tick-t.departAt == 0) then
         log("Time passed")
       else
@@ -912,6 +919,7 @@ function on_train_changed_state(event)
 
         if signalValue then
           signalValue = t:getCircuitValue(t.current)
+          log("signalValue: " .. signalValue)
         end
         use_mapping = global.trainLines[t.line] and global.trainLines[t.line].settings.useMapping or false
         --log("Signal: "..serpent.line(signalValue,{comment=false}) .. " use mapping: " .. serpent.line(use_mapping,{comment=false}))
@@ -1100,30 +1108,6 @@ function on_tick(event)
     end
     global.update_cargo[current_tick] = nil
   end
-
-  --  if global.scheduleUpdate[current_tick] then
-  --    local status,err = pcall(function()
-  --      --log(current_tick .. " scheduleUpdate " .. #global.scheduleUpdate[current_tick])
-  --      local remove_invalid = false
-  --      for _,train in pairs(global.scheduleUpdate[current_tick]) do
-  --        if train.train and train.train.valid then
-  --          if train.line and train.scheduleUpdate == current_tick and not train:updateLine() then
-  --            --log(current_tick .. " retry " .. train.name)
-  --            --line wasn't updated, retry in 1 second
-  --            train.scheduleUpdate = current_tick + 60
-  --            insertInTable(global.scheduleUpdate, train.scheduleUpdate, train)
-  --          end
-  --        else
-  --          remove_invalid = true
-  --        end
-  --      end
-  --      if remove_invalid then removeInvalidTrains(true) end
-  --    end)
-  --    if not status then
-  --      pauseError(err, "on_tick: updateLine")
-  --    end
-  --    global.scheduleUpdate[current_tick] = nil
-  --  end
 
   if current_tick%10==9  then
     local status,err = pcall(function()
