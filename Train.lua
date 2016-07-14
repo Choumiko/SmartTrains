@@ -636,7 +636,7 @@ Train = {
 
       -- Already updated
       if trainLine and trainLine.changed <= self.lineVersion then
-        log(self.name .. " Up to date")
+        --log(self.name .. " Up to date")
         return true
       end
 

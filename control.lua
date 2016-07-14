@@ -178,6 +178,7 @@ end
 
 local function init_player(player)
   global.playerRules[player.index] = global.playerRules[player.index] or {page=1}
+  global.player_passenger[player.index] = player.vehicle
 end
 
 local function init_players()
@@ -339,6 +340,101 @@ function update_station_numbers()
   end
 end
 
+local function getProxyPositions(trainstop)
+  local offset = {
+    [0] = {x=-0.5,y=-0.5},
+    [2]={x=0.5,y=-0.5},
+    [4]={x=0.5,y=0.5},
+    [6]={x=-0.5,y=0.5}}
+  local offsetcargo = {
+    [0] = {x=0.5,y=-0.5},
+    [2]={x=0.5,y=0.5},
+    [4]={x=-0.5,y=0.5},
+    [6]={x=-0.5,y=-0.5}}
+  local pos = Position.add(trainstop.position, offset[trainstop.direction])
+  local poscargo = Position.add(trainstop.position, offsetcargo[trainstop.direction])
+  return {signalProxy = poscargo, cargo = pos}
+end
+
+local function recreateProxy(trainstop)
+  local positions = getProxyPositions(trainstop.station)
+
+  if trainstop.station.valid then
+    local force = trainstop.station.force.name
+    if not trainstop.cargo or not trainstop.cargo.valid then
+      local poscargo = positions.cargo
+      local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.station.force, position=poscargo}
+      local ent2 = trainstop.station.surface.create_entity(proxycargo)
+      if ent2.valid then
+        global.smartTrainstops[force][stationKey(trainstop.station)].cargo = ent2
+        ent2.minable = false
+        ent2.operable = false
+        ent2.destructible = false
+        log("Updated smart train stop cargo:"..trainstop.station.backer_name)
+      end
+    else
+      if trainstop.cargo and trainstop.cargo.valid then
+        if not Position.equals(positions.cargo, trainstop.cargo.position) then
+          if trainstop.cargo.teleport(positions.cargo) then
+            log("moved cargo proxy " .. trainstop.station.backer_name)
+          else
+            log("fail: moved cargo proxy " .. trainstop.station.backer_name)
+          end
+        end
+      end
+    end
+
+    if not trainstop.signalProxy or not trainstop.signalProxy.valid then
+      log(serpent.line(trainstop,{comment=false}))
+      local pos = positions.signalProxy
+      local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.station.force, position=pos}
+      local ent = trainstop.station.surface.create_entity(proxy)
+      if ent.valid then
+        global.smartTrainstops[force][stationKey(trainstop.station)].signalProxy=ent
+        ent.minable = false
+        ent.destructible = false
+        log("Updated smart train stop signal:"..trainstop.station.backer_name)
+      end
+    else
+      if trainstop.signalProxy and trainstop.signalProxy.valid then
+        if not Position.equals(positions.signalProxy, trainstop.signalProxy.position) then
+          if trainstop.signalProxy.teleport(positions.signalProxy) then
+            log("moved signal proxy " .. trainstop.station.backer_name)
+          else
+            log("fail: moved signal proxy " .. trainstop.station.backer_name)
+          end
+        end
+      end
+    end
+  end
+end
+
+local function fixSmartstopTable()
+  local tmp = {player={}, enemy={}, neutral={}}
+  local forces = {player = true, enemy=true, neutral=true, gate=true}
+  for key, smartStop in pairs(global.smartTrainstops) do
+    if not forces[key] then
+      if smartStop.entity then
+        smartStop.station = smartStop.entity
+        smartStop.entity = nil
+      end
+      if smartStop.proxy then
+        smartStop.signalProxy = smartStop.proxy
+        smartStop.proxy = nil
+      end
+      tmp[smartStop.station.force.name] = tmp[smartStop.station.force.name] or {}
+      tmp[smartStop.station.force.name][key] = smartStop
+    end
+  end
+  global.smartTrainstops = tmp
+  saveGlob("afterfix")
+  for force, stops in pairs(global.smartTrainstops) do
+    for key, smartStop in pairs(stops) do
+      recreateProxy(smartStop)
+    end
+  end
+end
+
 local update_from_version = {
   ["0.0.0"] = function()
     return update_0_3_77()
@@ -382,10 +478,8 @@ local update_from_version = {
         c = c + 1
       end
     end
+    fixSmartstopTable()
     removeInvalidTrains(true,true)
-    global.stationCount = {}
-    global.smartTrainstops = {}
-    init_forces()
     findStations()
 
     for _, l in pairs(global.trainLines) do
@@ -455,11 +549,9 @@ local update_from_version = {
       for _, c in pairs(t.train.carriages) do
         if c.name == "rail-tanker" then
           t.railtanker = true
-        end
-        if c.passenger and c.passenger.connected and c.passenger.character.name ~= "fatcontroller" then
-          --if c.passenger ~= nil and c.passenger.connected and c.passenger.character.name ~= "fatcontroller" then
-          t.passengers = t.passengers + 1
-          global.player_passenger[c.passenger.index] = c
+          if c.passenger then
+            t.passengers = t.passengers + 1
+          end
         end
       end
     end
@@ -467,7 +559,16 @@ local update_from_version = {
     global.ticks = nil
     return "0.3.91"
   end,
-  ["0.3.91"] = function() return "0.3.92" end,
+  ["0.3.91"] = function()
+    for _, t in pairs(global.trains) do
+      t.passengers = 0
+      for _, c in pairs(t.train.carriages) do
+        if c.passenger then
+          t.passengers = t.passengers + 1
+        end
+      end
+    end
+    return "0.3.92" end,
   ["0.3.92"] = function()
     global.openedTrain = nil
     return "0.3.93"
@@ -475,6 +576,7 @@ local update_from_version = {
   ["0.3.93"] = function() return "0.3.94" end,
   ["0.3.94"] = function() return "0.3.95" end,
   ["0.3.95"] = function()
+    fixSmartstopTable()
     local smart_conditions = {}
     for _ , stop in pairs(global.smartTrainstops.player) do
       if stop.station.valid and stop.signalProxy.valid then
@@ -582,7 +684,7 @@ local update_from_version = {
 
 function on_configuration_changed(data)
   local status, err = pcall(function()
-    if not data or not data.mod_changes then
+    if not data.mod_changes then
       return
     end
     if data.mod_changes.SmartTrains then
@@ -618,29 +720,14 @@ function on_configuration_changed(data)
   end
 end
 
-local function getProxyPositions(trainstop)
-  local offset = {
-    [0] = {x=-0.5,y=-0.5},
-    [2]={x=0.5,y=-0.5},
-    [4]={x=0.5,y=0.5},
-    [6]={x=-0.5,y=0.5}}
-  local offsetcargo = {
-    [0] = {x=0.5,y=-0.5},
-    [2]={x=0.5,y=0.5},
-    [4]={x=-0.5,y=0.5},
-    [6]={x=-0.5,y=-0.5}}
-  local pos = Position.add(trainstop.position, offset[trainstop.direction])
-  local poscargo = Position.add(trainstop.position, offsetcargo[trainstop.direction])
-  return {signalProxy = poscargo, cargo = pos}
-end
-
 function createProxy(trainstop)
   local positions = getProxyPositions(trainstop)
+  local force = trainstop.force.name
   local key = stationKey(trainstop)
+  local smartStop = global.smartTrainstops[force][key]
   local keySignal = stationKey({position=positions.signalProxy})
   local keyCargo = stationKey({position=positions.cargo})
   local signalProxy, cargoProxy
-  local force = trainstop.force.name
   local proxy = {name="smart-train-stop-proxy", direction = 0, force=trainstop.force, position=positions.signalProxy}
   local proxycargo = {name="smart-train-stop-proxy-cargo", direction = trainstop.direction, force=trainstop.force, position=positions.cargo}
   if global.blueprinted_proxies[keySignal] then
@@ -660,8 +747,25 @@ function createProxy(trainstop)
     global.blueprinted_proxies[keyCargo] = nil
   end
 
+  if smartStop and smartStop.station and smartStop.station.valid then
+    if smartStop.signalProxy and smartStop.signalProxy.valid then
+      if not Position.equals(positions.signalProxy, smartStop.signalProxy.position) then
+        smartStop.signalProxy.teleport(positions.signalProxy)
+        signalProxy = smartStop.signalProxy
+        log("moved signal proxy " .. trainstop.backer_name)
+      end
+    end
+    if smartStop.cargo and smartStop.cargo.valid then
+      if not Position.equals(positions.cargo, smartStop.cargo.position) then
+        smartStop.cargo.teleport(positions.cargo)
+        cargoProxy = smartStop.cargo
+        --        log("moved cargo proxy " .. trainstop.backer_name)
+      end
+    end
+  end
   signalProxy = trainstop.surface.find_entity("smart-train-stop-proxy", positions.signalProxy)
   if not signalProxy then
+    log("no signal proxy")
     signalProxy = trainstop.surface.create_entity(proxy)
   end
 
@@ -679,6 +783,10 @@ function createProxy(trainstop)
     signalProxy.minable = false
     if not global.smartTrainstops[force][key] then
       global.smartTrainstops[force][key] = {station = trainstop, signalProxy = signalProxy, cargo = cargoProxy}
+    else
+      assert(signalProxy == global.smartTrainstops[force][key].signalProxy)
+      assert(cargoProxy == global.smartTrainstops[force][key].cargo)
+      --log("Do something here?!")
     end
   else
     pauseError("Could not find signal/cargo proxy for " .. trainstop.backer_name .. " @ " .. serpent.line(trainstop.position,{comment=false}))
@@ -698,37 +806,6 @@ function removeProxy(trainstop)
       cargo.destroy()
     end
     global.smartTrainstops[force][key] = nil
-  end
-end
-
-local function recreateProxy(trainstop)
-  local positions = getProxyPositions(trainstop)
-
-  if trainstop.station.valid then
-    local force = trainstop.station.force.name
-    if not trainstop.cargo or not trainstop.cargo.valid then
-      local poscargo = positions.cargo
-      local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.station.force, position=poscargo}
-      local ent2 = trainstop.station.surface.create_entity(proxycargo)
-      if ent2.valid then
-        global.smartTrainstops[force][stationKey(trainstop.station)].cargo = ent2
-        ent2.minable = false
-        ent2.operable = false
-        ent2.destructible = false
-        debugDump("Updated smart train stop:"..trainstop.station.backer_name,true)
-      end
-    end
-
-    if not trainstop.signalProxy or not trainstop.signalProxy.valid then
-      local pos = positions.signalProxy
-      local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.station.force, position=pos}
-      local ent = trainstop.station.surface.create_entity(proxy)
-      if ent.valid then
-        global.smartTrainstops[force][stationKey(trainstop.station)].signalProxy=ent
-        ent.minable = false
-        ent.destructible = false
-      end
-    end
   end
 end
 
@@ -896,18 +973,18 @@ function on_train_changed_state(event)
       debugDump("Couldn't validate train "..name,true)
       return
     end
-    log(t.name .. " ".. util.getKeyByValue(defines.train_state, event.train.state))
+    --log(t.name .. " ".. util.getKeyByValue(defines.train_state, event.train.state))
     t:updateState()
 
     if t.advancedState == train_state.left_station then
       if t.current then
         log(t.name .. ": Leaving station #" .. t.current .. " " .. t.train.schedule.records[t.current].station .. "  @tick: "..event.tick)
       end
-      if (event.tick-t.departAt == 0) then
-        log("Time passed")
-      else
-        log("Condition became true")
-      end
+      --      if (event.tick-t.departAt == 0) then
+      --        log("Time passed")
+      --      else
+      --        log("Condition became true")
+      --      end
       local rules = t:get_rules(t.current)
 
       local jump, use_mapping
@@ -917,7 +994,7 @@ function on_train_changed_state(event)
 
         if signalValue then
           signalValue = t:getCircuitValue(t.current)
-          log("signalValue: " .. signalValue)
+          --log("signalValue: " .. signalValue)
         end
         use_mapping = global.trainLines[t.line] and global.trainLines[t.line].settings.useMapping or false
         --log("Signal: "..serpent.line(signalValue,{comment=false}) .. " use mapping: " .. serpent.line(use_mapping,{comment=false}))
@@ -993,7 +1070,7 @@ function on_train_changed_state(event)
       t.current = t.train.schedule.current
 
       local rules = t:get_rules()
-      log("waiting: " .. serpent.line(rules,{comment=false}))
+      --log("waiting: " .. serpent.line(rules,{comment=false}))
 
       t.departAt = event.tick + t:getWaitingTime()
       if settings.autoRefuel then
@@ -1611,7 +1688,7 @@ end
 
 function findStations()
   initGlob()
-  global.smartTrainstops = {}
+  --global.smartTrainstops = {}
   global.stationCount = {}
   init_forces()
   --LOGGERS.main.log("Searching smart trainstops...")
