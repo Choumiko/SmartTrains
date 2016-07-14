@@ -40,9 +40,7 @@ defaultSettings =
     minFlow = 1, -- minimal liquid change to count as changed
     intervals = {
       write = 60, -- ticks between constant combinator updates
-      read = 12, -- ticks between reading signal
       inactivity = 120, --ticks between cargo comparison
-      cargoRule = 12 -- ticks between cargo rule checks (full/empty), refuelcheck
     },
   }
 
@@ -165,7 +163,6 @@ function initGlob()
 
   global.settings.intervals = global.settings.intervals or {}
   global.settings.intervals.write = global.settings.intervals.write or defaultSettings.intervals.write
-  global.settings.intervals.read = global.settings.intervals.read or defaultSettings.intervals.read
   global.settings.intervals.inactivity = global.settings.intervals.inactivity or defaultSettings.intervals.inactivity
 
   global.fuel_values = global.fuel_values or {}
@@ -680,6 +677,12 @@ local update_from_version = {
     return "0.4.1"
   end,
   ["0.4.1"] = function() return "0.4.2" end,
+  ["0.4.2"] = function()
+    global.settings.intervals.read = nil
+    global.settings.intervals.cargoRule = nil
+    global.settings.intervals.noChange = nil
+    return "0.4.3"
+  end,
 }
 
 function on_configuration_changed(data)

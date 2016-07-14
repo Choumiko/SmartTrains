@@ -60,6 +60,10 @@ Using train circuit output
  - ![Signal train at station](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_train_at_station.png?raw=true "Signal train at station") : 1 if a train is at the station, 0 otherwise
  - ![Signal line #](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_line.png?raw=true "Signal line #") : The line number assigned to the trains line, 0 if not on a line
  - ![Signal lowest fuel](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_lowest_fuel.png?raw=true "Signal lowest fuel") : The lowest fuel in a locomotive of a train (in MJ)
+ - ![Signal station number](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_station_number.png "Signal station number") : The number of the station
+ 		- Outputs the number set in the mapping or
+ 		- outputs the position in the trains schedule if there is exactly 1 line
+ - ![Signal destination](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_destination.png "Signal destination") : The # of the station in the schedule where the train is going (set for 1 tick when the train leaves)
  - Additionally it outputs the trains cargo
 
 Using train signal lamp

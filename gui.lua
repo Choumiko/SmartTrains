@@ -167,10 +167,8 @@ GUI = {
       GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small", text = global.settings.minFlow})
 
       local intervals = gui.globalSettings.add({type = "frame", name="frm_intervals", direction="horizontal", style = "st_inner_frame", caption = {"stg-intervals"}})
-      tbl = intervals.add{type="table", name="tbl", colspan=4, style="st_table"}
+      tbl = intervals.add{type="table", name="tbl", colspan=2, style="st_table"}
 
-      GUI.addLabel(tbl, {"stg-intervals-read"})
-      GUI.addTextfield(tbl, {name="intervals_read", style="st_textfield_small", text = global.settings.intervals.read})
       GUI.addLabel(tbl, {"stg-intervals-write"}).style.left_padding = 10
       GUI.addTextfield(tbl, {name="intervals_write", style="st_textfield_small", text = global.settings.intervals.write})
 
@@ -183,7 +181,6 @@ GUI = {
           uniqueStations = uniqueStations + 1
         end
       end
-      GUI.addPlaceHolder(tbl)
       GUI.addLabel(tbl,{"", {"lbl-stations"}, ": ", uniqueStations, "/", noStations})
 
       GUI.addButton(tbl, {name="globalSettingsSave", caption="Save"})
@@ -724,15 +721,11 @@ on_gui_click = {
     local intervals = settings.frm_intervals.tbl
     local i_inactivity = 120 --sanitizeNumber(intervals.intervals_inactivity.text, global.settings.intervals.inactivity)
     local i_write = sanitizeNumber(intervals.intervals_write.text, global.settings.intervals.write)
-    local i_read = sanitizeNumber(intervals.intervals_read.text, global.settings.intervals.read)
-    local i_cargoRule = i_read --sanitizeNumber(intervals.intervals_cargoRule.text, global.settings.intervals.cargoRule)
 
     if i_write < 1 then i_write = 1 end
-    if i_read < 1 then i_read = 1 end
-    if i_cargoRule < 1 then i_cargoRule = 1 end
 
     global.settings.minFlow = minFlow
-    global.settings.intervals = {write = i_write, read = i_read, inactivity = i_inactivity, cargoRule = i_cargoRule}
+    global.settings.intervals = {write = i_write, inactivity = i_inactivity}
 
     return true
   end,
