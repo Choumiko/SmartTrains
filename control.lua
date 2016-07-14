@@ -279,7 +279,7 @@ end
 
 
 function get_station_number(force_name, station_name)
-  if global.stationMap[force_name][station_name] then
+  if global.stationMapping[force_name][station_name] then
     return global.stationMapping[force_name][station_name]
   end
 
@@ -303,11 +303,18 @@ function add_or_update_parameter(behavior, signal, index)
   if behavior then
     local parameters = behavior.parameters.parameters
     if not parameters[index] or (not parameters[index].signal.name or parameters[index].signal.name == signal.signal.name)then
+      if signal.count == 0 then
+        signal = {signal={type = "item"}, count = 1, index = index}
+      end
       parameters[index] = signal
       behavior.parameters = {parameters = parameters}
+      return
     else
       for i, param in pairs(parameters) do
         if not param.signal or not param.signal.name then
+          if signal.count == 0 then
+            signal = {signal={type = "item"}, count = 1, index = i}
+          end
           parameters[i] = signal
           parameters[i].index = i
           behavior.parameters = {parameters = parameters}
@@ -326,9 +333,6 @@ function update_station_numbers()
         local number = get_station_number(force,station.station.backer_name)
         global.stationNumbers[force][station.station.backer_name] = number
         local signal = {signal={type = "virtual", name = "signal-station-number"}, count = number, index = 1}
-        if number == 0 then
-          signal = {signal={type = "item"}, count = 1, index = 1}
-        end
         add_or_update_parameter(station.cargo.get_or_create_control_behavior(), signal, 1)
       end
     end
@@ -581,11 +585,9 @@ function on_configuration_changed(data)
     if not data or not data.mod_changes then
       return
     end
-    --debugDump(data,true)
     if data.mod_changes.SmartTrains then
       local old_version = data.mod_changes.SmartTrains.old_version
       local new_version = data.mod_changes.SmartTrains.new_version
-      --LOGGERS.main.log("Updating SmartTrains from " .. serpent.line(old_version, {comment=false}) .. " to " .. new_version)
       if old_version then
         saveGlob("PreUpdate"..old_version.."_"..game.tick)
       end
@@ -604,11 +606,6 @@ function on_configuration_changed(data)
         findStations()
       end
       global.version = new_version
-      if old_version then
-        saveGlob("PostUpdate"..old_version.."_"..game.tick)
-      end
-      --LOGGERS.main.log("Updating to " .. new_version .." done, tick: " .. game.tick)
-      --LOGGERS.main.write()
     end
     --update fuelvalue cache, in case the values changed
     for item, _ in pairs(global.fuel_values) do
@@ -721,6 +718,7 @@ local function recreateProxy(trainstop)
         debugDump("Updated smart train stop:"..trainstop.station.backer_name,true)
       end
     end
+
     if not trainstop.signalProxy or not trainstop.signalProxy.valid then
       local pos = positions.signalProxy
       local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.station.force, position=pos}

@@ -1043,9 +1043,11 @@ on_gui_click = {
       if id then
         global.stationMapping[force][name] = id
         global.stationMap[force][id][name] = true
+        global.stationNumbers[force][name] = id
       else
         global.stationMapping[force][name] = nil
         global.stationMap[force][id][name] = nil
+        global.stationNumbers[force][name] = nil
       end
       if not next(global.stationMap[force][id]) then
         global.stationMap[force][id] = nil
