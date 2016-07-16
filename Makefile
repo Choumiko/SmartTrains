@@ -1,5 +1,5 @@
-PACKAGE_NAME := SmartTrains
-VERSION_STRING := 0.4.3
+PACKAGE_NAME := $(shell cat info.json|jq -r .name)
+VERSION_STRING := $(shell cat info.json|jq -r .version)
 
 OUTPUT_NAME := $(PACKAGE_NAME)_$(VERSION_STRING)
 OUTPUT_DIR := build/$(OUTPUT_NAME)
