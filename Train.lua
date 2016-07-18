@@ -329,7 +329,7 @@ Train = {
     end,
 
     setCircuitSignal = function(self, destination)
-      if self.waitingStation and self.waitingStation.cargo and self.waitingStation.cargo.valid then
+      if self.waitingStation and self.waitingStation.station.valid and self.waitingStation.cargo and self.waitingStation.cargo.valid then
         local cargoProxy = self.waitingStation.cargo
         local behavior = self.waitingStation.cargo.get_or_create_control_behavior()
         local parameters={}

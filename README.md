@@ -49,7 +49,7 @@ Global Settings UI
 ![Global Settings](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/global_settings.png "Global Settings")
 - **Refueling:** Sets the lower and upper limits for available fuel. If any locomotive of a train is below the lower limit, it will add the refueling station, if all are above the upper limit again it will get removed.
 - **Min flow rate:** Used for the railtanker mod with the "No change" rule. If the amount of liquid in a tanker has changed by less than that rate, it is considered to be equal. With default settings: If it doesn't change by more than 2 units in 2 seconds the "No change" rule is considered true.
-- **Update intervals:** Number of ticks between checking the rules/updating the constant combinators at smart trainstops. For most saves the default values should be fine.
+- **Update intervals:** Number of ticks between updating the constant combinators at smart trainstops.
 
 Using train circuit output
 ---
