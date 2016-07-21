@@ -1232,7 +1232,10 @@ function schedule_changed(s1, s2)
   if not records1 or type(records1) ~= type(records2) then return true end
 
   for i, record in pairs(records1) do
+    if not record.wait_conditions and record.wait_conditions ~= records2[i].wait_conditions then return true end
+    if record.wait_conditions and not records2[i].wait_conditions then return true end
     if #record.wait_conditions ~= #records2[i].wait_conditions then return true end
+    
     for j, condition in pairs(record.wait_conditions) do
       local condition2 = records2[i].wait_conditions[j]
       if condition.type ~= condition2.type or

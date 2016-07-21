@@ -888,9 +888,11 @@ on_gui_click = {
         if not global.trainLines[name] then
           global.trainLines[name] = {name=name, settings = {autoRefuel = false, useMapping = false, number = 0} }
         end
+        
         local trainline = global.trainLines[name]
         local rules = trainline and util.table.deepcopy(trainline.rules) or {}
         for s_index, record in pairs(records) do
+          record.wait_conditions = record.wait_conditions or {} 
           rules[s_index] = rules[s_index] or {}
 
           rules[s_index].empty = nil
