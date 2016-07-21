@@ -31,6 +31,33 @@ Line Rules
      - Last, if neither of the previous are true, the train will proceed to the next station in the line.
      - **Note:** If the train leaves due to the waiting time passed, it will always go to the next station.
 
+Smart train stop
+---
+![Smart train stop](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/smart_trainstop.png "Smart train stop")
+
+The smart train stop has two additional components compared to a normal train stop
+ - The signal lamp: Only used in combination with the "Signal #" rule. When a train leaves the station because its waiting conditions became true, it goes to the station specified by the signal in the lamps condition.
+ - The signal output: Outputs various information about the train currently at the station
+
+Using train circuit output
+---
+- **Signals when a train is at a smart train stop:**
+ - ![Signal cargo wagons](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_cargowagons.png "Signal cargo wagons") : Number of cargo wagons
+ - ![Signal locomotives](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_locomotives.png?raw=true "Signal locomotives") : Number of locomotives
+ - ![Signal passengers](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_passenger.png?raw=true "Signal passengers") : Number of players in the train
+ - ![Signal train at station](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_train_at_station.png?raw=true "Signal train at station") : 1 if a train is at the station, 0 otherwise
+ - ![Signal line #](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_line.png?raw=true "Signal line #") : The line number assigned to the trains line, 0 if not on a line
+ - ![Signal lowest fuel](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_lowest_fuel.png?raw=true "Signal lowest fuel") : The lowest fuel in a locomotive of a train (in MJ)
+ - ![Signal station number](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_station_number.png "Signal station number") : The number of the station
+ 		- Outputs the number set in the mapping or
+ 		- outputs the position in the trains schedule if there is exactly 1 line
+ - ![Signal destination](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_destination.png "Signal destination") : The # of the station in the schedule where the train is going (set for 1 tick when the train leaves)
+ - Additionally it outputs the trains cargo
+
+Using train signal lamp
+---
+Todo.
+
 Station Mapping
 ---
 ![Station Mapping](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/station_mapping.png "Station Mapping")
@@ -49,23 +76,4 @@ Global Settings UI
 ![Global Settings](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/global_settings.png "Global Settings")
 - **Refueling:** Sets the lower and upper limits for available fuel. If any locomotive of a train is below the lower limit, it will add the refueling station, if all are above the upper limit again it will get removed.
 - **Min flow rate:** Used for the railtanker mod with the "No change" rule. If the amount of liquid in a tanker has changed by less than that rate, it is considered to be equal. With default settings: If it doesn't change by more than 2 units in 2 seconds the "No change" rule is considered true.
-- **Update intervals:** Number of ticks between updating the constant combinators at smart trainstops.
-
-Using train circuit output
----
-- **Signals when a train is at a smart trainstop:**
- - ![Signal cargo wagons](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_cargowagons.png "Signal cargo wagons") : Number of cargo wagons
- - ![Signal locomotives](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_locomotives.png?raw=true "Signal locomotives") : Number of locomotives
- - ![Signal passengers](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_passenger.png?raw=true "Signal passengers") : Number of players in the train
- - ![Signal train at station](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_train_at_station.png?raw=true "Signal train at station") : 1 if a train is at the station, 0 otherwise
- - ![Signal line #](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_line.png?raw=true "Signal line #") : The line number assigned to the trains line, 0 if not on a line
- - ![Signal lowest fuel](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_lowest_fuel.png?raw=true "Signal lowest fuel") : The lowest fuel in a locomotive of a train (in MJ)
- - ![Signal station number](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_station_number.png "Signal station number") : The number of the station
- 		- Outputs the number set in the mapping or
- 		- outputs the position in the trains schedule if there is exactly 1 line
- - ![Signal destination](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_destination.png "Signal destination") : The # of the station in the schedule where the train is going (set for 1 tick when the train leaves)
- - Additionally it outputs the trains cargo
-
-Using train signal lamp
----
-Todo.
+- **Update intervals:** Number of ticks between updating the constant combinators at smart train stops.
