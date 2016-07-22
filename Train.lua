@@ -358,7 +358,7 @@ Train = {
         end
 
         if destination then
-          log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. self.train.schedule.current)
+          --log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. self.train.schedule.current)
           parameters[i]={signal={type = "virtual", name = "signal-destination"}, count = self.train.schedule.current, index = i}
           i = i + 1
         end
@@ -671,14 +671,14 @@ Train = {
       if inLine then
         schedule.current = inLine
         self.train.schedule = schedule
-        log(self.name .. " Updated line 1")
+        log(self.name .. " Updated line (inline)")
 
       else
         schedule.current = 1
         self.train.manual_mode = true
         self.train.schedule = schedule
         self.train.manual_mode = oldmode
-        log(self.name .. " Updated line 2")
+        log(self.name .. " Updated line (not inline)")
       end
 
 

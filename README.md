@@ -36,12 +36,12 @@ Smart train stop
 ![Smart train stop](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/smart_trainstop.png "Smart train stop")
 
 The smart train stop has two additional components compared to a normal train stop
- - The signal lamp: Only used in combination with the "Signal #" rule. When a train leaves the station because its waiting conditions became true, it goes to the station specified by the signal in the lamps condition.
- - The signal output: Outputs various information about the train currently at the station
+ - The signal lamp: Only used in combination with the "Signal #" rule. When a train leaves the station because its waiting conditions became true, it goes to the station specified by the signal in the lamps condition.  
+ **Note** The condition does not have to be fulfilled, as long as the train leaves before its waiting time is over it will use the signal.
+ - The signal output: Outputs various information about the train currently at the station:
 
-Using train circuit output
----
-- **Signals when a train is at a smart train stop:**
+
+**Signal output:**
  - ![Signal cargo wagons](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_cargowagons.png "Signal cargo wagons") : Number of cargo wagons
  - ![Signal locomotives](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_locomotives.png?raw=true "Signal locomotives") : Number of locomotives
  - ![Signal passengers](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_passenger.png?raw=true "Signal passengers") : Number of players in the train
@@ -53,10 +53,6 @@ Using train circuit output
  		- outputs the position in the trains schedule if there is exactly 1 line
  - ![Signal destination](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/graphics/signal_destination.png "Signal destination") : The # of the station in the schedule where the train is going (set for 1 tick when the train leaves)
  - Additionally it outputs the trains cargo
-
-Using train signal lamp
----
-Todo.
 
 Station Mapping
 ---

@@ -978,15 +978,35 @@ function on_train_changed_state(event)
     if t.advancedState == train_state.left_station then
       if t.current then
         log(t.name .. ": Leaving station #" .. t.current .. " " .. t.train.schedule.records[t.current].station .. "  @tick: "..event.tick)
+        log(t.name .. ": t.train current #" .. t.train.schedule.current)
       end
-      --      if (event.tick-t.departAt == 0) then
-      --        log("Time passed")
-      --      else
-      --        log("Condition became true")
-      --      end
+      local jump, use_mapping
+      local needs_update = (t.line and global.trainLines[t.line]) and t.lineVersion < global.trainLines[t.line].changed or false
+      log("Checking line, needs update: " ..serpent.line( needs_update,{comment=false}))
+      local oldSchedule = t.train.schedule
+      local oldName = t:getStationName(t.current)
+      local numRecordsOld = #t.train.schedule.records
+      local newSchedule, numRecordsNew, newName
+      if needs_update then
+        if t:updateLine() then
+          newSchedule = t.train.schedule
+          newName = t:getStationName(t.current)
+          numRecordsNew = #t.train.schedule.records
+          log("old count: " .. numRecordsOld .. " new count: " .. numRecordsNew)
+          if t.current == numRecordsOld and numRecordsOld < numRecordsNew then
+            jump = t.current + 1
+            log("setting current to " .. jump)
+          end
+          if t.current > numRecordsNew then
+            jump = 1
+            log("setting current to " .. jump)
+          end
+          --TODO check if jumpTo is still used for the departing station and jump target is valid with the new schedule
+        end
+      end
+
       local rules = t:get_rules(t.current)
 
-      local jump, use_mapping
       if event.tick < t.departAt and rules and (rules.jumpTo or rules.jumpToCircuit) then
         local signalValue = rules.jumpToCircuit
         local gotoStation = rules.jumpTo
@@ -996,45 +1016,23 @@ function on_train_changed_state(event)
           --log("signalValue: " .. signalValue)
         end
         use_mapping = global.trainLines[t.line] and global.trainLines[t.line].settings.useMapping or false
-        --log("Signal: "..serpent.line(signalValue,{comment=false}) .. " use mapping: " .. serpent.line(use_mapping,{comment=false}))
+        log("Signal: "..serpent.line(signalValue,{comment=false}) .. " use mapping: " .. serpent.line(use_mapping,{comment=false}))
         if use_mapping then
           local jumpSignal, jumpTo
           if signalValue then
             jumpSignal = t:get_first_matching_station(signalValue, t.current)
             log("jumpSignal: " .. serpent.line(jumpSignal, {comment=false}) .. " -> " .. t:getStationName(jumpSignal) or " invalid index")
-            --LOGGERS.main.log("Mapping signal \t" .. signalValue .. " to " .. (t:getStationName(jumpSignal) or " invalid index"))
           end
           if gotoStation then
             jumpTo = t:get_first_matching_station(gotoStation, t.current)
             log("jumpTo: " .. serpent.line(jumpTo, {comment=false}) .. " -> " .. t:getStationName(jumpTo) or " invalid index")
-            --LOGGERS.main.log("Mapping station # \t" .. rules.jumpTo .. " to " .. (t:getStationName(jumpTo) or " invalid index"))
           end
           jump = jumpSignal or jumpTo or false
 
         else
           jump = (t:isValidScheduleIndex(signalValue)) or gotoStation or false
+          log("Jumping to " .. tostring(jump))
         end
-      end
-
-      local needs_update = (t.line and global.trainLines[t.line]) and t.lineVersion < global.trainLines[t.line].changed or false
-      log("Checking line, needs update: " ..serpent.line( needs_update,{comment=false}))
-      if needs_update then
-        --        local station = t:getStationName(t.current)
-        --        for _, rule in pairs(global.trainLines[t.line].rules) do
-        --          if rule.station == station then
-        --            if (rule.jumpToCircuit == rules.jumpToCircuit) and ((not rule.jumpTo and not rules.jumpTo) or (rule.jumpTo and rules.jumpTo)) then
-        --              rules = rule
-        --              log("update 1")
-        if t:updateLine() then
-          local y = 5
-          --TODO check if jumpTo is still used for the departing station and jump target is valid with the new schedule
-        end
-        --            else
-        --              rules = false
-        --            end
-        --            break
-        --          end
-        --        end
       end
 
       if jump then
@@ -1089,7 +1087,7 @@ function on_train_changed_state(event)
           t:removeRefuelStation()
         end
       end
-      log(t.name .. " updating")
+      --log(t.name .. " updating")
       t:updateLine()
       if t.train.speed ~= 0 then --only update direction when train is moving: prevents direction being lost when train is stopped/started at a station
         t.direction = t.train.speed < 0 and 1 or 0
@@ -1108,7 +1106,6 @@ function on_tick(event)
 
   if global.reset_signals[current_tick] then
     for _, station in pairs(global.reset_signals[current_tick]) do
-      log(game.tick .. " reset signal")
       local behavior = station.cargo.get_or_create_control_behavior()
       if behavior then
         local station_number = global.stationNumbers[station.station.force.name][station.station.backer_name] or false
