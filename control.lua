@@ -1,8 +1,3 @@
-if not defines then
-  require "defines"
-  defines.train_state = defines.trainstate
-end
-
 require "util"
 require 'stdlib.area.position'
 require 'stdlib.surface'

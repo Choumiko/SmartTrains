@@ -648,23 +648,20 @@ function sanitize_rules(player, line, rules, page)
 end
 
 on_gui_click = {
-  add_trains_to_update = function(line)
-  -- add trains for that line to be updated
-  --    local trains = global.trains
-  --    local tick = game.tick
-  --    local train
-  --    local c = 0
-  --    for i=1, #trains do
-  --      train = trains[i]
-  --      if train and train.line and train.line == line and train.train.valid and not train.opened then
-  --        if not train.scheduleUpdate or train.scheduleUpdate < tick + 60 then
-  --          train.scheduleUpdate = tick + 60 + i
-  --          insertInTable(global.scheduleUpdate, train.scheduleUpdate, train)
-  --          c = c +1
-  --        end
-  --      end
-  --    end
-  --    log("Added " .. c .. " trains to be updated")
+  add_trains_to_update = function(line, newConditions)
+    local trains = global.trains
+    local train
+    for i=1, #trains do
+      train = trains[i]
+      if train and train.line and train.line == line and train.train.valid
+        and train.train.state == defines.train_state.wait_station and not train.opened then
+        if newConditions[train.train.schedule.current] then
+          local schedule = train.train.schedule
+          schedule.records[train.train.schedule.current].wait_conditions = newConditions[train.train.schedule.current]
+          train.train.schedule = schedule
+        end
+      end
+    end
   end,
 
   on_gui_click = function(event)
@@ -746,7 +743,6 @@ on_gui_click = {
         if global.trainLines[line] then
           global.trainLines[line] = nil
         end
-        on_gui_click.add_trains_to_update(line)
       end
     end
     global.playerPage[player.index].line = 1
@@ -870,7 +866,6 @@ on_gui_click = {
     debugDump("Saved line "..line.." with "..#global.trainLines[line].records.." stations",true)
     GUI.destroyGui(player.gui[GUI.position].stGui.dynamicRules)
 
-    on_gui_click.add_trains_to_update(line)
     return true
   end,
 
@@ -888,11 +883,11 @@ on_gui_click = {
         if not global.trainLines[name] then
           global.trainLines[name] = {name=name, settings = {autoRefuel = false, useMapping = false, number = 0} }
         end
-        
+
         local trainline = global.trainLines[name]
         local rules = trainline and util.table.deepcopy(trainline.rules) or {}
         for s_index, record in pairs(records) do
-          record.wait_conditions = record.wait_conditions or {} 
+          record.wait_conditions = record.wait_conditions or {}
           rules[s_index] = rules[s_index] or {}
 
           rules[s_index].empty = nil
@@ -924,6 +919,29 @@ on_gui_click = {
         end
 
         local changed = game.tick
+
+        local conditions_changed = function()
+          if #records ~= #trainline.records then
+            return false
+          end
+          local diff = {}
+          local records2 = table.deepcopy(trainline.records)
+          for recordIndex, record in pairs(records) do
+
+            if record.station == records2[recordIndex].station then
+              log(record.station .. " " .. records2[recordIndex].station)
+              log(serpent.block({c1=record, c2=records2[recordIndex]}, {comment=false}))
+              if not util.table.compare(record.wait_conditions, records2[recordIndex].wait_conditions) then
+                diff[recordIndex] = table.deepcopy(record.wait_conditions)
+              end
+            else
+              return false
+            end
+          end
+          log(serpent.block(diff,{comment=false}))
+          return diff
+        end
+        local new_conditions = conditions_changed()
         trainline.records = records
         trainline.rules = table.deepcopy(rules)
 
@@ -939,7 +957,7 @@ on_gui_click = {
         t.lineVersion = changed
         t.rules = table.deepcopy(trainline.rules)
         update_station_numbers()
-        on_gui_click.add_trains_to_update(name)
+        on_gui_click.add_trains_to_update(name, new_conditions)
       end
     else
       debugDump("Invalid name, only letters, numbers, space, -,#,!,$ are allowed",true) --TODO localisation
