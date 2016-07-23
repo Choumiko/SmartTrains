@@ -32,7 +32,6 @@ require("Train")
 defaultTrainSettings = {autoRefuel = false}
 defaultSettings =
   { refuel = { station = "Refuel", rangeMin = 25*8, rangeMax = 50*8, time = 600 },
-    minFlow = 1, -- minimal liquid change to count as changed
     intervals = {
       write = 60, -- ticks between constant combinator updates
       inactivity = 120, --ticks between cargo comparison
@@ -504,7 +503,6 @@ local update_from_version = {
     global.settings.intervals.read = global.settings.circuit.interval or defaultSettings.intervals.read
     global.settings.intervals.noChange = defaultSettings.intervals.inactivity
     global.settings.intervals.cargoRule = global.settings.intervals.read --defaultSettings.intervals.cargoRule
-    global.settings.minFlow = global.settings.depart.minFlow or defaultSettings.minFlow
 
     global.settings.circuit = nil
     global.settings.depart = nil
@@ -579,7 +577,6 @@ local update_from_version = {
 
 
     for name, trainline in pairs(global.trainLines) do
-      log(name)
       local tmp = {}
       local records = trainline.records
       trainline.rules.inactivity = trainline.rules.noChange
@@ -674,6 +671,7 @@ local update_from_version = {
     global.settings.intervals.read = nil
     global.settings.intervals.cargoRule = nil
     global.settings.intervals.noChange = nil
+    global.settings.minFlow = nil
     return "0.4.3"
   end,
 }

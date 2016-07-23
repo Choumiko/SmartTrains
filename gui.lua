@@ -163,9 +163,6 @@ GUI = {
       GUI.addLabel(tbl,  {"stg-refuel-station"})
       GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_big", text = global.settings.refuel.station})
 
-      GUI.addLabel(tbl, {"stg-min-flow-rate"})
-      GUI.addTextfield(tbl, {name="minFlow", style="st_textfield_small", text = global.settings.minFlow})
-
       local intervals = gui.globalSettings.add({type = "frame", name="frm_intervals", direction="horizontal", style = "st_inner_frame", caption = {"stg-intervals"}})
       tbl = intervals.add{type="table", name="tbl", colspan=2, style="st_table"}
 
@@ -713,15 +710,12 @@ on_gui_click = {
     local station = refueling.refuelStation.text
     global.settings.refuel = {time=time, rangeMin = min, rangeMax = max, station = station}
 
-    local minFlow = sanitizeNumber(refueling.minFlow.text, global.settings.minFlow)
-
     local intervals = settings.frm_intervals.tbl
     local i_inactivity = 120 --sanitizeNumber(intervals.intervals_inactivity.text, global.settings.intervals.inactivity)
     local i_write = sanitizeNumber(intervals.intervals_write.text, global.settings.intervals.write)
 
     if i_write < 1 then i_write = 1 end
 
-    global.settings.minFlow = minFlow
     global.settings.intervals = {write = i_write, inactivity = i_inactivity}
 
     return true
