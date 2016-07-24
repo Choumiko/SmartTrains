@@ -37,7 +37,9 @@ Smart train stop
 
 The smart train stop has two additional components compared to a normal train stop
  - The signal lamp: Only used in combination with the "Signal #" rule. When a train leaves the station because its waiting conditions became true, it goes to the station specified by the signal in the lamps condition.  
- **Note** The condition does not have to be fulfilled, as long as the train leaves before its waiting time is over it will use the signal.
+ **Notes:**  
+ The condition does not have to be fulfilled, as long as the train leaves before its waiting time is over it will use the signal.  
+ If a train should leave when the condition is true, simply set the condition in the train schedule / line to the same as the lamp condition and connect the lamp to the trainstop via red or green wire. 
  - The signal output: Outputs various information about the train currently at the station:
 
 

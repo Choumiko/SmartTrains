@@ -1225,7 +1225,7 @@ function schedule_changed(s1, s2)
     if not record.wait_conditions and record.wait_conditions ~= records2[i].wait_conditions then return true end
     if record.wait_conditions and not records2[i].wait_conditions then return true end
     if #record.wait_conditions ~= #records2[i].wait_conditions then return true end
-    
+
     for j, condition in pairs(record.wait_conditions) do
       local condition2 = records2[i].wait_conditions[j]
       if condition.type ~= condition2.type or
@@ -1699,7 +1699,7 @@ function findStations()
     global.stationCount[force][station.backer_name] = global.stationCount[force][station.backer_name] + 1
   end
   global.searchedStations = game.tick
-    
+
   log("Found " .. #results .. " smart trainstops (all forces)")
 end
 
