@@ -23,14 +23,14 @@ GUI = {
 
   position = "left",
 
-  create_or_update = function(trainInfo, player_index)
+  create_or_update = function(player_index)
     local player = game.players[player_index]
     if player.valid then
       local main = GUI.buildGui(player)
       GUI.showSettingsButton(main)
       if player.opened then
         if player.opened.type == "locomotive" then
-          GUI.showTrainInfoWindow(main, trainInfo, player_index)
+          GUI.showTrainInfoWindow(main, player_index)
         elseif player.opened.type == "train-stop" then
           if not main.frameMapping or not main.frameMapping.valid then
             GUI.add(main, { type = "frame", name = "frameMapping", caption = "Station mapping", direction = "vertical", style = "st_frame" })
@@ -38,7 +38,7 @@ GUI = {
           GUI.showStationMapping(player_index)
         end
       end
-      GUI.showTrainLinesWindow(main,trainInfo, player_index)
+      GUI.showTrainLinesWindow(main, player_index)
     end
   end,
 
@@ -184,14 +184,16 @@ GUI = {
     end
   end,
 
-  showTrainInfoWindow = function(parent, trainInfo, player_index)
+  showTrainInfoWindow = function(parent, player_index)
     local gui = parent
     if gui.trainSettings ~= nil then
       gui.trainSettings.destroy()
     end
-    local keyUI = getTrainKeyFromUI(player_index)
-    local t = trainInfo or global.trains[keyUI]
-    local trainKey = getTrainKeyByTrain(global.trains, t.train)
+    local t = TrainList.getTrainInfoFromUI(player_index)
+    if not t then
+      return
+    end
+
     --log(serpent.line(trainInfo))
     --log(serpent.line({kUI=keyUI, trainkey=trainKey, t=t}))
     local trainLine = t.line and global.trainLines[t.line] or false
@@ -206,7 +208,7 @@ GUI = {
     local tableRows = GUI.add(gui, {type="table", name="rows", colspan=1})
     local checkboxes = GUI.add(tableRows, {type="table", name="checkboxes", colspan=2})
     if not trainLine then
-      GUI.add(checkboxes, {type="checkbox", name="btn_refuel__"..trainKey, caption={"lbl-refuel"}, state=t.settings.autoRefuel})
+      GUI.add(checkboxes, {type="checkbox", name="btn_refuel__"..t.ID, caption={"lbl-refuel"}, state=t.settings.autoRefuel})
     end
     local tbl = GUI.add(tableRows, {type="table", name="line", colspan=2})
     GUI.addLabel(tbl, {"", {"lbl-active-line"}, ": ", line})
@@ -275,21 +277,16 @@ GUI = {
           elseif rule.jumpTo then
             table.insert(chunks, {"invalid #"}) --TODO: localisation
           end
-          local text = {""}
-          local chunk_count = #chunks
-          for _, chunk_ in pairs(chunks) do
-            for _, bit in pairs(chunk_) do
-              table.insert(text, bit)
-            end
-          end
-          GUI.addLabel(tbl1, text)
-          GUI.addPlaceHolder(tbl1)
-
-        else
-          GUI.addPlaceHolder(tbl1,2)
         end
-
-
+        local text = {""}
+        local chunk_count = #chunks
+        for _, chunk_ in pairs(chunks) do
+          for _, bit in pairs(chunk_) do
+            table.insert(text, bit)
+          end
+        end
+        GUI.addLabel(tbl1, text)
+        GUI.addPlaceHolder(tbl1)
       end
     end
     local btns = GUI.add(tableRows,{type="table", name="btns", colspan=2})
@@ -311,16 +308,16 @@ GUI = {
       GUI.addPlaceHolder(pages)
     end
     GUI.addPlaceHolder(btns)
-    GUI.addButton(btns, {name="saveAsLine__"..trainKey..lineKey, caption={"lbl-save-as-line"}})
+    GUI.addButton(btns, {name="saveAsLine__"..t.ID..lineKey, caption={"lbl-save-as-line"}})
     local line_ = GUI.addTextfield(btns, {name="saveAslineName", text="", style="st_textfield_big"})
     if trainLine then
       line_.text = trainLine.name
     end
   end,
 
-  showTrainLinesWindow = function(_, trainInfo, player_index)
-    local gui = game.players[player_index].gui[GUI.position].stGui.rows
-    local trainKey = trainInfo and getTrainKeyByTrain(global.trains, trainInfo.train) or 0
+  showTrainLinesWindow = function(gui, player_index)
+    local trainInfo = TrainList.getTrainInfoFromUI(player_index)
+    local trainKey = trainInfo and trainInfo.ID or 0
     if gui.trainLines ~= nil then
       gui.trainLines.destroy()
     end
@@ -667,7 +664,7 @@ on_gui_click = {
       local player = game.players[event.player_index]
       local refresh = false
       local element = event.element
-      local trainInfo = global.trains[getTrainKeyFromUI(event.player_index)]
+
       if on_gui_click[element.name] then
         refresh = on_gui_click[element.name](player)
       else
@@ -677,7 +674,7 @@ on_gui_click = {
         end
       end
       if refresh then
-        GUI.create_or_update(trainInfo,event.player_index)
+        GUI.create_or_update(event.player_index)
       end
     end)
     if not status then
@@ -994,7 +991,7 @@ on_gui_click = {
       t.train.schedule = schedule
     end
     t.lineVersion = -1
-    GUI.create_or_update(t,player.index)
+    GUI.create_or_update(player.index)
   end,
 
   prevPageTrain = function(player,option2)

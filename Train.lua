@@ -1,9 +1,10 @@
 Train = {
 
-    new = function(train)
+    new = function(train, id)
       if train.valid then
         local new = {
           train = train,
+          ID = id,
           line = false,
           lineVersion = 0,
           settings = {},
@@ -72,6 +73,22 @@ Train = {
       local type = table.concat(parts,'')
       type = type:gsub("LC","L-C"):gsub("CL", "C-L")
       return string.gsub(string.gsub(type, "^-", ""), "-$", "")
+    end,
+
+    update = function(self, id, train)
+      self.type = self:getType()
+      self.ID = id
+      self.train = train
+      self.railtanker = false
+      self.passengers = 0
+      for _, c in pairs(train.carriages) do
+        if c.name == "rail-tanker" then
+          self.railtanker = true
+        end
+        if c.passenger and c.passenger.name ~= "fatcontroller" then
+          self.passengers = self.passengers + 1
+        end
+      end
     end,
 
     printName = function(self)
