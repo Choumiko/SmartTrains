@@ -870,7 +870,11 @@ on_gui_click = {
       option2 = tonumber(option2)
       local t = global.trains[option2]
       local is_copy = t.line and t.line ~= name
-
+      if not t.train.schedule.records then
+        player.print("Train has no stations in the schedule") --TODO localization
+        return
+      end
+      
       if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
         local records = util.table.deepcopy(t.train.schedule.records)
         --new train line
@@ -923,8 +927,8 @@ on_gui_click = {
           for recordIndex, record in pairs(records) do
 
             if record.station == records2[recordIndex].station then
-              log(record.station .. " " .. records2[recordIndex].station)
-              log(serpent.block({c1=record, c2=records2[recordIndex]}, {comment=false}))
+              --log(record.station .. " " .. records2[recordIndex].station)
+              --log(serpent.block({c1=record, c2=records2[recordIndex]}, {comment=false}))
               if not util.table.compare(record.wait_conditions, records2[recordIndex].wait_conditions) then
                 diff[recordIndex] = table.deepcopy(record.wait_conditions)
               end
@@ -932,10 +936,10 @@ on_gui_click = {
               return false
             end
           end
-          log(serpent.block(diff,{comment=false}))
+          --log(serpent.block(diff,{comment=false}))
           return diff
         end
-        local new_conditions = conditions_changed()
+        local new_conditions = trainline.records and conditions_changed()
         trainline.records = records
         trainline.rules = table.deepcopy(rules)
 

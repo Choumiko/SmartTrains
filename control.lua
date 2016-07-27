@@ -674,6 +674,7 @@ local update_from_version = {
     global.settings.minFlow = nil
     return "0.4.3"
   end,
+  ["0.4.3"] = function() return "0.4.4" end,
 }
 
 function on_configuration_changed(data)
@@ -1777,6 +1778,7 @@ remote.add_interface("st",
       if confirm then
         global = nil
         initGlob()
+        init_forces()
         init_players()
         findStations()
       end
