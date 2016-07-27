@@ -1817,6 +1817,7 @@ remote.add_interface("st",
       if confirm then
         global = nil
         initGlob()
+        init_forces()
         init_players()
         findStations()
       end
