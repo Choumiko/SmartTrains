@@ -82,8 +82,12 @@ end
 
 TrainList.addTrainInfo = function(train)
   local id = TrainList.getTrainID(train)
-  assert(not global.trains[id])
-  
+  if id then
+    assert(not global.trains[id])
+    local trainInfo = Train.new(train, id)
+    global.trains[id] = trainInfo
+    return trainInfo
+  end
 end
 
 TrainList.updateTrainInfo = function(train)
@@ -92,20 +96,24 @@ TrainList.updateTrainInfo = function(train)
     log("No locomotive in train")
     return
   end
-  if global.trains[newMainID] then
-    local ti = global.trains[newMainID]
-    ti:update(newMainID, train)
-  else
-    local newLocos = TrainList.getLocomotives(train)
-    for _, loco in pairs(newLocos) do
-      if global.trains[loco.unit_number] then
+  local newLocos = TrainList.getLocomotives(train)
+  local found = false
+  for _, loco in pairs(newLocos) do
+    if global.trains[loco.unit_number] then
+      if newMainID == loco.unit_number then
+        log("found main loco " .. newMainID)
         local ti = global.trains[loco.unit_number]
         assert(not ti.train.valid)
-        ti:update(newMainID, train)
-        break
+        ti:update(train, newMainID)
+        global.trains[newMainID] = ti
+        found =  ti
+      else
+        log("not main loco " .. loco.unit_number)
+        global.trains[loco.unit_number] = nil
       end
     end
   end
+  return found or TrainList.addTrainInfo(train)
 end
 
 TrainList.getTrainInfo = function(train)
@@ -113,10 +121,7 @@ TrainList.getTrainInfo = function(train)
   local trainInfo = global.trains[id]
   if not trainInfo then
     if train.valid and id then
-      trainInfo = Train.new(train, id)
-      global.trains[id] = trainInfo
-    elseif not train.valid then
-      TrainList.updateTrainInfo(train)
+      return TrainList.addTrainInfo(train)
     end
   end
   return trainInfo
@@ -754,7 +759,8 @@ local update_from_version = {
     global.settings.minFlow = nil
     return "0.4.3"
   end,
-  ["0.4.3"] = function()
+  ["0.4.3"] = function() return "0.4.4" end,
+  ["0.4.4"] = function()
     local trains = {}
     local trainCount = #global.trains
     local id = false
@@ -767,7 +773,7 @@ local update_from_version = {
       end
     end
     global.train = trains
-    return "0.4.4"
+    return "0.4.5"
   end,
 }
 
@@ -1035,21 +1041,27 @@ function addInventoryContents(invA, invB)
   return res
 end
 
+function getKeyByValue(t, value)
+  for k, v in pairs(t) do
+    if v == value then
+      return k
+    end
+  end
+end
+
 function on_train_changed_state(event)
-  --debugDump(game.tick.." "..getKeyByValue(defines.train_state, event.train.state),true)
+  log(game.tick.." "..getKeyByValue(defines.train_state, event.train.state))
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
     local trainKey
     local t = TrainList.getTrainInfo(train)
-    assert(t.train.valid)
+    log(serpent.line(t))
+    --assert(t.train.valid)
     -- TODO is this for de/coupling an automated train???
-    --    if not trainKey or (t.train and not t.train.valid) then
-    --      removeInvalidTrains()
-    --      getTrainFromEntity(train.carriages[1])
-    --      trainKey = TrainList.getTrainInfo(global.trains, train)
-    --      t = global.trains[trainKey]
-    --    end
+    if not t.train.valid then
+      t = TrainList.updateTrainInfo(train)
+    end
 
     --log(t.name .. " ".. util.getKeyByValue(defines.train_state, event.train.state))
     t:updateState()
@@ -1489,10 +1501,13 @@ function on_built_entity(event)
       end
     end
     if ctype == "locomotive" or ctype == "cargo-wagon" then
-      if #ent.train.carriages == 1 then
-        TrainList.addTrainInfo(ent.train)
+      local c = #ent.train.carriages
+      if c == 1 then
+        if ctype == "locomotive" then
+          TrainList.addTrainInfo(ent.train)
+        end
       else
-        TrainList.updateTraininfo(ent.train)
+        TrainList.updateTrainInfo(ent.train)
       end
     end
     if ctype == "train-stop" then
@@ -1526,11 +1541,11 @@ function on_preplayer_mined_item(event)
 
       if #ent.train.carriages > 1 then
         if not global.tmpPos then global.tmpPos = {} end
-        if ent.train.carriages[ownPos-1] ~= nil then
-          table.insert(global.tmpPos, ent.train.carriages[ownPos-1].position)
+        if ent.train.carriages[ownPos-1] then
+          table.insert(global.tmpPos, ent.train.carriages[ownPos-1])
         end
-        if ent.train.carriages[ownPos+1] ~= nil then
-          table.insert(global.tmpPos, ent.train.carriages[ownPos+1].position)
+        if ent.train.carriages[ownPos+1] then
+          table.insert(global.tmpPos, ent.train.carriages[ownPos+1])
         end
       else
         TrainList.removeTrain(oldTrainInfo)
@@ -1551,23 +1566,12 @@ end
 function on_player_mined_item(event)
   local status, err = pcall(function()
     local name = event.item_stack.name
+    local type = game.item_prototypes[name].place_result and game.item_prototypes[name].place_result.type
     local results = {}
-    if name == "diesel-locomotive" or name == "cargo-wagon" then
+    if type == "locomotive" or type == "cargo-wagon" then
       if global.tmpPos then
-        for _,pos in pairs(global.tmpPos) do
-          local area = {{pos.x-1, pos.y-1},{pos.x+1, pos.y+1}}
-          local loco = game.players[event.player_index].surface.find_entities_filtered{area=area, type="locomotive"}
-          local wagon = game.players[event.player_index].surface.find_entities_filtered{area=area, type="cargo-wagon"}
-          if #loco > 0 then
-            table.insert(results, loco)
-          elseif #wagon > 0 then
-            table.insert(results, wagon)
-          end
-        end
-        for _, result in pairs(results) do
-          for _, t in pairs(result) do
-            TrainList.getTrainInfo(t.train)
-          end
+        for _, entity in pairs(global.tmpPos) do
+          TrainList.updateTrainInfo(entity.train)
         end
         global.tmpPos = nil
       end

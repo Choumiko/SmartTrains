@@ -19,30 +19,36 @@ Train = {
           passengers = 0,
         }
         new.settings.autoRefuel = defaultTrainSettings.autoRefuel
-        if train.locomotives ~= nil and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
-          if train.locomotives.front_movers[1] then
-            new.name = train.locomotives.front_movers[1].backer_name
-          elseif train.locomotives.back_movers[1] then
-            new.name = train.locomotives.back_movers[1].backer_name
-          else
-            new.name = "Some Loco"
-            debugDump("Some loco",true)
-          end
-        else
-          new.name = "cargoOnly"
-        end
-        for _, c in pairs(train.carriages) do
-          if c.name == "rail-tanker" then
-            new.railtanker = true
-          end
-          if c.passenger and c.passenger.name ~= "fatcontroller" then
-            new.passengers = new.passengers + 1
-          end
-        end
+
         setmetatable(new, {__index = Train})
-        new.type = new:getType()
+        new:update(train, id)
         return new
       end
+    end,
+
+    getLocomotives = function(self)
+      local locomotives = {}
+      if self.train.locomotives then
+        for _, loco in pairs(self.train.locomotives.front_movers) do
+          table.insert(locomotives, loco)
+        end
+        for _, loco in pairs(self.train.locomotives.back_movers) do
+          table.insert(locomotives, loco)
+        end
+      end
+      return locomotives
+    end,
+
+    getName = function(self)
+      local train = self.train
+      if train.locomotives ~= nil and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
+        if self.train.locomotives.front_movers[1] then
+          return train.locomotives.front_movers[1].backer_name
+        elseif train.locomotives.back_movers[1] then
+          return train.locomotives.back_movers[1].backer_name
+        end
+      end
+      return ""
     end,
 
     getType = function(self)
@@ -75,12 +81,13 @@ Train = {
       return string.gsub(string.gsub(type, "^-", ""), "-$", "")
     end,
 
-    update = function(self, id, train)
-      self.type = self:getType()
+    update = function(self, train, id)
       self.ID = id
       self.train = train
-      self.railtanker = false
+      self.type = self:getType()
+      self.name = self:getName()
       self.passengers = 0
+      self.railtanker = false
       for _, c in pairs(train.carriages) do
         if c.name == "rail-tanker" then
           self.railtanker = true
