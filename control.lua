@@ -910,22 +910,52 @@ end
 function findTrainStopByTrain(vehicle, rail)
   local surface = vehicle.surface
   local trainDir = round(vehicle.orientation*8,0) % 8
-  --[raildir][traindir]
+  -- [trainDir][rail.direction][rail.type]
   --debugDump("o: " .. trainDir .. "r: " .. rail.position.x .."|"..rail.position.y,true)
   local offsets = {
     [0] = {
-      [0] = {position = { x = 2, y = -2}, direction = 0},
-      [4] = {position = { x = -2, y = 2}, direction = 4}
+      [0] = {
+        ['straight-rail'] = { x = 2, y = -2 }},
+      [4] = {
+        ['curved-rail'] = { x = 1, y = -5 }},
+      [5] = {
+        ['curved-rail'] = { x = 3, y = -5 }},
     },
     [2] = {
-      [2] = {position = { x = 2, y = 2}, direction = 2},
-      [6] = {position = { x = -2, y = -2}, direction = 6}
+      [2] = {
+        ['straight-rail'] = { x = 2, y = 2 }},
+      [6] = {
+        ['curved-rail'] = { x = 5, y = 1 }
+      },
+      [7] = {
+        ['curved-rail'] = { x = 5, y = 3 }
+      },
+    },
+    [4] = {
+      [0] = {
+        ['straight-rail'] = { x = -2, y = 2 },
+        ['curved-rail'] = { x = -1, y = 5}
+      },
+      [1] = {
+        ['curved-rail']   = { x = -3, y = 5}},
+    },
+    [6] = {
+      [2] = {
+        ['straight-rail'] = { x = -2, y = -2 },
+        ['curved-rail']   = { x = -5, y = -1 }},
+      [3] = {
+        ['curved-rail'] = { x = -5, y = -3 }
+      },
     },
   }
-  local off = offsets
-  local pos = Position.add(rail.position, off[rail.direction][trainDir].position)
+  local pos = Position.add(rail.position, offsets[trainDir][rail.direction][rail.type])
   local stops = surface.find_entities_filtered{type="train-stop", area = Position.expand_to_area(pos, 0.25)}
+  log("stops " .. #stops)
+  flyingText("T", colors.RED, pos, true, rail.surface)
+  log(serpent.line({rail={pos=rail.position, dir=rail.direction, name=rail.type}, trainDir=trainDir},{comment=false}))
   if #stops == 0 then
+    log("forgot one: ")
+    log(serpent.line({rail={pos=rail.position, dir=rail.direction, name=rail.type}, trainDir=trainDir},{comment=false}))
     pos = Position.translate(pos, trainDir, -2)
     stops = surface.find_entities_filtered{type="train-stop", area = Position.expand_to_area(pos, 0.25)}
   end
@@ -1050,7 +1080,7 @@ function getKeyByValue(t, value)
 end
 
 function on_train_changed_state(event)
-  log(game.tick.." "..getKeyByValue(defines.train_state, event.train.state))
+  --log(game.tick.." "..getKeyByValue(defines.train_state, event.train.state))
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
