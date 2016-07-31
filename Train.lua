@@ -278,19 +278,20 @@ Train = {
       if self.waiting then
         return
       end
-      local vehicle = (self.direction and self.direction == 0) and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
-      local rail = (self.direction and self.direction == 0) and self.train.front_rail or self.train.back_rail
+
       local current_tick = game.tick
-      self.waitingStation = findSmartTrainStopByTrain(vehicle, rail, self:getStationName())
       --log(serpent.block(self.waitingStation,{comment=false}))
       local rules = self:get_rules()
 
-      local station = findTrainStopByTrain(vehicle, rail)
+      local station = findTrainStopByTrain(self)
       if station and station.backer_name ~= self:getStationName() then
         log(game.tick .. " station name mismatch")
         return
       end
-
+      if not station then
+        log("state is wait_station but no trainstation found")
+      end
+      self.waitingStation = findSmartTrainStopByTrain(self, self:getStationName())
       if not self.waitingStation and rules and rules.jumpToCircuit then
         --TODO proper error message
         debugDump("No smart trainstop with go to signal# rule. Line: " .. self.line .. " @ station " .. self.train.schedule.records[self.train.schedule.current].station, true) --TODO localisation
@@ -357,7 +358,6 @@ Train = {
     setCircuitSignal = function(self, destination)
       if self.waitingStation and self.waitingStation.station.valid and self.waitingStation.cargo and self.waitingStation.cargo.valid then
         local cargoProxy = self.waitingStation.cargo
-        local behavior = self.waitingStation.cargo.get_or_create_control_behavior()
         local parameters={}
 
         local min_fuel = self:lowestFuel(true)

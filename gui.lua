@@ -234,7 +234,7 @@ GUI = {
       for i=start, max do
         local s = records[i]
 
-        local time = {"lbl-forever"}
+        local time
         local chunks = {}
         local chunk = {}
 
@@ -247,8 +247,7 @@ GUI = {
               table.insert(chunk, " ")
             end
             if condition.type == "time" then
-              time = math.floor(condition.ticks/60)
-              table.insert(chunk, {"lbl-time", time})
+              table.insert(chunk, {"lbl-time", math.floor(condition.ticks/60)})
             elseif condition.type == "circuit" then
               table.insert(chunk, {"lbl-wait-for-circuit"})
             else
@@ -279,7 +278,6 @@ GUI = {
           end
         end
         local text = {""}
-        local chunk_count = #chunks
         for _, chunk_ in pairs(chunks) do
           for _, bit in pairs(chunk_) do
             table.insert(text, bit)

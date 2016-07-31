@@ -104,7 +104,6 @@ TrainList.updateTrainInfo = function(train)
       else
         table.insert(found, global.trains[loco.unit_number])
       end
-      local ti = global.trains[loco.unit_number]
     end
   end
   -- old front loco stays front loco
@@ -359,10 +358,6 @@ function onload()
   setMetatables()
 end
 
-local function updateSetting(setting, defaults, old_keys)
-  setting = table.update(setting, defaults, true) table.remove_keys(setting, old_keys)
-end
-
 local function update_0_3_77()
   global.settings.lines = nil
   global.stopTick = nil
@@ -467,7 +462,7 @@ end
 function update_station_numbers()
   for force, smartTrainstops in pairs(global.smartTrainstops) do
     global.stationNumbers[force] = {}
-    for key, station in pairs(smartTrainstops) do
+    for _, station in pairs(smartTrainstops) do
       if station.station and station.station.valid then
         local number = get_station_number(force,station.station.backer_name)
         global.stationNumbers[force][station.station.backer_name] = number
@@ -495,7 +490,11 @@ local function getProxyPositions(trainstop)
 end
 
 local function recreateProxy(station)
-  local trainstop = global.smartTrainstops[station.force.name][stationKey(station)]
+  local key = stationKey(station)
+  if not global.smartTrainstops[station.force.name][key] then
+    global.smartTrainstops[station.force.name][key] = {station = station}
+  end
+  local trainstop = global.smartTrainstops[station.force.name][key]
   local positions = getProxyPositions(trainstop.station)
   if trainstop.station.valid then
     local force = trainstop.station.force.name
@@ -504,11 +503,11 @@ local function recreateProxy(station)
       local proxycargo = {name="smart-train-stop-proxy-cargo", direction=0, force=trainstop.station.force, position=poscargo}
       local ent2 = trainstop.station.surface.create_entity(proxycargo)
       if ent2.valid then
-        global.smartTrainstops[force][stationKey(trainstop.station)].cargo = ent2
+        global.smartTrainstops[force][key].cargo = ent2
         ent2.minable = false
         ent2.operable = false
         ent2.destructible = false
-        log("Updated smart train stop cargo:"..trainstop.station.backer_name)
+        --log("Updated smart train stop cargo: " .. trainstop.station.unit_number .. " " ..trainstop.station.backer_name)
       end
     else
       if trainstop.cargo and trainstop.cargo.valid then
@@ -525,10 +524,10 @@ local function recreateProxy(station)
       local proxy = {name="smart-train-stop-proxy", direction=0, force=trainstop.station.force, position=pos}
       local ent = trainstop.station.surface.create_entity(proxy)
       if ent.valid then
-        global.smartTrainstops[force][stationKey(trainstop.station)].signalProxy=ent
+        global.smartTrainstops[force][key].signalProxy=ent
         ent.minable = false
         ent.destructible = false
-        log("Updated smart train stop signal:"..trainstop.station.backer_name)
+        --log("Updated smart train stop signal: " .. trainstop.station.unit_number .. " " ..trainstop.station.backer_name)
       end
     else
       if trainstop.signalProxy and trainstop.signalProxy.valid then
@@ -564,8 +563,8 @@ local function fixSmartstopTable()
     end
   end
   global.smartTrainstops = tmp
-  for force, stops in pairs(global.smartTrainstops) do
-    for key, smartStop in pairs(stops) do
+  for _, stops in pairs(global.smartTrainstops) do
+    for _, smartStop in pairs(stops) do
       recreateProxy(smartStop.station)
     end
   end
@@ -643,7 +642,7 @@ local update_from_version = {
         end
       end
     end
-    return "0.3.9"
+    return "0.3.9", true
   end,
   ["0.3.9"] = function()
     global.settings.intervals.write = global.settings.circuit.interval or defaultSettings.intervals.write
@@ -774,7 +773,6 @@ local update_from_version = {
       end
       trainline.records = records
       trainline.rules = table.deepcopy(tmp)
-      tmp = {}
     end
 
     local remove_invalid = false
@@ -795,7 +793,7 @@ local update_from_version = {
       end
     end
     if remove_invalid then
-     TrainList.removeInvalidTrains()
+      TrainList.removeInvalidTrains()
     end
     return "0.3.96"
   end,
@@ -824,7 +822,7 @@ local update_from_version = {
   ["0.4.3"] = function() return "0.4.4" end,
   ["0.4.4"] = function()
     local trains = {}
-    local id = false
+    local id
     for _, trainInfo in pairs(global.trains) do
       id = TrainList.getTrainID(trainInfo.train)
       assert(id and not trains[id])
@@ -865,15 +863,19 @@ function on_configuration_changed(data)
       init_forces()
       init_players()
       setMetatables()
+      local searchedStations = false
       if old_version and new_version then
         local ver = update_from_version[old_version] and old_version or "0.0.0"
+        local searched = false
         while ver ~= new_version do
-          ver = update_from_version[ver]()
+          ver, searched = update_from_version[ver]()
+          searchedStations = searchedStations or searched
         end
         debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
       end
-
-      findStations()
+      if not searchedStations then
+        findStations()
+      end
       global.version = new_version
     end
     --update fuelvalue cache, in case the values changed
@@ -918,14 +920,12 @@ function createProxy(trainstop)
     if smartStop.signalProxy and smartStop.signalProxy.valid then
       if not Position.equals(positions.signalProxy, smartStop.signalProxy.position) then
         smartStop.signalProxy.teleport(positions.signalProxy)
-        signalProxy = smartStop.signalProxy
         log("moved signal proxy " .. trainstop.backer_name)
       end
     end
     if smartStop.cargo and smartStop.cargo.valid then
       if not Position.equals(positions.cargo, smartStop.cargo.position) then
         smartStop.cargo.teleport(positions.cargo)
-        cargoProxy = smartStop.cargo
         log("moved cargo proxy " .. trainstop.backer_name)
       end
     end
@@ -980,11 +980,11 @@ function round(num, idp)
   return math.floor(num*mult +0.5)/mult
 end
 
-function findTrainStopByTrain(vehicle, rail)
-  local surface = vehicle.surface
-  local trainDir = round(vehicle.orientation*8,0) % 8
-  -- [trainDir][rail.direction][rail.type]
-  --debugDump("o: " .. trainDir .. "r: " .. rail.position.x .."|"..rail.position.y,true)
+function findTrainStop(surface, position)
+  return surface.find_entities_filtered{type="train-stop", area = Position.expand_to_area(position, 0.25)}
+end
+
+function findTrainStopByTrain(trainInfo)
   local offsets = {
     [0] = {
       [0] = {
@@ -1021,26 +1021,44 @@ function findTrainStopByTrain(vehicle, rail)
       },
     },
   }
+
+  local vehicle = (trainInfo.direction and trainInfo.direction == 0) and trainInfo.train.carriages[1] or trainInfo.train.carriages[#trainInfo.train.carriages]
+  local vehicleOther = (trainInfo.direction and trainInfo.direction == 0) and trainInfo.train.carriages[#trainInfo.train.carriages] or trainInfo.train.carriages[1]
+  local rail = (trainInfo.direction and trainInfo.direction == 0) and trainInfo.train.front_rail or trainInfo.train.back_rail
+  local railOther = (trainInfo.direction and trainInfo.direction == 0) and trainInfo.train.back_rail or trainInfo.train.front_rail
+  local surface = vehicle.surface
+
+  local trainDir = round(vehicle.orientation*8,0) % 8
+  local trainDirOther = round(vehicleOther.orientation*8,0) % 8
+  -- [trainDir][rail.direction][rail.type]
   local pos = Position.add(rail.position, offsets[trainDir][rail.direction][rail.type])
-  local stops = surface.find_entities_filtered{type="train-stop", area = Position.expand_to_area(pos, 0.25)}
-  log("stops " .. #stops)
+  local posOther
+  local stops = findTrainStop(surface, pos)
   flyingText("T", colors.RED, pos, true, rail.surface)
-  log(serpent.line({rail={pos=rail.position, dir=rail.direction, name=rail.type}, trainDir=trainDir},{comment=false}))
+  local off = (offsets[trainDirOther] and offsets[trainDirOther][railOther.direction]) and offsets[trainDirOther][railOther.direction][railOther.type] or false
+  if #stops == 0 and off then
+    posOther = Position.add(railOther.position, off)
+    stops = findTrainStop(surface, posOther)
+  end  
+  
   if #stops == 0 then
-    log("forgot one: ")
-    log(serpent.line({rail={pos=rail.position, dir=rail.direction, name=rail.type}, trainDir=trainDir},{comment=false}))
     pos = Position.translate(pos, trainDir, -2)
-    stops = surface.find_entities_filtered{type="train-stop", area = Position.expand_to_area(pos, 0.25)}
+    stops = findTrainStop(surface, pos)
+    if #stops == 0 and posOther then
+      pos = Position.translate(posOther, trainDirOther, -2)
+      stops = findTrainStop(surface, pos)
+    end
   end
+
   return stops[1]
 end
 
-function findSmartTrainStopByTrain(vehicle, rail, stationName)
-  local station = findTrainStopByTrain(vehicle, rail)
+function findSmartTrainStopByTrain(trainInfo, stationName)
+  local station = findTrainStopByTrain(trainInfo)
   --TODO trainstop at curve!!
   if station and station.name == "smart-train-stop" and station.backer_name == stationName then
     flyingText("S", colors.GREEN, station.position, true, station.surface)
-    return global.smartTrainstops[vehicle.force.name][stationKey(station)]
+    return global.smartTrainstops[station.force.name][stationKey(station)]
   end
   return false
 end
@@ -1132,7 +1150,6 @@ function on_train_changed_state(event)
   --debugLog("train changed state to "..event.train.state.. " s")
   local status, err = pcall(function()
     local train = event.train
-    local trainKey
     local t = TrainList.getTrainInfo(train)
     --log(serpent.line(t,{comment=false}))
     --assert(t.train.valid)
@@ -1154,13 +1171,13 @@ function on_train_changed_state(event)
       log("Checking line, needs update: " ..serpent.line( needs_update,{comment=false}))
       local oldSchedule = t.train.schedule
       local oldName = t:getStationName(t.current)
-      local numRecordsOld = #t.train.schedule.records
+      local numRecordsOld = #oldSchedule.records
       local newSchedule, numRecordsNew, newName
       if needs_update then
         if t:updateLine() then
           newSchedule = t.train.schedule
           newName = t:getStationName(t.current)
-          numRecordsNew = #t.train.schedule.records
+          numRecordsNew = #newSchedule.records
           log("old count: " .. numRecordsOld .. " new count: " .. numRecordsNew)
           if t.current == numRecordsOld and numRecordsOld < numRecordsNew then
             jump = t.current + 1
@@ -1169,6 +1186,16 @@ function on_train_changed_state(event)
           if t.current > numRecordsNew then
             jump = 1
             log("setting current to " .. jump)
+          end
+          if newName ~= oldName then
+            --TODO find oldStation in schedule and use its rules?
+            for newIndex, r in pairs(newSchedule.records) do
+              if r.station == oldName then
+                log("setting current to new value: " .. t.current .. " -> " .. newIndex)
+                --t.current = newIndex
+              end
+            end
+            log("updating line changed name of current station, so what?")
           end
           --TODO check if jumpTo is still used for the departing station and jump target is valid with the new schedule
         end
@@ -1236,7 +1263,7 @@ function on_train_changed_state(event)
       t:setWaitingStation()
       t.current = t.train.schedule.current
 
-      local rules = t:get_rules()
+      --local rules = t:get_rules()
       --log("waiting: " .. serpent.line(rules,{comment=false}))
 
       t.departAt = event.tick + t:getWaitingTime()
@@ -1646,7 +1673,6 @@ function on_player_mined_item(event)
   local status, err = pcall(function()
     local name = event.item_stack.name
     local type = game.item_prototypes[name].place_result and game.item_prototypes[name].place_result.type
-    local results = {}
     if type == "locomotive" or type == "cargo-wagon" then
       if global.tmpPos then
         for _, entity in pairs(global.tmpPos) do
@@ -1801,6 +1827,7 @@ end
 function stationKey(station)
   if type(station) == "boolean" then error("wrong type", 2) end
   return station.position.x..":"..station.position.y
+    --  return station.unit_number
 end
 
 function findStations()
@@ -1907,6 +1934,9 @@ remote.add_interface("st",
     end,
 
     findStations = function()
+      initGlob()
+      init_forces()
+      init_players()
       findStations()
     end,
 
@@ -1983,7 +2013,7 @@ remote.add_interface("st",
     end,
 
     countTrains = function()
-      local t = #global.trains
+      local t = TrainList.getCount()
       local ticksC = 0
       local ticksU = 0
       for tick, trains in pairs(global.check_rules) do
