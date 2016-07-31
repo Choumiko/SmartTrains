@@ -97,23 +97,37 @@ TrainList.updateTrainInfo = function(train)
     return
   end
   local newLocos = TrainList.getLocomotives(train)
-  local found = false
+  local found = {}
+  local foundMainID = false
   for _, loco in pairs(newLocos) do
     if global.trains[loco.unit_number] then
       if newMainID == loco.unit_number then
         log("found main loco " .. newMainID)
-        local ti = global.trains[loco.unit_number]
-        assert(not ti.train.valid)
-        ti:update(train, newMainID)
-        global.trains[newMainID] = ti
-        found =  ti
+        foundMainID = global.trains[newMainID]
       else
-        log("not main loco " .. loco.unit_number)
-        global.trains[loco.unit_number] = nil
+        table.insert(found, global.trains[loco.unit_number])
       end
+      local ti = global.trains[loco.unit_number]
     end
   end
-  return found or TrainList.addTrainInfo(train)
+  if foundMainID then
+    for _, old in pairs(found) do
+      global.trains[old.ID] = nil
+    end
+    foundMainID:update(train, newMainID)
+    global.trains[newMainID] = foundMainID
+  else
+    if #found > 0 then
+      found[1]:update(train, newMainID)
+      global.trains[newMainID] = found[1]
+      for i=#found, 2, -1 do
+        global.trains[found[i].ID] = nil
+      end
+    else
+      return TrainList.addTrainInfo(train)
+    end
+  end
+  return global.trains[newMainID]
 end
 
 TrainList.getTrainInfo = function(train)
