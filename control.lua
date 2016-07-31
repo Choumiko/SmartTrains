@@ -92,10 +92,7 @@ end
 
 TrainList.updateTrainInfo = function(train)
   local newMainID = TrainList.getTrainID(train)
-  if not newMainID then
-    log("No locomotive in train")
-    return
-  end
+  if not newMainID then return end
   local newLocos = TrainList.getLocomotives(train)
   local found = {}
   local foundMainID = false
@@ -110,20 +107,35 @@ TrainList.updateTrainInfo = function(train)
       local ti = global.trains[loco.unit_number]
     end
   end
+  -- old front loco stays front loco
   if foundMainID then
     for _, old in pairs(found) do
-      global.trains[old.ID] = nil
+      TrainList.removeTrain(old)
+    end
+    -- check old locomotives for different train (decoupling)
+    local newTrain = false
+    for _, oldLoco in pairs(foundMainID.locomotives) do
+      if TrainList.getTrainID(oldLoco.train) ~= newMainID then
+        newTrain = oldLoco.train
+      end
+    end
+    if newTrain then
+      TrainList.addTrainInfo(newTrain)
     end
     foundMainID:update(train, newMainID)
+    foundMainID:resetWaitingStation()
     global.trains[newMainID] = foundMainID
+    -- loco/cargo wagon added in front of old front loco
   else
     if #found > 0 then
       found[1]:update(train, newMainID)
+      found[1]:resetWaitingStation()
       global.trains[newMainID] = found[1]
       for i=#found, 2, -1 do
-        global.trains[found[i].ID] = nil
+        TrainList.removeTrain(found[i])
       end
     else
+      --loco was added to cargo-wagon
       return TrainList.addTrainInfo(train)
     end
   end
@@ -153,7 +165,43 @@ TrainList.getTrainInfoFromUI = function(playerIndex)
 end
 
 TrainList.removeTrain = function(trainInfo)
-  global.trains[trainInfo.ID] = nil
+  if trainInfo and trainInfo.ID and global.trains[trainInfo.ID] then
+    trainInfo:resetWaitingStation()
+    global.trains[trainInfo.ID] = nil
+  end
+end
+
+TrainList.removeInvalidTrains = function(show)
+  local removed = 0
+  show = show or debug
+  for id, ti in pairs(global.trains) do
+    if not ti.train or not ti.train.valid or (#ti.train.locomotives.front_movers == 0 and #ti.train.locomotives.back_movers == 0) then
+      ti:resetCircuitSignal()
+
+      TrainList.removeTrain(ti)
+      removed = removed + 1
+      -- try to detect change through pressing G/V
+    else
+      local test = ti:getType()
+      if test ~= ti.type then
+        ti:resetCircuitSignal()
+        TrainList.removeTrain(ti)
+        removed = removed + 1
+      end
+    end
+  end
+  if removed > 0 and show then
+    flyingText("Removed "..removed.." invalid trains", colors.RED, false, true)
+  end
+  return removed
+end
+
+TrainList.getCount = function()
+  local c = 0
+  for _, _ in pairs(global.trains) do
+    c = c + 1
+  end
+  return c
 end
 
 local function debugLog(var, prepend)
@@ -567,7 +615,7 @@ local update_from_version = {
       end
     end
     fixSmartstopTable()
-    removeInvalidTrains()
+    TrainList.removeInvalidTrains()
     findStations()
 
     for _, l in pairs(global.trainLines) do
@@ -747,7 +795,7 @@ local update_from_version = {
       end
     end
     if remove_invalid then
-      removeInvalidTrains()
+     TrainList.removeInvalidTrains()
     end
     return "0.3.96"
   end,
@@ -776,18 +824,29 @@ local update_from_version = {
   ["0.4.3"] = function() return "0.4.4" end,
   ["0.4.4"] = function()
     local trains = {}
-    local trainCount = #global.trains
     local id = false
     for _, trainInfo in pairs(global.trains) do
       id = TrainList.getTrainID(trainInfo.train)
       assert(id and not trains[id])
       if id then
-        trainInfo.ID = id
+        trainInfo:update(trainInfo.train, id)
         trains[id] = trainInfo
       end
     end
     global.train = trains
     return "0.4.5"
+  end,
+  ["0.4.5"] = function()
+    local id
+    for _, trainInfo in pairs(global.trains) do
+      if trainInfo.train and trainInfo.train.valid then
+        id = TrainList.getTrainID(trainInfo.train)
+        trainInfo:update(trainInfo.train, id)
+      else
+        TrainList.removeTrain(trainInfo)
+      end
+    end
+    return "0.4.6"
   end,
 }
 
@@ -986,31 +1045,6 @@ function findSmartTrainStopByTrain(vehicle, rail, stationName)
   return false
 end
 
-function removeInvalidTrains(show)
-  local removed = 0
-  show = show or debug
-  for id, ti in pairs(global.trains) do
-    if not ti.train or not ti.train.valid or (#ti.train.locomotives.front_movers == 0 and #ti.train.locomotives.back_movers == 0) then
-      ti:resetCircuitSignal()
-
-      global.trains[id] = nil
-      removed = removed + 1
-      -- try to detect change through pressing G/V
-    else
-      local test = ti:getType()
-      if test ~= ti.type then
-        ti:resetCircuitSignal()
-        global.trains[id] = nil
-        removed = removed + 1
-      end
-    end
-  end
-  if removed > 0 and show then
-    flyingText("Removed "..removed.." invalid trains", colors.RED, false, true)
-  end
-  return removed
-end
-
 function inSchedule(station, schedule)
   if type(schedule) == "table" and type(schedule.records) == "table" then
     for i, rec in pairs(schedule.records) do
@@ -1085,7 +1119,7 @@ function addInventoryContents(invA, invB)
   return res
 end
 
-function getKeyByValue(t, value)
+local function getKeyByValue(t, value)
   for k, v in pairs(t) do
     if v == value then
       return k
@@ -1100,7 +1134,7 @@ function on_train_changed_state(event)
     local train = event.train
     local trainKey
     local t = TrainList.getTrainInfo(train)
-    log(serpent.line(t))
+    --log(serpent.line(t,{comment=false}))
     --assert(t.train.valid)
     -- TODO is this for de/coupling an automated train???
     if not t.train.valid then
@@ -1190,6 +1224,7 @@ function on_train_changed_state(event)
 
     local schedule = train.schedule
     if train.state == defines.train_state.manual_control_stop or train.state == defines.train_state.manual_control then
+      -- TODO Why like this??
       for _, train_ in pairs(global.trains) do
         if train_ == t then
           t:resetWaitingStation()
@@ -1275,7 +1310,7 @@ function on_tick(event)
           remove_invalid = true
         end
       end
-      if remove_invalid then removeInvalidTrains() end
+      if remove_invalid then TrainList.removeInvalidTrains() end
     end)
     if not status then
       pauseError(err, "on_tick: refueling")
@@ -1307,7 +1342,7 @@ function on_tick(event)
           remove_invalid = true
         end
       end
-      if remove_invalid then removeInvalidTrains() end
+      if remove_invalid then TrainList.removeInvalidTrains() end
     end)
     if not status then
       pauseError(err, "on_tick: update_cargo")
@@ -1619,7 +1654,7 @@ function on_player_mined_item(event)
         end
         global.tmpPos = nil
       end
-      removeInvalidTrains()
+      TrainList.removeInvalidTrains()
     end
   end)
   if not status then

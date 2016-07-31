@@ -169,7 +169,7 @@ GUI = {
       GUI.addLabel(tbl, {"stg-intervals-write"}).style.left_padding = 10
       GUI.addTextfield(tbl, {name="intervals_write", style="st_textfield_small", text = global.settings.intervals.write})
 
-      GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", #global.trains})
+      GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", TrainList.getCount()})
       local noStations, uniqueStations = 0,0
       local force = game.players[index].force.name
       for _,station in pairs(global.stationCount[force]) do
@@ -643,10 +643,7 @@ end
 
 on_gui_click = {
   add_trains_to_update = function(line, newConditions)
-    local trains = global.trains
-    local train
-    for i=1, #trains do
-      train = trains[i]
+    for i, train in pairs(global.trains) do
       if train and train.line and train.line == line and train.train.valid
         and train.train.state == defines.train_state.wait_station and not train.opened then
         if newConditions[train.train.schedule.current] then
