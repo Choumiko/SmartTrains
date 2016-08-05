@@ -83,7 +83,6 @@ end
 TrainList.addTrainInfo = function(train)
   local id = TrainList.getTrainID(train)
   if id then
-    assert(not global.trains[id])
     local trainInfo = Train.new(train, id)
     global.trains[id] = trainInfo
     return trainInfo
@@ -825,7 +824,6 @@ local update_from_version = {
     local id
     for _, trainInfo in pairs(global.trains) do
       id = TrainList.getTrainID(trainInfo.train)
-      assert(id and not trains[id])
       if id then
         trainInfo:update(trainInfo.train, id)
         trains[id] = trainInfo
@@ -949,10 +947,6 @@ function createProxy(trainstop)
     signalProxy.minable = false
     if not global.smartTrainstops[force][key] then
       global.smartTrainstops[force][key] = {station = trainstop, signalProxy = signalProxy, cargo = cargoProxy}
-    else
-      assert(signalProxy == global.smartTrainstops[force][key].signalProxy)
-      assert(cargoProxy == global.smartTrainstops[force][key].cargo)
-      --log("Do something here?!")
     end
   else
     pauseError("Could not find signal/cargo proxy for " .. trainstop.backer_name .. " @ " .. serpent.line(trainstop.position,{comment=false}))
