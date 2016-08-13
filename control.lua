@@ -844,6 +844,20 @@ local update_from_version = {
     end
     return "0.4.6"
   end,
+  ["0.4.6"] = function()
+    local invalid_lines = {}
+    for name, line in pairs(global.trainLines) do
+      if not line.records or #line.records < 1 or not line.rules or #line.rules < 1 then
+        invalid_lines[name] = true
+      end
+    end
+    
+    for lineName, _ in pairs(invalid_lines) do
+      global.trainLines[lineName] = nil
+      log("Removed line " .. lineName)
+    end        
+    return "0.4.7"
+  end,
 }
 
 function on_configuration_changed(data)

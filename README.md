@@ -1,10 +1,6 @@
 SmartTrains
 ===========
 
-Creating Your First Smart Train Line
----
-Todo.
-
 Train UI
 ---
 ![Train UI](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/train_ui.png "Train UI")
@@ -14,8 +10,15 @@ Train UI
 
 Trainlines UI
 ---
-![Trainlines UI](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/trainline_ui.png "Trainlines UI")
-Todo: add text
+![Trainlines UI](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/trainline_ui.png "Trainlines UI")  
+
+Overview of lines managed by SmartTrains. Accessible by opening a locmotives or trainstops GUI.  
+Shows the number of stations for the lines, as well as the number of trains assigned to the lines.  
+Un/checking the 'active' checkbox will un/assign a train to the line. Unassigning a train removes it from the line, but keeps the schedule intact (minus the goto rules)  
+You can delete lines by checking one or more 'marked' checkboxes and then clicking 'Delete marked'.  
+To rename a line mark one line, type in the new name and click 'rename'.  
+Clicking the rules button opens the UI for line rules.
+
 
 Line Rules
 ---
