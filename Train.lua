@@ -280,7 +280,6 @@ Train = {
       end
 
       local current_tick = game.tick
-      --log(serpent.block(self.waitingStation,{comment=false}))
       local rules = self:get_rules()
 
       local station = findTrainStopByTrain(self)

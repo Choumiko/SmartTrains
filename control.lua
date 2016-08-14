@@ -993,6 +993,12 @@ function findTrainStop(surface, position)
 end
 
 function findTrainStopByTrain(trainInfo)
+  --TODO remove version check once 0.13.16 is out
+  if game.active_mods.base and game.active_mods.base > "0.13.13" then
+    log("0.13.14")
+    return trainInfo.train.station
+  end
+
   local offsets = {
     [0] = {
       [0] = {
@@ -1063,7 +1069,6 @@ end
 
 function findSmartTrainStopByTrain(trainInfo, stationName)
   local station = findTrainStopByTrain(trainInfo)
-  --TODO trainstop at curve!!
   if station and station.name == "smart-train-stop" and station.backer_name == stationName then
     flyingText("S", colors.GREEN, station.position, true, station.surface)
     return global.smartTrainstops[station.force.name][stationKey(station)]
@@ -1485,8 +1490,6 @@ function on_player_closed(event)
         GUI.destroy(event.player_index)
         trainInfo.opened = nil
         if trainInfo.line and global.trainLines[trainInfo.line] and schedule_changed(global.trainLines[trainInfo.line], event.entity.train.schedule) and trainInfo.lineVersion ~= 0 then
-          --TODO remove log
-          log("schedule changed")
           --set line version to -1, so it gets updated at the next station
           trainInfo.lineVersion = -1
           if trainInfo.train.state == defines.train_state.manual_control then
