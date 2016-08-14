@@ -27,8 +27,8 @@ GUI = {
     local player = game.players[player_index]
     if player.valid then
       local main = GUI.buildGui(player)
-      GUI.showSettingsButton(main)
       if player.opened then
+        GUI.showSettingsButton(main)
         if player.opened.type == "locomotive" then
           GUI.showTrainInfoWindow(main, player_index)
         elseif player.opened.type == "train-stop" then
@@ -37,8 +37,10 @@ GUI = {
           end
           GUI.showStationMapping(player_index)
         end
+        GUI.showTrainLinesWindow(main, player_index)
+      else
+        GUI.destroy(player_index)
       end
-      GUI.showTrainLinesWindow(main, player_index)
     end
   end,
 
@@ -867,7 +869,7 @@ on_gui_click = {
         player.print("Train has no stations in the schedule") --TODO localization
         return
       end
-      
+
       if name ~= "" and t and t.train.valid and #t.train.schedule.records > 0 then
         local records = util.table.deepcopy(t.train.schedule.records)
         --new train line
