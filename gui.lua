@@ -641,6 +641,7 @@ end
 
 on_gui_click = {
   add_trains_to_update = function(line, newConditions)
+    if not newConditions then return end
     for i, train in pairs(global.trains) do
       if train and train.line and train.line == line and train.train.valid
         and train.train.state == defines.train_state.wait_station and not train.opened then
