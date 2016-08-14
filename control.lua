@@ -98,7 +98,7 @@ TrainList.updateTrainInfo = function(train)
   for _, loco in pairs(newLocos) do
     if global.trains[loco.unit_number] then
       if newMainID == loco.unit_number then
-        log("found main loco " .. newMainID)
+        --log("found main loco " .. newMainID)
         foundMainID = global.trains[newMainID]
       else
         table.insert(found, global.trains[loco.unit_number])
@@ -113,7 +113,7 @@ TrainList.updateTrainInfo = function(train)
     -- check old locomotives for different train (decoupling)
     local newTrain = false
     for _, oldLoco in pairs(foundMainID.locomotives) do
-      if TrainList.getTrainID(oldLoco.train) ~= newMainID then
+      if oldLoco.valid and TrainList.getTrainID(oldLoco.train) ~= newMainID then
         newTrain = oldLoco.train
       end
     end
@@ -143,7 +143,7 @@ end
 TrainList.getTrainInfo = function(train)
   local id = TrainList.getTrainID(train)
   local trainInfo = global.trains[id]
-  if not trainInfo then
+  if not trainInfo or not trainInfo.train.valid then
     if train.valid and id then
       return TrainList.addTrainInfo(train)
     end
@@ -851,11 +851,11 @@ local update_from_version = {
         invalid_lines[name] = true
       end
     end
-    
+
     for lineName, _ in pairs(invalid_lines) do
       global.trainLines[lineName] = nil
       log("Removed line " .. lineName)
-    end        
+    end
     return "0.4.7"
   end,
 }
@@ -1047,8 +1047,8 @@ function findTrainStopByTrain(trainInfo)
   if #stops == 0 and off then
     posOther = Position.add(railOther.position, off)
     stops = findTrainStop(surface, posOther)
-  end  
-  
+  end
+
   if #stops == 0 then
     pos = Position.translate(pos, trainDir, -2)
     stops = findTrainStop(surface, pos)
@@ -1651,6 +1651,13 @@ function on_preplayer_mined_item(event)
       local oldTrainInfo = TrainList.getTrainInfo(ent.train)
       if oldTrainInfo then
         oldTrainInfo:resetCircuitSignal()
+        if oldTrainInfo.opened then
+          for _, p in pairs(game.players) do
+            if p.opened and p.opened.type == "locomotive" and p.opened.train == event.entity.train then
+              GUI.destroy(p.index)
+            end
+          end
+        end
       end
 
       if #ent.train.carriages > 1 then
@@ -1667,6 +1674,11 @@ function on_preplayer_mined_item(event)
     end
     if ctype == "train-stop" then
       decreaseStationCount(ent.force.name, ent.backer_name)
+      for _, p in pairs(game.players) do
+        if p.opened and p.opened == event.entity then
+          GUI.destroy(p.index)
+        end
+      end
     end
     if ent.name == "smart-train-stop" then
       removeProxy(event.entity)
@@ -1684,7 +1696,9 @@ function on_player_mined_item(event)
     if type == "locomotive" or type == "cargo-wagon" then
       if global.tmpPos then
         for _, entity in pairs(global.tmpPos) do
-          TrainList.updateTrainInfo(entity.train)
+          if entity.valid then
+            TrainList.updateTrainInfo(entity.train)
+          end
         end
         global.tmpPos = nil
       end
@@ -1693,27 +1707,6 @@ function on_player_mined_item(event)
   end)
   if not status then
     pauseError(err, "on_player_mined_item")
-  end
-end
-
-function on_entity_died(event)
-  local status, err = pcall(function()
-    if event.entity.type == "locomotive" or event.entity.type == "cargo-wagon" then
-      local oldTrainInfo = TrainList.getTrainInfo(event.entity.train)
-      if oldTrainInfo then
-        oldTrainInfo:resetCircuitSignal()
-      end
-      return
-    end
-    if event.entity.type == "train-stop" then
-      decreaseStationCount(event.entity.force.name, event.entity.backer_name)
-    end
-    if event.entity.name == "smart-train-stop" then
-      removeProxy(event.entity)
-    end
-  end)
-  if not status then
-    pauseError(err, "on_entity_died")
   end
 end
 
@@ -1875,7 +1868,7 @@ script.on_event(defines.events.on_player_mined_item, on_player_mined_item)
 script.on_event(defines.events.on_preplayer_mined_item, on_preplayer_mined_item)
 script.on_event(defines.events.on_player_driving_changed_state, on_player_driving_changed_state)
 
-script.on_event(defines.events.on_entity_died, on_entity_died)
+script.on_event(defines.events.on_entity_died, on_preplayer_mined_item)
 script.on_event(defines.events.on_built_entity, on_built_entity)
 script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
 script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
