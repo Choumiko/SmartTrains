@@ -858,6 +858,9 @@ local update_from_version = {
     end
     return "0.4.7"
   end,
+  ["0.4.7"] = function()
+    return "1.0.0"
+  end,
 }
 
 function on_configuration_changed(data)
@@ -983,88 +986,8 @@ function removeProxy(trainstop)
   end
 end
 
-function round(num, idp)
-  local mult = 10 ^ (idp or 0)
-  return math.floor(num*mult +0.5)/mult
-end
-
-function findTrainStop(surface, position)
-  return surface.find_entities_filtered{type="train-stop", area = Position.expand_to_area(position, 0.25)}
-end
-
 function findTrainStopByTrain(trainInfo)
-  --TODO remove version check once 0.13.16 is out
-  if game.active_mods.base and game.active_mods.base > "0.13.13" then
-    log("0.13.14")
     return trainInfo.train.station
-  end
-
-  local offsets = {
-    [0] = {
-      [0] = {
-        ['straight-rail'] = { x = 2, y = -2 }},
-      [4] = {
-        ['curved-rail'] = { x = 1, y = -5 }},
-      [5] = {
-        ['curved-rail'] = { x = 3, y = -5 }},
-    },
-    [2] = {
-      [2] = {
-        ['straight-rail'] = { x = 2, y = 2 }},
-      [6] = {
-        ['curved-rail'] = { x = 5, y = 1 }
-      },
-      [7] = {
-        ['curved-rail'] = { x = 5, y = 3 }
-      },
-    },
-    [4] = {
-      [0] = {
-        ['straight-rail'] = { x = -2, y = 2 },
-        ['curved-rail'] = { x = -1, y = 5}
-      },
-      [1] = {
-        ['curved-rail']   = { x = -3, y = 5}},
-    },
-    [6] = {
-      [2] = {
-        ['straight-rail'] = { x = -2, y = -2 },
-        ['curved-rail']   = { x = -5, y = -1 }},
-      [3] = {
-        ['curved-rail'] = { x = -5, y = -3 }
-      },
-    },
-  }
-
-  local vehicle = (trainInfo.direction and trainInfo.direction == 0) and trainInfo.train.carriages[1] or trainInfo.train.carriages[#trainInfo.train.carriages]
-  local vehicleOther = (trainInfo.direction and trainInfo.direction == 0) and trainInfo.train.carriages[#trainInfo.train.carriages] or trainInfo.train.carriages[1]
-  local rail = (trainInfo.direction and trainInfo.direction == 0) and trainInfo.train.front_rail or trainInfo.train.back_rail
-  local railOther = (trainInfo.direction and trainInfo.direction == 0) and trainInfo.train.back_rail or trainInfo.train.front_rail
-  local surface = vehicle.surface
-
-  local trainDir = round(vehicle.orientation*8,0) % 8
-  local trainDirOther = round(vehicleOther.orientation*8,0) % 8
-  -- [trainDir][rail.direction][rail.type]
-  local pos = Position.add(rail.position, offsets[trainDir][rail.direction][rail.type])
-  local posOther
-  local stops = findTrainStop(surface, pos)
-  flyingText("T", colors.RED, pos, true, rail.surface)
-  local off = (offsets[trainDirOther] and offsets[trainDirOther][railOther.direction]) and offsets[trainDirOther][railOther.direction][railOther.type] or false
-  if #stops == 0 and off then
-    posOther = Position.add(railOther.position, off)
-    stops = findTrainStop(surface, posOther)
-  end
-
-  if #stops == 0 then
-    pos = Position.translate(pos, trainDir, -2)
-    stops = findTrainStop(surface, pos)
-    if #stops == 0 and posOther then
-      pos = Position.translate(posOther, trainDirOther, -2)
-      stops = findTrainStop(surface, pos)
-    end
-  end
-
-  return stops[1]
 end
 
 function findSmartTrainStopByTrain(trainInfo, stationName)
