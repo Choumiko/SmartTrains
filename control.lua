@@ -1098,10 +1098,10 @@ function on_train_changed_state(event)
     t:updateState()
 
     if t.advancedState == train_state.left_station then
-      if t.current then
-        log(t.name .. ": Leaving station #" .. t.current .. " " .. t.train.schedule.records[t.current].station .. "  @tick: "..event.tick)
-        log(t.name .. ": t.train current #" .. t.train.schedule.current)
-      end
+      --if t.current then
+        --log(t.name .. ": Leaving station #" .. t.current .. " " .. t.train.schedule.records[t.current].station .. "  @tick: "..event.tick)
+        --log(t.name .. ": t.train current #" .. t.train.schedule.current)
+      --end
       local jump, use_mapping
       local needs_update = (t.line and global.trainLines[t.line]) and t.lineVersion < global.trainLines[t.line].changed or false
       log("Checking line, needs update: " ..serpent.line( needs_update,{comment=false}))
@@ -1139,7 +1139,7 @@ function on_train_changed_state(event)
 
       local rules = t:get_rules(t.current)
 
-      if event.tick < t.departAt and rules and (rules.jumpTo or rules.jumpToCircuit) then
+      if t.departAt and event.tick < t.departAt and rules and (rules.jumpTo or rules.jumpToCircuit) then
         local signalValue = rules.jumpToCircuit
         local gotoStation = rules.jumpTo
 
