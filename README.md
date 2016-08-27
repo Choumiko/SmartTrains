@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+1.1.0
+
+ - version for Factorio 0.14.x
+
 1.0.1
 
 - fixed errors related to copy/pasting train schedules
