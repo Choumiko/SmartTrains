@@ -862,6 +862,15 @@ local update_from_version = {
     return "1.0.0"
   end,
   ["1.0.0"] = function()
+    local baseVersion = game.active_mods.base and string.split(game.active_mods.base, ".")
+    if baseVersion then
+      log(serpent.line(baseVersion, {comment=false}))
+      if baseVersion[2] == "13" then
+        return "1.0.1"
+      elseif baseVersion[2] == "14" then
+        return "1.1.0"
+      end
+    end
     return "1.0.1" 
   end,
 }
