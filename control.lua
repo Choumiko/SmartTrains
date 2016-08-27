@@ -861,6 +861,9 @@ local update_from_version = {
   ["0.4.7"] = function()
     return "1.0.0"
   end,
+  ["1.0.0"] = function()
+    return "1.0.1" 
+  end,
 }
 
 function on_configuration_changed(data)

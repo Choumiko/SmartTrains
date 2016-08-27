@@ -77,3 +77,10 @@ Global Settings UI
 ![Global Settings](https://raw.githubusercontent.com/Choumiko/SmartTrains/master/readme_content/global_settings.png "Global Settings")
 - **Refueling:** Sets the lower and upper limits for available fuel. If any locomotive of a train is below the lower limit, it will add the refueling station, if all are above the upper limit again it will get removed.
 - **Update intervals:** Number of ticks between updating the constant combinators at smart train stops.
+
+***
+Changelog
+---
+1.0.1
+
+- fixed errors related to copy/pasting train schedules
