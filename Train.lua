@@ -162,24 +162,51 @@ Train = {
     refuelStation = function(self)
       local station = global.settings.refuel.station
       local lType = self:getType()
-      local locos = string.match(lType,"^(L*)-*C*$") --only matches single headed
-      --debugDump("locos: " .. serpent.line(locos,{comment=false}),true)
+
+      -- First thing first, check for an explicit match for the
+      -- train's configuration and specific refueling station.
       local refuelStation = station.." "..lType
       local force = self.train.carriages[1].force.name
       local full_match = global.stationCount[force][refuelStation] and global.stationCount[force][refuelStation] > 0
       if full_match then
-        return refuelStation
+         --debugDump("full_match: train="..lType.." @ station="..refuelStation, true)
+         return refuelStation
       end
 
-      if locos then
-        for name, c in pairs(global.stationCount[force]) do
-          --debugDump(name..": "..station.." "..locos,true)
-          --debugDump(string.starts_with(name, station.." "..locos),true)
-          if string.starts_with(name, station.." "..locos) and string.match(name,"^"..station.."%s(L*)") == locos then
-            return name
-          end
-        end
+      -- Since there wasn't a specific match, we now need to search
+      -- through all of the stations trying to find one that matches
+      -- the locomotive configuration.
+
+      -- Loco L-CC cannot refuel at Refuel L-C-L (issue #41).
+
+      lType = string.gsub(lType, "%-", "")
+      pattern = "^"..station.."%s+([LC-]+)$"
+      for name, c in pairs(global.stationCount[force]) do
+         if name == nil then name = "" end
+
+         _, _, sType = string.find(name, pattern)
+         if sType then
+            -- This station matches the auto-refuel pattern. We'll perform
+            -- subset checks on the train/station and station/train to ensure
+            -- the proper alignment.
+            sType = string.gsub(sType, "%-", "")
+
+            -- Is the train configuration a subset of the refuel station?
+            if string.find(sType, "^"..lType) then
+               --debugDump("subset 1: train="..self:getType().." @ station="..name, true)
+               return name
+            end
+
+            -- Is the refuel station a subset of the train?
+            if string.find(lType, "^"..sType) then
+               --debugDump("subset 2: train="..self:getType().." @ station="..name, true)
+               return name
+            end
+         end
       end
+
+      -- Default to the base station.
+      --debugDump("default: train="..self:getType().." @ station="..station, true)
       return station
     end,
 
