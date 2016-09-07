@@ -179,6 +179,9 @@ Train = {
 
       -- Loco L-CC cannot refuel at Refuel L-C-L (issue #41).
 
+      -- See comment below.
+      best_fit = { len=0, name="" }
+
       lType = string.gsub(lType, "%-", "")
       pattern = "^"..station.."%s+([LC-]+)$"
       for name, c in pairs(global.stationCount[force]) do
@@ -197,12 +200,32 @@ Train = {
                return name
             end
 
-            -- Is the refuel station a subset of the train?
+            -- Is the refuel station a subset of the train? We cannot
+            -- take this immediately since there may be better,
+            -- more-apt stations to choose from.
             if string.find(lType, "^"..sType) then
-               --debugDump("subset 2: train="..self:getType().." @ station="..name, true)
-               return name
+               -- Track the length of the station that's a subset of the train.
+               -- Longer is better, but we can short-circuit when the train
+               -- and station lengths match.
+               llen = string.len (lType)
+               slen = string.len (sType)
+
+               -- The short-circuit.
+               if slen == llen then
+                  return name
+               end
+
+               if slen > best_fit.len then
+                  best_fit = { len=slen, name=name }
+                  --debugDump("subset 2: updated train="..self:getType().." @ station="..name, true)
+               end
             end
          end
+      end
+
+      -- If we've found a best fit, return that one.
+      if best_fit.len > 0 then
+         return best_fit.name
       end
 
       -- Default to the base station.
