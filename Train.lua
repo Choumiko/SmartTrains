@@ -180,14 +180,14 @@ Train = {
       -- Loco L-CC cannot refuel at Refuel L-C-L (issue #41).
 
       -- See comment below.
-      best_fit = { len=0, name="" }
+      local best_fit = { len=0, name="" }
 
       lType = string.gsub(lType, "%-", "")
-      pattern = "^"..station.."%s+([LC-]+)$"
+      local pattern = "^"..station.."%s+([LC-]+)$"
       for name, c in pairs(global.stationCount[force]) do
          if name == nil then name = "" end
 
-         _, _, sType = string.find(name, pattern)
+         local _, _, sType = string.find(name, pattern)
          if sType then
             -- This station matches the auto-refuel pattern. We'll perform
             -- subset checks on the train/station and station/train to ensure
@@ -207,8 +207,8 @@ Train = {
                -- Track the length of the station that's a subset of the train.
                -- Longer is better, but we can short-circuit when the train
                -- and station lengths match.
-               llen = string.len (lType)
-               slen = string.len (sType)
+               local llen = string.len (lType)
+               local slen = string.len (sType)
 
                -- The short-circuit.
                if slen == llen then
