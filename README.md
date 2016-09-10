@@ -81,6 +81,12 @@ Global Settings UI
 ***
 Changelog
 ---
+1.1.1/1.0.2
+
+ - improved refuel station selection: Trains shouldn't pick a station that will fill a cargo wagon with fuel.
+ - fixed updating from 0.13 to 0.14 version of the mod
+ - fixed other errors when updating
+
 1.1.0
 
  - version for Factorio 0.14.x
