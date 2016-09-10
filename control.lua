@@ -202,6 +202,44 @@ TrainList.getCount = function()
   return c
 end
 
+TrainList.removeDuplicates = function()
+  local removeIds = {}
+  local addIds = {}
+  local validTrains = {}
+  for i, ti in pairs(global.trains) do
+    if ti.train and ti.train.valid then
+      local ID = TrainList.getTrainID(ti.train)
+      log("i: " .. i .. " mainId: " .. ID)
+      if i == ID and global.trains[ID] and global.trains[ID].train == ti.train then
+        validTrains[ID] = ti
+        log("valid: " .. ID)
+      else
+        log("invalid: " .. ID)
+
+        -- update lookup table
+        if i ~= ID then
+          if not global.trains[ID] then
+            addIds[ID] = ti
+          else
+            removeIds[i] = ti
+          end
+        end
+      end
+    else
+      removeIds[i] = ti
+    end
+  end
+
+  for _, ti in pairs(addIds) do
+    TrainList.addTrainInfo(ti.train)
+  end
+
+  for id, ti in pairs(removeIds) do
+    TrainList.removeTrain(ti)
+    global.trains[id] = nil
+  end
+end
+
 local function debugLog(var, prepend)
   if not global.debug_log then return end
   local str = prepend or ""
@@ -269,6 +307,7 @@ function initGlob()
   global = global or {}
   global.version = global.version or "0.3.75"
   global.trains = global.trains or {}
+  global.train = nil
   global.trainLines = global.trainLines or {}
 
   global.scheduleUpdate = global.scheduleUpdate or {}
@@ -569,6 +608,50 @@ local function fixSmartstopTable()
   end
 end
 
+local function factorioVersion()
+  local baseVersion = game.active_mods.base and string.split(game.active_mods.base, ".")
+  if baseVersion then
+    return baseVersion[2]
+  end
+end
+
+local function removeDuplicateTrains()
+  for k, ent in pairs(global.blueprinted_proxies) do
+    if not ent.valid then
+      global.blueprinted_proxies[k] = nil
+    end
+  end
+  TrainList.removeInvalidTrains()
+  local r = {}
+  local found = false
+  for i, ti in pairs(global.trains) do
+    if ti.train and ti.train.valid then
+      local id = TrainList.getTrainID(ti.train)
+      if i ~= id then
+        for _, loco in pairs(TrainList.getLocomotives(ti.train)) do
+          if global.trains[loco.unit_number] then
+            found = true
+          end
+        end
+        if found then
+          r[i] = true
+        else
+          global.trains[id] = ti
+        end
+      end
+    else
+      r[i] = true
+    end
+  end
+  for id, _ in pairs(r) do
+    if global.trains[id] and global.trains[id].train and global.trains[id].train.valid then
+      global.trains[id]:resetWaitingStation()
+    end
+    global.trains[id] = nil
+  end
+  --TrainList.removeDuplicates()
+end
+
 local update_from_version = {
   ["0.0.0"] = function()
     return update_0_3_77()
@@ -644,8 +727,8 @@ local update_from_version = {
     return "0.3.9", true
   end,
   ["0.3.9"] = function()
-    global.settings.intervals.write = global.settings.circuit.interval or defaultSettings.intervals.write
-    global.settings.intervals.read = global.settings.circuit.interval or defaultSettings.intervals.read
+    global.settings.intervals.write = (global.settings.circuit and global.settings.circuit.interval) and global.settings.circuit.interval or defaultSettings.intervals.write
+    global.settings.intervals.read = (global.settings.circuit and global.settings.circuit.interval) and global.settings.circuit.interval or defaultSettings.intervals.read
     global.settings.intervals.noChange = defaultSettings.intervals.inactivity
     global.settings.intervals.cargoRule = global.settings.intervals.read --defaultSettings.intervals.cargoRule
 
@@ -829,7 +912,7 @@ local update_from_version = {
         trains[id] = trainInfo
       end
     end
-    global.train = trains
+    global.trains = trains
     return "0.4.5"
   end,
   ["0.4.5"] = function()
@@ -862,16 +945,24 @@ local update_from_version = {
     return "1.0.0"
   end,
   ["1.0.0"] = function()
-    local baseVersion = game.active_mods.base and string.split(game.active_mods.base, ".")
+    local baseVersion = factorioVersion()
     if baseVersion then
-      log(serpent.line(baseVersion, {comment=false}))
-      if baseVersion[2] == "13" then
+      if baseVersion == "13" then
         return "1.0.1"
-      elseif baseVersion[2] == "14" then
+      elseif baseVersion == "14" then
         return "1.1.0"
       end
     end
-    return "1.0.1" 
+    return "1.0.1"
+  end,
+  --0.13ver
+  ["1.0.1"] = function()
+    removeDuplicateTrains()
+    return (factorioVersion() == "13") and "1.0.2" or "1.1.1"
+  end,
+  ["1.1.0"] = function()
+    removeDuplicateTrains()
+    return "1.1.1"
   end,
 }
 
@@ -999,7 +1090,7 @@ function removeProxy(trainstop)
 end
 
 function findTrainStopByTrain(trainInfo)
-    return trainInfo.train.station
+  return trainInfo.train.station
 end
 
 function findSmartTrainStopByTrain(trainInfo, stationName)
@@ -1111,8 +1202,8 @@ function on_train_changed_state(event)
 
     if t.advancedState == train_state.left_station then
       --if t.current then
-        --log(t.name .. ": Leaving station #" .. t.current .. " " .. t.train.schedule.records[t.current].station .. "  @tick: "..event.tick)
-        --log(t.name .. ": t.train current #" .. t.train.schedule.current)
+      --log(t.name .. ": Leaving station #" .. t.current .. " " .. t.train.schedule.records[t.current].station .. "  @tick: "..event.tick)
+      --log(t.name .. ": t.train current #" .. t.train.schedule.current)
       --end
       local jump, use_mapping
       local needs_update = (t.line and global.trainLines[t.line]) and t.lineVersion < global.trainLines[t.line].changed or false
@@ -1679,9 +1770,12 @@ function on_player_driving_changed_state(event)
     end
   end
   if player.vehicle == nil and player.character.name ~= "fatcontroller" and global.player_passenger[player.index] then
-    local trainInfo = TrainList.getTrainInfo(global.player_passenger[player.index].train)
-    if trainInfo then
-      trainInfo.passengers = trainInfo.passengers - 1
+    local vehicle = global.player_passenger[player.index]
+    if vehicle.valid and (vehicle.type == "locomotive" or vehicle.type == "cargo-wagon") then
+      local trainInfo = TrainList.getTrainInfo(global.player_passenger[player.index].train)
+      if trainInfo then
+        trainInfo.passengers = trainInfo.passengers - 1
+      end
     end
     global.player_passenger[player.index] = nil
   end
