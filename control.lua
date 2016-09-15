@@ -960,9 +960,16 @@ local update_from_version = {
     removeDuplicateTrains()
     return (factorioVersion() == "13") and "1.0.2" or "1.1.1"
   end,
+  ["1.0.2"] = function()
+    return (factorioVersion() == "13") and "1.0.3" or "1.1.2"
+  end,
+  --0.14ver
   ["1.1.0"] = function()
     removeDuplicateTrains()
     return "1.1.1"
+  end,
+  ["1.1.1"] = function()
+    return "1.1.2"
   end,
 }
 
