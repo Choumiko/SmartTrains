@@ -249,7 +249,19 @@ data.raw["gui-style"].default["st_disabled_button_bold"] =
     hovered_font_color={r=0.5, g=0.5, b=0.5},
   }
 
+data.raw["gui-style"].default["st_page_button"] =
+  {
+    type = "button_style",
+    parent = "st_button_style_bold",
+    horizontal_spacing = 0,
+  }
 
+data.raw["gui-style"].default["st_page_button_disabled"] =
+  {
+    type = "button_style",
+    parent = "st_disabled_button_bold",
+    horizontal_spacing = 0,
+  }
 
 data.raw["gui-style"].default["st_selected_button"] =
   {
