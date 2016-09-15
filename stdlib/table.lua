@@ -228,3 +228,13 @@ function table.remove_keys(tbl, keys)
     end
     return tbl
 end
+
+--- Counts the elements of a table
+-- @param tbl the table to count the elements
+function table.count(tbl)
+  local c = 0
+  for _, _ in pairs(tbl) do
+    c = c + 1
+  end
+  return c
+end

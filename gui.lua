@@ -435,18 +435,22 @@ GUI = {
       dirty= dirty+1
     end
 
-    local btns = GUI.add(gui, {type="table", name="btns", colspan=4})
+    local btns = GUI.add(gui, {type="table", name="btns", colspan=6})
     if dirty > spp then
       if page > 1 then
+        GUI.addButton(btns,{name="firstPageMapping", caption="|<", style="st_button_style_bold"})
         GUI.addButton(btns, {name="prevPageMapping__"..page, caption="<", style="st_button_style_bold"})
       else
+        GUI.addButton(btns, {caption="|<", style="st_disabled_button_bold"})
         GUI.addButton(btns, {caption="<", style="st_disabled_button_bold"})
       end
       GUI.addButton(btns, {caption=page.."/"..math.ceil(dirty/spp), style="st_disabled_button_bold"})
       if max < c then
         GUI.addButton(btns, {name="nextPageMapping__"..page, caption=">",style="st_button_style_bold"})
+        GUI.addButton(btns,{name="lastPageMapping", caption=">|", style="st_button_style_bold"})
       else
         GUI.addButton(btns, {caption=">", style="st_disabled_button_bold"})
+        GUI.addButton(btns,{caption=">|", style="st_disabled_button_bold"})
       end
     else
       GUI.addPlaceHolder(btns)
@@ -540,17 +544,21 @@ GUI = {
       local buttonFlow = GUI.add(gui,{name="buttonFlow", type="flow"})
       local pageButtons = GUI.add(buttonFlow, {name="pageButtons", type="flow"})
 
+      local firstPage = GUI.addButton(pageButtons,{name="firstPageRule", caption="|<", style="st_button_style_bold"})
       local prevPage = GUI.addButton(pageButtons,{name="prevPageRule", caption="<", style="st_button_style_bold"})
       if page == 1 then
+        firstPage.style = "st_disabled_button_bold"
         prevPage.style = "st_disabled_button_bold"
       end
 
       local maxPage = page_count(#records, global.settings.rulesPerPage)
       GUI.addButton(pageButtons,{name="rule_page_number", caption=page.."/"..maxPage, style="st_disabled_button_bold"})
 
-      local nextPage = GUI.addButton(pageButtons,{name="nextPageRule", caption=">", style="st_button_style_bold"})
+      local nextPage = GUI.addButton(pageButtons, {name="nextPageRule", caption=">", style="st_button_style_bold"})
+      local lastPage = GUI.addButton(pageButtons, {name = "lastPageRule", caption = ">|", style = "st_button_style_bold"})
       if page == maxPage then
         nextPage.style = "st_disabled_button_bold"
+        lastPage.style = "st_disabled_button_bold"
       end
 
       GUI.addButton(buttonFlow, {name="saveRules__"..line, caption="Save", style="st_button_style_bold"})
@@ -739,7 +747,7 @@ on_gui_click = {
     return true
   end,
 
-  nextPageRule = function(player)
+  prepareRulesWindow = function(player)
     local guiData = global.guiData[player.index]
     local line = guiData.line
     local maxPage = page_count(#global.trainLines[line].records, global.settings.rulesPerPage)
@@ -752,6 +760,13 @@ on_gui_click = {
     guiData.use_mapping = use_mapping
 
     guiData.rules = sanitize_rules(player,line,guiData.rules, page)
+
+    return guiData, page, maxPage, line
+  end,
+
+  nextPageRule = function(player)
+    local guiData, page, maxPage, line = on_gui_click.prepareRulesWindow(player)
+
     page = page < maxPage and page + 1 or page
     global.playerRules[player.index].page = page
     GUI.showDynamicRules(player.index, line, guiData.rules_button, true)
@@ -759,18 +774,27 @@ on_gui_click = {
   end,
 
   prevPageRule = function(player)
-    local guiData = global.guiData[player.index]
-    local line = guiData.line
-    local page = global.playerRules[player.index].page
+    local guiData, page, maxPage, line = on_gui_click.prepareRulesWindow(player)
 
-    local rulesFlow = player.gui[GUI.position].stGui.dynamicRules.frm.rulesFlow
-    local textfield = rulesFlow["lineNumber__"..line]
-    guiData.line_number = math.floor(sanitizeNumber(textfield.text,0))
-    local use_mapping = rulesFlow["useMapping__" .. line].state
-    guiData.use_mapping = use_mapping
-
-    guiData.rules = sanitize_rules(player,line,guiData.rules, page)
     page =  page > 1 and page - 1 or 1
+    global.playerRules[player.index].page = page
+    GUI.showDynamicRules(player.index, line, guiData.rules_button, true)
+    return false
+  end,
+
+  firstPageRule = function(player)
+    local guiData, page, maxPage, line = on_gui_click.prepareRulesWindow(player)
+
+    page =  1
+    global.playerRules[player.index].page = page
+    GUI.showDynamicRules(player.index, line, guiData.rules_button, true)
+    return false
+  end,
+
+  lastPageRule = function(player)
+    local guiData, page, maxPage, line = on_gui_click.prepareRulesWindow(player)
+
+    page =  maxPage
     global.playerRules[player.index].page = page
     GUI.showDynamicRules(player.index, line, guiData.rules_button, true)
     return false
@@ -1035,6 +1059,22 @@ on_gui_click = {
     GUI.get_mapping_from_gui(player)
     local page = tonumber(option2)
     global.playerPage[player.index].mapping = page + 1
+    GUI.showStationMapping(player.index)
+    return false
+  end,
+
+  firstPageMapping = function(player, option2)
+    GUI.get_mapping_from_gui(player)
+    local page = tonumber(option2)
+    global.playerPage[player.index].mapping = 1
+    GUI.showStationMapping(player.index)
+    return false
+  end,
+
+  lastPageMapping = function(player, option2)
+    GUI.get_mapping_from_gui(player)
+    local page = tonumber(option2)
+    global.playerPage[player.index].mapping = math.ceil(table.count(global.stationCount[player.force.name]) / global.settings.mappingsPerPage)
     GUI.showStationMapping(player.index)
     return false
   end,
