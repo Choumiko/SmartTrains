@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+1.1.2/1.0.3
+
+ - added first/last page buttons for the traininfo, station mapping and rules windows
+
 1.1.1/1.0.2
 
  - improved refuel station selection: Trains shouldn't pick a station that will fill a cargo wagon with fuel.
