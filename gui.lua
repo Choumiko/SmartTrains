@@ -294,15 +294,19 @@ GUI = {
     local pages = GUI.add(btns, {type="flow", name="pages", direction="horizontal"})
     if records and #records > spp then
       if page > 1 then
+        GUI.addButton(pages, {name = "firstPageTrain", caption = "|<", style = "st_button_style_bold"})
         GUI.addButton(pages, {name="prevPageTrain__"..page, caption="<", style="st_button_style_bold"})
       else
+        GUI.addButton(pages, {caption = "|<", style = "st_disabled_button_bold"})
         GUI.addButton(pages, {name="asdfFoo", caption="<", style="st_disabled_button_bold"})
       end
       GUI.addButton(pages, {caption=page.."/"..math.ceil(#records/spp), style="st_disabled_button_bold"})
       if math.ceil(#records/spp) >= page+1 then
-        GUI.addButton(pages, {name="nextPageTrain__"..page, caption=">", style="st_button_style"})
+        GUI.addButton(pages, {name="nextPageTrain__"..page, caption=">", style="st_button_style_bold"})
+        GUI.addButton(pages, {name = "lastPageTrain", caption = ">|", style = "st_button_style_bold"})
       else
         GUI.addButton(pages, {name="asdfFoo2", caption= ">", style="st_disabled_button_bold"})
+        GUI.addButton(pages, {caption = ">|", style = "st_disabled_button_bold"})
       end
     else
       GUI.addPlaceHolder(pages)
@@ -1031,6 +1035,30 @@ on_gui_click = {
     local page = tonumber(option2)
     global.playerPage[player.index].schedule = page + 1
     return true
+  end,
+
+  firstPageTrain = function(player)
+    global.playerPage[player.index].schedule = 1
+    return true
+  end,
+
+  lastPageTrain = function(player)
+    local t = TrainList.getTrainInfoFromUI(player.index)
+    if not t or not t.train.valid then
+      return
+    end
+    local records = t.train.schedule.records
+    local trainLine = t.line and global.trainLines[t.line] or false
+    if trainLine then
+      records = trainLine.records
+    end
+    if records and #records > 0 then
+      local spp = global.settings.stationsPerPage
+      local page = math.ceil(#records / spp)
+
+      global.playerPage[player.index].schedule = page
+      return true
+    end
   end,
 
   prevPageLine = function(player,option2)
