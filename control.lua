@@ -712,13 +712,15 @@ local update_from_version = {
         found = false
         smart_stop = global.smartTrainstops[t.train.carriages[1].force.name][t.waitingStation.key]
         t.waitingStation = smart_stop
-        for tick, trains in pairs(global.updateTick) do
-          for i, t2 in pairs(trains) do
-            if t.train == t2.train and not found then
-              --log("Uref found["..tick .."]["..i.."] "..t.name)
-              global.updateTick[tick][i] = t
-              t.updateTick = tick
-              found = true
+        if global.updateTick then
+          for tick, trains in pairs(global.updateTick) do
+            for i, t2 in pairs(trains) do
+              if t.train == t2.train and not found then
+                --log("Uref found["..tick .."]["..i.."] "..t.name)
+                global.updateTick[tick][i] = t
+                t.updateTick = tick
+                found = true
+              end
             end
           end
         end
@@ -1769,14 +1771,14 @@ function on_player_driving_changed_state(event)
   if not player.connected then
     return
   end
-  if player.vehicle ~= nil and player.character.name ~= "fatcontroller" and (player.vehicle.type == "locomotive" or player.vehicle.type == "cargo-wagon") then
+  if player.vehicle ~= nil and (player.controller_type == defines.controllers.god or player.character.name ~= "fatcontroller") and (player.vehicle.type == "locomotive" or player.vehicle.type == "cargo-wagon") then
     global.player_passenger[player.index] = player.vehicle
     local trainInfo = TrainList.getTrainInfo(player.vehicle.train)
     if trainInfo then
       trainInfo.passengers = trainInfo.passengers + 1
     end
   end
-  if player.vehicle == nil and player.character.name ~= "fatcontroller" and global.player_passenger[player.index] then
+  if player.vehicle == nil and (player.controller_type == defines.controllers.god or player.character.name ~= "fatcontroller") and global.player_passenger[player.index] then
     local vehicle = global.player_passenger[player.index]
     if vehicle.valid and (vehicle.type == "locomotive" or vehicle.type == "cargo-wagon") then
       local trainInfo = TrainList.getTrainInfo(global.player_passenger[player.index].train)
@@ -2064,6 +2066,12 @@ remote.add_interface("st",
         ticksU = ticksU + #trains
       end
       debugDump({t=t,c=ticksC,u=ticksU},true)
+    end,
+
+    getProxyPositions = function(trainstop)
+      if trainstop and trainstop.direction and trainstop.position then
+        return getProxyPositions(trainstop)
+      end
     end
   }
 )

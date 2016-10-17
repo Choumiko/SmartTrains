@@ -81,6 +81,12 @@ Global Settings UI
 ***
 Changelog
 ---
+1.1.3
+ - fixed error when entering a train in sandbox/without a character
+ - fixed updating error
+ - added remote interface for [Foreman](https://mods.factorio.com/mods/Choumiko/Foreman)
+ - discontinued updates for the 0.13 version
+
 1.1.2/1.0.3
 
  - added first/last page buttons for the traininfo, station mapping and rules windows
