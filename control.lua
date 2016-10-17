@@ -973,6 +973,12 @@ local update_from_version = {
   ["1.1.1"] = function()
     return "1.1.2"
   end,
+  ["1.1.2"] = function()
+    return "1.1.3"
+  end,
+  ["1.1.3"] = function()
+    return "1.1.4"
+  end,
 }
 
 function on_configuration_changed(data)
