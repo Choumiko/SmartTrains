@@ -502,8 +502,8 @@ function update_station_numbers()
     global.stationNumbers[force] = {}
     for _, station in pairs(smartTrainstops) do
       if station.station and station.station.valid then
-        local number = get_station_number(force,station.station.backer_name)
-        global.stationNumbers[force][station.station.backer_name] = number
+        local number = get_station_number(force,tostring(station.station.backer_name))
+        global.stationNumbers[force][tostring(station.station.backer_name)] = number
         local signal = {signal={type = "virtual", name = "signal-station-number"}, count = number, index = 1}
         add_or_update_parameter(station.cargo.get_or_create_control_behavior(), signal, 1)
       end
@@ -749,7 +749,7 @@ local update_from_version = {
       t:lowestFuel()
       t.passengers = 0
 
-      if t.waiting then
+      if t.waiting and type(t.waiting) == "table" then
         if t.waiting.lastCheck then
           t.waiting.lastCargoCheck = t.waiting.lastCheck
           t.waiting.nextCargoCheck = t.waiting.lastCheck + global.settings.intervals.noChange
@@ -804,7 +804,6 @@ local update_from_version = {
         end
       end
     end
-
 
     for name, trainline in pairs(global.trainLines) do
       local tmp = {}
@@ -966,6 +965,9 @@ local update_from_version = {
     return (factorioVersion() == "13") and "1.0.3" or "1.1.2"
   end,
   --0.14ver
+  ["1.0.3"] = function()
+    return "1.1.0"
+  end,
   ["1.1.0"] = function()
     removeDuplicateTrains()
     return "1.1.1"

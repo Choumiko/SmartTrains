@@ -81,6 +81,11 @@ Global Settings UI
 ***
 Changelog
 ---
+1.1.5
+
+ - fixed problems with numerical station names
+ - and yet another updating error
+ 
 1.1.4
 
  - fixed another updating error
