@@ -276,7 +276,7 @@ Train = {
     getStationName = function(self, index)
       index = index or self.train.schedule.current
       if self.train.valid and index and self:isValidScheduleIndex(index) and type(self.train.schedule.records) == "table" then
-        return self.train.schedule.records[index].station
+        return tostring(self.train.schedule.records[index].station)
       else
         return false
       end
@@ -335,6 +335,8 @@ Train = {
       local station = findTrainStopByTrain(self)
       if station and station.backer_name ~= self:getStationName() then
         log(game.tick .. " station name mismatch")
+        log("Actual: " .. station.backer_name .. " Self: " .. self:getStationName())
+        log("Actual type: " .. type(station.backer_name) .. " Self type: " .. type(self:getStationName()))
         return
       end
       if not station then
@@ -411,7 +413,7 @@ Train = {
 
         local min_fuel = self:lowestFuel(true)
         local i = 1
-        local station_number = global.stationNumbers[cargoProxy.force.name][self.waitingStation.station.backer_name] or false
+        local station_number = global.stationNumbers[cargoProxy.force.name][tostring(self.waitingStation.station.backer_name)] or false
         if station_number and station_number ~= 0 then
           parameters[i]={signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = i}
           i=i + 1

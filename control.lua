@@ -979,6 +979,23 @@ local update_from_version = {
   ["1.1.3"] = function()
     return "1.1.4"
   end,
+  ["1.1.4"] = function()
+    if global.trainLines then
+      for _, line in pairs(global.trainLines) do
+        if line.records and type(line.records) == "table" then
+          for _, record in pairs(line.records) do
+            record.station = tostring(record.station)
+          end
+        end
+        if line.rules and type(line.rules) == "table" then
+          for _, rule in pairs(line.rules) do
+            rule.station = tostring(rule.station)
+          end
+        end
+      end
+    end
+    return "1.1.5"
+  end,
 }
 
 function on_configuration_changed(data)
@@ -1548,6 +1565,7 @@ function on_player_closed(event)
 end
 
 function decreaseStationCount(force, name)
+  name = tostring(name)
   if not global.stationCount[force][name] then
     global.stationCount[force][name] = 1
   end
@@ -1571,6 +1589,7 @@ function decreaseStationCount(force, name)
 end
 
 function increaseStationCount(force, name)
+  name = tostring(name)
   if not global.stationCount[force][name] or global.stationCount[force][name] < 0 then
     global.stationCount[force][name] = 0
   end
@@ -1599,6 +1618,7 @@ function renameStation(newName, oldName)
 end
 
 function on_station_rename(force, newName, oldName)
+  newName, oldName = tostring(newName), tostring(oldName)
   local oldc = decreaseStationCount(force, oldName)
   if oldc == 0 then
     renameStation(newName, oldName)
@@ -1893,10 +1913,11 @@ function findStations()
       recreateProxy(station)
     end
     local force = station.force.name
-    if not global.stationCount[force][station.backer_name] then
-      global.stationCount[force][station.backer_name] = 0
+    local backer_name = tostring(station.backer_name)
+    if not global.stationCount[force][backer_name] then
+      global.stationCount[force][backer_name] = 0
     end
-    global.stationCount[force][station.backer_name] = global.stationCount[force][station.backer_name] + 1
+    global.stationCount[force][backer_name] = global.stationCount[force][backer_name] + 1
   end
   global.searchedStations = game.tick
 

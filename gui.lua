@@ -590,7 +590,7 @@ GUI = {
     for _, name in pairs(mappings) do
       if string.starts_with(name, "station_map_label_") then
         local i = tonumber(name:match("station_map_label_*(%w*)"))
-        local station = tbl[name].caption
+        local station = tostring(tbl[name].caption)
         local text = trim(tbl["station_map_" .. i].text)
         if text ~= "" then
           text = tonumber(text)
@@ -648,7 +648,7 @@ function sanitize_rules(player, line, rules, page)
   for i, rule in pairs(rules) do
     if i>lower and i<=upper  and gui["rules_flow_b"..i] then
       rule.jumpTo = sanitizeNumber(gui["rules_flow_b"..i]["padding_frame__jumpTo__"..i]["jumpTo__"..i].text, false) or false
-      rule.station = global.trainLines[line].records[i].station
+      rule.station = tostring(global.trainLines[line].records[i].station)
     end
   end
 
@@ -904,12 +904,15 @@ on_gui_click = {
         local records = util.table.deepcopy(t.train.schedule.records)
         --new train line
         if not global.trainLines[name] then
-          global.trainLines[name] = {name=name, settings = {autoRefuel = false, useMapping = false, number = 0} }
+          global.trainLines[name] = {name=tostring(name), settings = {autoRefuel = false, useMapping = false, number = 0} }
         end
 
         local trainline = global.trainLines[name]
         local rules = trainline and util.table.deepcopy(trainline.rules) or {}
         for s_index, record in pairs(records) do
+          if record.station then
+            record.station = tostring(record.station)
+          end
           record.wait_conditions = record.wait_conditions or {}
           rules[s_index] = rules[s_index] or {}
 
