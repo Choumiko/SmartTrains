@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+1.1.6
+
+ - removed some log messages
+
 1.1.5
 
  - fixed problems with numerical station names

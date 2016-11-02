@@ -998,6 +998,9 @@ local update_from_version = {
     end
     return "1.1.5"
   end,
+  ["1.1.5"] = function()
+    return "1.1.6"
+  end,
 }
 
 function on_configuration_changed(data)
@@ -1241,7 +1244,7 @@ function on_train_changed_state(event)
       --end
       local jump, use_mapping
       local needs_update = (t.line and global.trainLines[t.line]) and t.lineVersion < global.trainLines[t.line].changed or false
-      log("Checking line, needs update: " ..serpent.line( needs_update,{comment=false}))
+      --log("Checking line, needs update: " ..serpent.line( needs_update,{comment=false}))
       local oldSchedule = t.train.schedule
       local oldName = t:getStationName(t.current)
       local numRecordsOld = #oldSchedule.records
@@ -1251,23 +1254,23 @@ function on_train_changed_state(event)
           newSchedule = t.train.schedule
           newName = t:getStationName(t.current)
           numRecordsNew = #newSchedule.records
-          log("old count: " .. numRecordsOld .. " new count: " .. numRecordsNew)
+          --log("old count: " .. numRecordsOld .. " new count: " .. numRecordsNew)
           if t.current == numRecordsOld and numRecordsOld < numRecordsNew then
             jump = t.current + 1
-            log("setting current to " .. jump)
+            --log("setting current to " .. jump)
           end
           if t.current > numRecordsNew then
             jump = 1
-            log("setting current to " .. jump)
+            --log("setting current to " .. jump)
           end
           if newName ~= oldName then
             --TODO find oldStation in schedule and use its rules?
-            for newIndex, r in pairs(newSchedule.records) do
-              if r.station == oldName then
-                log("setting current to new value: " .. t.current .. " -> " .. newIndex)
+            --for newIndex, r in pairs(newSchedule.records) do
+              --if r.station == oldName then
+                --log("setting current to new value: " .. t.current .. " -> " .. newIndex)
                 --t.current = newIndex
-              end
-            end
+              --end
+            --end
             log("updating line changed name of current station, so what?")
           end
           --TODO check if jumpTo is still used for the departing station and jump target is valid with the new schedule
@@ -1285,22 +1288,22 @@ function on_train_changed_state(event)
           --log("signalValue: " .. signalValue)
         end
         use_mapping = global.trainLines[t.line] and global.trainLines[t.line].settings.useMapping or false
-        log("Signal: "..serpent.line(signalValue,{comment=false}) .. " use mapping: " .. serpent.line(use_mapping,{comment=false}))
+        --log("Signal: "..serpent.line(signalValue,{comment=false}) .. " use mapping: " .. serpent.line(use_mapping,{comment=false}))
         if use_mapping then
           local jumpSignal, jumpTo
           if signalValue then
             jumpSignal = t:get_first_matching_station(signalValue, t.current)
-            log("jumpSignal: " .. serpent.line(jumpSignal, {comment=false}) .. " -> " .. t:getStationName(jumpSignal) or " invalid index")
+            --log("jumpSignal: " .. serpent.line(jumpSignal, {comment=false}) .. " -> " .. t:getStationName(jumpSignal) or " invalid index")
           end
           if gotoStation then
             jumpTo = t:get_first_matching_station(gotoStation, t.current)
-            log("jumpTo: " .. serpent.line(jumpTo, {comment=false}) .. " -> " .. t:getStationName(jumpTo) or " invalid index")
+            --log("jumpTo: " .. serpent.line(jumpTo, {comment=false}) .. " -> " .. t:getStationName(jumpTo) or " invalid index")
           end
           jump = jumpSignal or jumpTo or false
 
         else
           jump = (t:isValidScheduleIndex(signalValue)) or gotoStation or false
-          log("Jumping to " .. tostring(jump))
+          --log("Jumping to " .. tostring(jump))
         end
       end
 
@@ -1312,7 +1315,7 @@ function on_train_changed_state(event)
 
       t.current = nil
       t:resetWaitingStation(true)
-      log(" ")
+      --log(" ")
       return
     end
     if train.state == defines.train_state.wait_signal or train.state == defines.train_state.arrive_signal then
@@ -1331,6 +1334,12 @@ function on_train_changed_state(event)
         end
       end
     elseif train.state == defines.train_state.wait_station then
+--      if global.timingStarted then
+--        global.timedTrains = global.timedTrains - 1
+--        if global.timedTrains == 0 then
+--          remote.call("st", "stopTiming")
+--        end
+--      end
       --LOGGERS.main.log("Train arrived at " .. t:currentStation() .. "\t\t  train: " .. t.name .. " Speed: " .. t.train.speed)
       --t:updateLine()
       t:setWaitingStation()
@@ -1370,9 +1379,20 @@ function on_train_changed_state(event)
   --debugLog("train changed state to "..event.train.state.. " e")
   --log("state change e")
 end
-
+--local abs = math.abs
 function on_tick(event)
   local current_tick = event.tick
+
+--  if global.timingStarted then
+--    local tick = event.tick - global.timingStarted
+--    --global.timingData[tick] = {}
+--    local line = global.timingBuffer ..tick
+--    for i, ti in pairs(global.timing) do
+--      line = line .. "," .. abs(ti.train.speed)
+--    end
+--    line = line .. "\n"
+--    global.timingBuffer = line
+--  end
 
   if global.reset_signals[current_tick] then
     for _, station in pairs(global.reset_signals[current_tick]) do
@@ -2101,6 +2121,52 @@ remote.add_interface("st",
       if trainstop and trainstop.direction and trainstop.position then
         return getProxyPositions(trainstop)
       end
-    end
+    end,
+    
+    addTrain = function(train)
+      train = train or game.player.selected.train
+      local ti = TrainList.getTrainInfo(train)
+      global.timing = global.timing or {}
+      table.insert(global.timing, ti)
+    end,
+    
+    clearTrains = function(train)
+      global.timing = {}
+    end,
+    
+    startTiming = function(combinator)
+      global.timingStarted = game.tick
+      local header = "time"
+      global.timingPos = {}
+      for i, ti in pairs(global.timing) do
+        header = header.. "," .. ti:getType()
+        global.timingPos[i] = ti.train.speed
+      end
+      game.write_file("st/timing.csv", header .. "\n")
+      global.timingBuffer = ""
+      global.timingCombinator = combinator or game.player.selected
+      global.timingCombinator.get_control_behavior().enabled = true
+      global.timedTrains = #global.timing
+    end,
+    
+    stopTiming = function()
+      global.timingStarted = nil
+      global.timingCombinator.get_control_behavior().enabled = false
+      global.timingData = nil
+      game.write_file("st/timing.csv", global.timingBuffer, true)
+--      local tick = game.tick
+      --global.timingData[tick][ti:getType()] = ti.train.speed
+--      local line = ""
+--      local first = false
+--      local abs = math.abs      
+--      for tick, data in pairs(global.timingData) do
+--        line = line .. tick
+--        for trainType, speed in pairs(data) do
+--          line = line .. "," .. abs(speed)
+--        end
+--        line = line .. "\n"
+--      end
+--      game.write_file("st/timing.csv", line, true)
+    end,
   }
 )
