@@ -169,8 +169,8 @@ Train = {
       local force = self.train.carriages[1].force.name
       local full_match = global.stationCount[force][refuelStation] and global.stationCount[force][refuelStation] > 0
       if full_match then
-         --debugDump("full_match: train="..lType.." @ station="..refuelStation, true)
-         return refuelStation
+        --debugDump("full_match: train="..lType.." @ station="..refuelStation, true)
+        return refuelStation
       end
 
       -- Since there wasn't a specific match, we now need to search
@@ -185,47 +185,47 @@ Train = {
       lType = string.gsub(lType, "%-", "")
       local pattern = "^"..station.."%s+([LC-]+)$"
       for name, c in pairs(global.stationCount[force]) do
-         if name == nil then name = "" end
+        if name == nil then name = "" end
 
-         local _, _, sType = string.find(name, pattern)
-         if sType then
-            -- This station matches the auto-refuel pattern. We'll perform
-            -- subset checks on the train/station and station/train to ensure
-            -- the proper alignment.
-            sType = string.gsub(sType, "%-", "")
+        local _, _, sType = string.find(name, pattern)
+        if sType then
+          -- This station matches the auto-refuel pattern. We'll perform
+          -- subset checks on the train/station and station/train to ensure
+          -- the proper alignment.
+          sType = string.gsub(sType, "%-", "")
 
-            -- Is the train configuration a subset of the refuel station?
-            if string.find(sType, "^"..lType) then
-               --debugDump("subset 1: train="..self:getType().." @ station="..name, true)
-               return name
+          -- Is the train configuration a subset of the refuel station?
+          if string.find(sType, "^"..lType) then
+            --debugDump("subset 1: train="..self:getType().." @ station="..name, true)
+            return name
+          end
+
+          -- Is the refuel station a subset of the train? We cannot
+          -- take this immediately since there may be better,
+          -- more-apt stations to choose from.
+          if string.find(lType, "^"..sType) then
+            -- Track the length of the station that's a subset of the train.
+            -- Longer is better, but we can short-circuit when the train
+            -- and station lengths match.
+            local llen = string.len (lType)
+            local slen = string.len (sType)
+
+            -- The short-circuit.
+            if slen == llen then
+              return name
             end
 
-            -- Is the refuel station a subset of the train? We cannot
-            -- take this immediately since there may be better,
-            -- more-apt stations to choose from.
-            if string.find(lType, "^"..sType) then
-               -- Track the length of the station that's a subset of the train.
-               -- Longer is better, but we can short-circuit when the train
-               -- and station lengths match.
-               local llen = string.len (lType)
-               local slen = string.len (sType)
-
-               -- The short-circuit.
-               if slen == llen then
-                  return name
-               end
-
-               if slen > best_fit.len then
-                  best_fit = { len=slen, name=name }
-                  --debugDump("subset 2: updated train="..self:getType().." @ station="..name, true)
-               end
+            if slen > best_fit.len then
+              best_fit = { len=slen, name=name }
+              --debugDump("subset 2: updated train="..self:getType().." @ station="..name, true)
             end
-         end
+          end
+        end
       end
 
       -- If we've found a best fit, return that one.
       if best_fit.len > 0 then
-         return best_fit.name
+        return best_fit.name
       end
 
       -- Default to the base station.
@@ -246,10 +246,16 @@ Train = {
       return self.refueling and self.settings.autoRefuel
     end,
 
+    isRefuelingDone = function(self)
+      if self:lowestFuel() >= global.settings.refuel.rangeMax or self:isFuelInventoryFull() then
+        return true
+      end
+    end,
+
     refuelingDone = function(self, done)
       if done then
         if global.showFlyingText then
-          self:flyingText("Refueling done", colors.YELLOW)
+          self:flyingText("Refueling done", colors.YELLOW, {offset = 1})
         end
         self.refueling = false
         self:nextStation()
@@ -260,7 +266,7 @@ Train = {
       if inSchedule_reverse(self:refuelStation(), self.train.schedule) and #self.train.schedule.records >= 3 then
         self.train.schedule = removeStation(self:refuelStation(), self.train.schedule)
         if global.showFlyingText then
-          self:flyingText("Refuel station removed", colors.YELLOW) --TODO localisation
+          self:flyingText("Refuel station removed", colors.YELLOW, {offset=1}) --TODO localisation
         end
       end
     end,
@@ -468,22 +474,54 @@ Train = {
       end
     end,
 
+    isFuelInventoryFull = function(self)
+      local locos = (self.train and self.train.valid) and self.train.locomotives or false
+      local isFull = true
+      if locos then
+        local inventory, contents
+        for _, carriage in pairs(locos.front_movers) do
+          inventory = carriage.get_inventory(defines.inventory.fuel)
+          contents = inventory.get_contents()
+          for item, _ in pairs(contents) do
+            isFull = isFull and (not inventory.can_insert{name = item})
+            if not isFull then
+              return false
+            end
+          end
+        end
+        for _, carriage in pairs(locos.back_movers) do
+          inventory = carriage.get_inventory(defines.inventory.fuel)
+          contents = inventory.get_contents()
+          for item, _ in pairs(contents) do
+            isFull = isFull and (not inventory.can_insert{name = item})
+            if not isFull then
+              return false
+            end
+          end
+        end
+      end
+      return isFull
+    end,
+
     --returns fuelvalue (in MJ)
     lowestFuel = function(self, exact)
       if self.last_fuel_update + 60 <= game.tick or exact then
         self.last_fuel_update = game.tick
-        local minfuel
-        local c
         local locos = (self.train and self.train.valid) and self.train.locomotives or false
         if locos then
+          local minfuel
+          local c
+          local contents
           for _, carriage in pairs(locos.front_movers) do
-            c = self:calcFuel(carriage.get_inventory(1).get_contents())
+            contents = carriage.get_inventory(defines.inventory.fuel).get_contents()
+            c = self:calcFuel(contents)
             if minfuel == nil or c < minfuel then
               minfuel = c
             end
           end
           for _, carriage in pairs(locos.back_movers) do
-            c = self:calcFuel(carriage.get_inventory(1).get_contents())
+            contents = carriage.get_inventory(defines.inventory.fuel).get_contents()
+            c = self:calcFuel(contents)
             if minfuel == nil or c < minfuel then
               minfuel = c
             end
@@ -601,14 +639,14 @@ Train = {
         if global.showFlyingText then
           self:flyingText("Skipping line update, refueling", colors.YELLOW)
         end
-        log(self.name .. " refueling")
+        --log(self.name .. " refueling")
         return false
       end
 
       --debugDump("updating line "..self.line.." train: "..self.train.carriages[1].backer_name,true)
       if global.showFlyingText and self.lineVersion >= 0 then
         self:flyingText("updating schedule", colors.YELLOW) --TODO localisation
-        log(self.name .. " Updating line")
+        --log(self.name .. " Updating line")
       end
 
       local waitingAt = self.train.schedule.records and self.train.schedule.records[self.train.schedule.current] or {station=""}
@@ -617,7 +655,7 @@ Train = {
       }
 
       local inLine = inSchedule(waitingAt.station, schedule)
-      log(self.name .. " inline " .. serpent.line(inLine, {comment=false}))
+      --log(self.name .. " inline " .. serpent.line(inLine, {comment=false}))
 
       self.settings.autoRefuel = trainLine.settings.autoRefuel
       self.rules = table.deepcopy(trainLine.rules)
@@ -627,14 +665,14 @@ Train = {
       if inLine then
         schedule.current = inLine
         self.train.schedule = schedule
-        log(self.name .. " Updated line (inline)")
+        --log(self.name .. " Updated line (inline)")
 
       else
         schedule.current = 1
         self.train.manual_mode = true
         self.train.schedule = schedule
         self.train.manual_mode = oldmode
-        log(self.name .. " Updated line (not inline)")
+        --log(self.name .. " Updated line (not inline)")
       end
 
 

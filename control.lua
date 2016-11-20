@@ -1266,10 +1266,10 @@ function on_train_changed_state(event)
           if newName ~= oldName then
             --TODO find oldStation in schedule and use its rules?
             --for newIndex, r in pairs(newSchedule.records) do
-              --if r.station == oldName then
-                --log("setting current to new value: " .. t.current .. " -> " .. newIndex)
-                --t.current = newIndex
-              --end
+            --if r.station == oldName then
+            --log("setting current to new value: " .. t.current .. " -> " .. newIndex)
+            --t.current = newIndex
+            --end
             --end
             log("updating line changed name of current station, so what?")
           end
@@ -1311,11 +1311,15 @@ function on_train_changed_state(event)
         t:nextStation(false, jump)
       end
 
-
+      if t.settings.autoRefuel and t.refueling then
+        if t:getStationName(t.current) == t:refuelStation() and t.current == #t.train.schedule.records and t:isRefuelingDone() then
+          t.refueling = false
+          t:removeRefuelStation()
+        end
+      end
 
       t.current = nil
       t:resetWaitingStation(true)
-      --log(" ")
       return
     end
     if train.state == defines.train_state.wait_signal or train.state == defines.train_state.arrive_signal then
@@ -1334,12 +1338,12 @@ function on_train_changed_state(event)
         end
       end
     elseif train.state == defines.train_state.wait_station then
---      if global.timingStarted then
---        global.timedTrains = global.timedTrains - 1
---        if global.timedTrains == 0 then
---          remote.call("st", "stopTiming")
---        end
---      end
+      --      if global.timingStarted then
+      --        global.timedTrains = global.timedTrains - 1
+      --        if global.timedTrains == 0 then
+      --          remote.call("st", "stopTiming")
+      --        end
+      --      end
       --LOGGERS.main.log("Train arrived at " .. t:currentStation() .. "\t\t  train: " .. t.name .. " Speed: " .. t.train.speed)
       --t:updateLine()
       t:setWaitingStation()
@@ -1362,7 +1366,7 @@ function on_train_changed_state(event)
             t:flyingText("Refuel station added", colors.YELLOW)
           end
         end
-        if lowest_fuel >= (global.settings.refuel.rangeMax) and t:currentStation() ~= t:refuelStation() then
+        if t:isRefuelingDone() and t:currentStation() ~= t:refuelStation() then
           t:removeRefuelStation()
         end
       end
@@ -1383,16 +1387,16 @@ end
 function on_tick(event)
   local current_tick = event.tick
 
---  if global.timingStarted then
---    local tick = event.tick - global.timingStarted
---    --global.timingData[tick] = {}
---    local line = global.timingBuffer ..tick
---    for i, ti in pairs(global.timing) do
---      line = line .. "," .. abs(ti.train.speed)
---    end
---    line = line .. "\n"
---    global.timingBuffer = line
---  end
+  --  if global.timingStarted then
+  --    local tick = event.tick - global.timingStarted
+  --    --global.timingData[tick] = {}
+  --    local line = global.timingBuffer ..tick
+  --    for i, ti in pairs(global.timing) do
+  --      line = line .. "," .. abs(ti.train.speed)
+  --    end
+  --    line = line .. "\n"
+  --    global.timingBuffer = line
+  --  end
 
   if global.reset_signals[current_tick] then
     for _, station in pairs(global.reset_signals[current_tick]) do
@@ -1416,7 +1420,7 @@ function on_tick(event)
       for _, train in pairs(global.refueling[current_tick]) do
         if train.train and train.train.valid then
           if train.refueling and train.refueling == current_tick then
-            if train:lowestFuel() >= global.settings.refuel.rangeMax then
+            if train:isRefuelingDone() then
               train:refuelingDone(true)
             else
               train.refueling = current_tick + global.settings.intervals.inactivity
@@ -2122,18 +2126,18 @@ remote.add_interface("st",
         return getProxyPositions(trainstop)
       end
     end,
-    
+
     addTrain = function(train)
       train = train or game.player.selected.train
       local ti = TrainList.getTrainInfo(train)
       global.timing = global.timing or {}
       table.insert(global.timing, ti)
     end,
-    
+
     clearTrains = function(train)
       global.timing = {}
     end,
-    
+
     startTiming = function(combinator)
       global.timingStarted = game.tick
       local header = "time"
@@ -2148,25 +2152,25 @@ remote.add_interface("st",
       global.timingCombinator.get_control_behavior().enabled = true
       global.timedTrains = #global.timing
     end,
-    
+
     stopTiming = function()
       global.timingStarted = nil
       global.timingCombinator.get_control_behavior().enabled = false
       global.timingData = nil
       game.write_file("st/timing.csv", global.timingBuffer, true)
---      local tick = game.tick
+      --      local tick = game.tick
       --global.timingData[tick][ti:getType()] = ti.train.speed
---      local line = ""
---      local first = false
---      local abs = math.abs      
---      for tick, data in pairs(global.timingData) do
---        line = line .. tick
---        for trainType, speed in pairs(data) do
---          line = line .. "," .. abs(speed)
---        end
---        line = line .. "\n"
---      end
---      game.write_file("st/timing.csv", line, true)
+      --      local line = ""
+      --      local first = false
+      --      local abs = math.abs
+      --      for tick, data in pairs(global.timingData) do
+      --        line = line .. tick
+      --        for trainType, speed in pairs(data) do
+      --          line = line .. "," .. abs(speed)
+      --        end
+      --        line = line .. "\n"
+      --      end
+      --      game.write_file("st/timing.csv", line, true)
     end,
   }
 )

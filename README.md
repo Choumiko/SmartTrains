@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+1.1.7
+
+ - refuel station now gets removed if the trains locomotives are full
+
 1.1.6
 
  - removed some log messages
