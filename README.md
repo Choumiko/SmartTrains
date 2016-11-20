@@ -83,6 +83,7 @@ Changelog
 ---
 1.1.7
 
+ - disabled loading saves with a SmartTrains version < 0.3.97 (You can still update them by downloading SmartTrains 1.1.6 manually)
  - refuel station now gets removed if the trains locomotives are full
 
 1.1.6

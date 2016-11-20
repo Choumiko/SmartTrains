@@ -396,60 +396,6 @@ function onload()
   setMetatables()
 end
 
-local function update_0_3_77()
-  global.settings.lines = nil
-  global.stopTick = nil
-  for _, line in pairs(global.trainLines) do
-    for i,record in pairs(line.records) do
-      if not line.rules then line.rules = {} end
-      if not line.rules[i] then
-        local rule = {}
-        rule.empty = false
-        rule.full = false
-        rule.jumpTo = false
-        rule.jumpToCircuit = false
-        rule.keepWaiting = false
-        rule.original_time = record.time_to_wait
-        rule.station = record.station
-        rule.waitForCircuit = false
-        line.rules[i] = rule
-      else
-        if not line.rules[i].original_time then
-          line.rules[i].original_time = record.time_to_wait
-        end
-        if line.rules[i].keepWaiting then
-          record.time_to_wait = 2^32-1
-        end
-      end
-    end
-    if line.rules[false] then line.rules[false] = nil end
-    line.number = 0
-    line.changed = game.tick
-  end
-  local trainLine, rules
-  for _, train in pairs(global.trains) do
-    if train.line and global.trainLines[train.line] and train.waitForever then
-      trainLine = global.trainLines[train.line]
-      rules = trainLine.rules
-      local schedule = {records={}, current=train.train.schedule.current}
-      for i, record in pairs(trainLine.records) do
-        if rules then
-          if rules[i].keepWaiting then
-            record.time_to_wait = 2^32-1
-          else
-            record.time_to_wait = rules[i].original_time
-          end
-        end
-        schedule.records[i] = record
-      end
-      train.train.schedule = schedule
-    end
-  end
-  return "0.3.77"
-end
-
-
-
 function get_station_number(force_name, station_name)
   if global.stationMapping[force_name][station_name] then
     return global.stationMapping[force_name][station_name]
@@ -654,245 +600,17 @@ end
 
 local update_from_version = {
   ["0.0.0"] = function()
-    return update_0_3_77()
+    return "1.1.7"
   end,
-  ["0.3.77"] = function() return "0.3.82" end,
-  ["0.3.78"] = function() return "0.3.82" end,
-  ["0.3.79"] = function() return "0.3.82" end,
-  ["0.3.80"] = function() return "0.3.82" end,
-  ["0.3.81"] = function() return "0.3.82" end,
-  ["0.3.82"] = function()
-    for _, line in pairs(global.trainLines) do
-      for _, rule in pairs(line.rules) do
-        if (rule.empty or rule.full) and rule.waitForCircuit then
-          rule.requireBoth = true
-        else
-          rule.requireBoth = false
-        end
-      end
-    end
-    local c = 0
-    for i, t in pairs(global.trains) do
-      t.dynamic = nil
-      if t.settings then
-        t.settings.autoDepart = nil
-      end
-      t.type = t:getType()
-      if t.waitingStation and t.waitingStation.station and t.waitingStation.station.valid then
-        t.waitingStation.key = stationKey(t.waitingStation.station)
-      end
-      local update
-      local line = t.line and global.trainLines[t.line]
-      if line then
-        update = t.lineVersion < global.trainLines[t.line].changed
-      elseif t.line and not global.trainLines[t.line] then
-        update = true
-      end
-
-      if update then
-        t.scheduleUpdate = game.tick + 60 + i
-        insertInTable(global.scheduleUpdate, t.scheduleUpdate, t)
-        c = c + 1
-      end
-    end
-    fixSmartstopTable()
-    TrainList.removeInvalidTrains()
-    findStations()
-
-    for _, l in pairs(global.trainLines) do
-      l.settings.useMapping = false
-      l.settings.number = l.number or 0
-      l.number = nil
-      l.settings.autoDepart = nil
-    end
-    local smart_stop
-    local found
-    for _, t in pairs(global.trains) do
-      if t.waitingStation and t.waitingStation.key then
-        found = false
-        smart_stop = global.smartTrainstops[t.train.carriages[1].force.name][t.waitingStation.key]
-        t.waitingStation = smart_stop
-        if global.updateTick then
-          for tick, trains in pairs(global.updateTick) do
-            for i, t2 in pairs(trains) do
-              if t.train == t2.train and not found then
-                --log("Uref found["..tick .."]["..i.."] "..t.name)
-                global.updateTick[tick][i] = t
-                t.updateTick = tick
-                found = true
-              end
-            end
-          end
-        end
-      end
-    end
-    return "0.3.9", true
-  end,
-  ["0.3.9"] = function()
-    global.settings.intervals.write = (global.settings.circuit and global.settings.circuit.interval) and global.settings.circuit.interval or defaultSettings.intervals.write
-    global.settings.intervals.read = (global.settings.circuit and global.settings.circuit.interval) and global.settings.circuit.interval or defaultSettings.intervals.read
-    global.settings.intervals.noChange = defaultSettings.intervals.inactivity
-    global.settings.intervals.cargoRule = global.settings.intervals.read --defaultSettings.intervals.cargoRule
-
-    global.settings.circuit = nil
-    global.settings.depart = nil
-
-    global.update_cargo = global.updateTick or {}
-    global.check_rules = global.ticks or {}
-
-    for _, t in pairs(global.trains) do
-      t.type = t:getType()
-      t.update_cargo = t.updateTick
-      t.updateTick = nil
-      t.last_fuel_update = 0
-      t.min_fuel = nil
-      t:lowestFuel()
-      t.passengers = 0
-
-      if t.waiting and type(t.waiting) == "table" then
-        if t.waiting.lastCheck then
-          t.waiting.lastCargoCheck = t.waiting.lastCheck
-          t.waiting.nextCargoCheck = t.waiting.lastCheck + global.settings.intervals.noChange
-          t.waiting.nextCargoRule = t.waiting.lastCheck + global.settings.intervals.write
-          t.waiting.lastCheck = nil
-        end
-      end
-
-      if t.refueling then
-        local tick = type(t.refueling) == "table" and t.refueling.nextCheck or t.refueling
-        insertInTable(global.refueling, tick, t)
-        t.refueling = tick
-      end
-
-      for _, c in pairs(t.train.carriages) do
-        if c.name == "rail-tanker" then
-          t.railtanker = true
-          if c.passenger then
-            t.passengers = t.passengers + 1
-          end
-        end
-      end
-    end
-    global.updateTick = nil
-    global.ticks = nil
-    return "0.3.91"
-  end,
-  ["0.3.91"] = function()
-    for _, t in pairs(global.trains) do
-      t.passengers = 0
-      for _, c in pairs(t.train.carriages) do
-        if c.passenger then
-          t.passengers = t.passengers + 1
-        end
-      end
-    end
-    return "0.3.92" end,
-  ["0.3.92"] = function()
-    global.openedTrain = nil
-    return "0.3.93"
-  end,
-  ["0.3.93"] = function() return "0.3.94" end,
-  ["0.3.94"] = function() return "0.3.95" end,
-  ["0.3.95"] = function()
-    fixSmartstopTable()
-    local smart_conditions = {}
-    for _ , stop in pairs(global.smartTrainstops.player) do
-      if stop.station.valid and stop.signalProxy.valid then
-        local behavior = stop.signalProxy.get_control_behavior()
-        if behavior then
-          smart_conditions[stop.station.backer_name] = behavior.circuit_condition.condition
-        end
-      end
-    end
-
-    for name, trainline in pairs(global.trainLines) do
-      local tmp = {}
-      local records = trainline.records
-      trainline.rules.inactivity = trainline.rules.noChange
-      trainline.rules.noChange = nil
-      local rules = trainline.rules
-
-      for i, record in pairs(records) do
-        local wait_conditions = {}
-        local compare_type = rules[i].requireBoth and "and" or "or"
-        tmp[i] = {
-          station=record.station,
-          jumpToCircuit = rules[i].jumpToCircuit,
-          jumpTo = rules[i].jumpTo
-        }
-        --normal waiting time
-        if not rules[i].keepWaiting then
-          table.insert(wait_conditions, {type="time", ticks=record.time_to_wait, compare_type = compare_type} )
-          tmp[i].keepWaiting = true
-        end
-        record.time_to_wait = nil
-        --empty rule
-        if rules[i].empty then
-          table.insert(wait_conditions, {type="empty", compare_type = compare_type} )
-          tmp[i].empty = true
-        end
-        --full rule
-        if rules[i].full then
-          table.insert(wait_conditions, {type="full", compare_type = compare_type} )
-          tmp[i].full = true
-        end
-        --no change/inactivity rule
-        if rules[i].inactivity then
-          table.insert(wait_conditions, {type="inactivity", ticks=global.settings.intervals.inactivity, compare_type = compare_type} )
-          tmp[i].inactivity = true
-        end
-        if rules[i].waitForCircuit then
-          local wait_condition = {type = "circuit", compare_type = compare_type}
-          wait_condition.condition = smart_conditions[tmp[i].station]
-
-          table.insert(wait_conditions, wait_condition )
-          tmp[i].circuit = true
-        end
-
-        record.wait_conditions = wait_conditions
-        if #wait_conditions > 0 then
-          record.wait_conditions[1].compare_type = "and"
-        end
-      end
-      trainline.records = records
-      trainline.rules = table.deepcopy(tmp)
-    end
-
-    local remove_invalid = false
-    for _, train in pairs(global.trains) do
-      if train.train and train.train.valid then
-        train.current = train.train.schedule.current
-        local schedule
-        if train.line and global.trainLines[train.line] then
-          local line = global.trainLines[train.line]
-          train.rules = table.deepcopy(line.rules)
-          train.lineVersion = line.changed
-          schedule = train.train.schedule
-          schedule.records = global.trainLines[train.line].records
-          train.train.schedule = schedule
-        end
-      else
-        remove_invalid = true
-      end
-    end
-    if remove_invalid then
-      TrainList.removeInvalidTrains()
-    end
-    return "0.3.96"
-  end,
-  ["0.3.96"] = function()
-    global.reset_signals = global.reset_signals or {}
-    return "0.3.97"
-  end,
-  ["0.3.97"] = function() return "0.3.98" end,
+  ["0.3.97"] = function() return "0.3.99" end,
   ["0.3.98"] = function() return "0.3.99" end,
   ["0.3.99"] = function()
     update_station_numbers()
-    return "0.4.0"
+    return "0.4.2"
   end,
   ["0.4.0"] = function()
     update_station_numbers()
-    return "0.4.1"
+    return "0.4.2"
   end,
   ["0.4.1"] = function() return "0.4.2" end,
   ["0.4.2"] = function()
@@ -970,13 +688,13 @@ local update_from_version = {
   end,
   ["1.1.0"] = function()
     removeDuplicateTrains()
-    return "1.1.1"
+    return "1.1.4"
   end,
   ["1.1.1"] = function()
-    return "1.1.2"
+    return "1.1.4"
   end,
   ["1.1.2"] = function()
-    return "1.1.3"
+    return "1.1.4"
   end,
   ["1.1.3"] = function()
     return "1.1.4"
@@ -996,10 +714,13 @@ local update_from_version = {
         end
       end
     end
-    return "1.1.5"
+    return "1.1.7"
   end,
   ["1.1.5"] = function()
-    return "1.1.6"
+    return "1.1.7"
+  end,
+  ["1.1.6"] = function()
+    return "1.1.7"
   end,
 }
 
@@ -1020,6 +741,9 @@ function on_configuration_changed(data)
       setMetatables()
       local searchedStations = false
       if old_version and new_version then
+        if old_version < "0.3.97" then
+          error("Updating from an outdated version, get SmartTrains 1.1.6 from the mod portal to update this save.")
+        end
         local ver = update_from_version[old_version] and old_version or "0.0.0"
         local searched = false
         while ver ~= new_version do
