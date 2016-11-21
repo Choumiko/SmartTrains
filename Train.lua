@@ -111,6 +111,9 @@ Train = {
       end
       local schedule = self.train.schedule
       local records = schedule.records
+      if not records then
+        return false
+      end
       current = current or schedule.current
       local num_records = #records
       local index
@@ -135,25 +138,28 @@ Train = {
       end
       if train.manual_mode == false or force then
         local schedule = train.schedule
+        if schedule.records then
+          local countRecords = #schedule.records
+          local tmp = (schedule.current % countRecords) + 1
+          if index and index > 0 and index <= countRecords then
+            tmp = index
+          end
+          if global.showFlyingText then
+            self:flyingText("Going to "..schedule.records[tmp].station, colors.YELLOW, {offset = -1}) --TODO localisation
+          end
 
-        local tmp = (schedule.current % #schedule.records) + 1
-        if index and index > 0 and index <= #schedule.records then
-          tmp = index
+          --all below is needed to make a train go to another station, don't change!
+          train.manual_mode = true
+          schedule.current = tmp
+          train.schedule = schedule
+          train.manual_mode = false
         end
-        if global.showFlyingText then
-          self:flyingText("Going to "..schedule.records[tmp].station, colors.YELLOW, {offset = -1}) --TODO localisation
-        end
-
-        --all below is needed to make a train go to another station, don't change!
-        train.manual_mode = true
-        schedule.current = tmp
-        train.schedule = schedule
-        train.manual_mode = false
       end
     end,
 
     isValidScheduleIndex = function(self, index)
-      if index and index > 0 and index <= #self.train.schedule.records then
+      local records = self.train.schedule.records
+      if index and index > 0 and records and index <= #records then
         return index
       end
       return false
@@ -263,7 +269,8 @@ Train = {
     end,
 
     removeRefuelStation = function(self)
-      if inSchedule_reverse(self:refuelStation(), self.train.schedule) and #self.train.schedule.records >= 3 then
+      local records = self.train.schedule.records
+      if inSchedule_reverse(self:refuelStation(), self.train.schedule) and records and #records >= 3 then
         self.train.schedule = removeStation(self:refuelStation(), self.train.schedule)
         if global.showFlyingText then
           self:flyingText("Refuel station removed", colors.YELLOW, {offset=1}) --TODO localisation
@@ -318,7 +325,8 @@ Train = {
     end,
 
     getWaitingTime = function(self)
-      if self.train.schedule and self.train.schedule.records and #self.train.schedule.records > 0 then
+      local records = self.train.schedule.records
+      if self.train.schedule and self.train.schedule.records and records and #records > 0 then
         local conditions = self.train.schedule.records[self.train.schedule.current].wait_conditions or {}
         for _, condition in pairs(conditions) do
           if condition.type == "time" then
@@ -633,9 +641,10 @@ Train = {
         --log(self.name .. " Up to date")
         return true
       end
-
+      
+      local records = self.train.schedule.records
       -- Skip when refueling
-      if self.settings.autoRefuel and #self.train.schedule.records == inSchedule_reverse(self:refuelStation(), self.train.schedule) then
+      if self.settings.autoRefuel and records and #records == inSchedule_reverse(self:refuelStation(), self.train.schedule) then
         if global.showFlyingText then
           self:flyingText("Skipping line update, refueling", colors.YELLOW)
         end
@@ -649,7 +658,7 @@ Train = {
         --log(self.name .. " Updating line")
       end
 
-      local waitingAt = self.train.schedule.records and self.train.schedule.records[self.train.schedule.current] or {station=""}
+      local waitingAt = records and records[self.train.schedule.current] or {station=""}
       local schedule = {
         records= util.table.deepcopy(trainLine.records)
       }

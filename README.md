@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+1.1.8
+
+ - fixed error when setting a train to a line with Autorefuel active
+ 
 1.1.7
 
  - disabled loading saves with a SmartTrains version < 0.3.97 (You can still update them by downloading SmartTrains 1.1.6 manually)
