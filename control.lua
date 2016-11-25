@@ -1896,5 +1896,14 @@ remote.add_interface("st",
       --      end
       --      game.write_file("st/timing.csv", line, true)
     end,
+    stationNameFromNumber = function(player, stationID)
+      if global.stationMap[player.force.name][stationID] then
+        for name, set in pairs(global.stationMap[player.force.name][stationID]) do
+          if set then return name end
+        end
+      end
+      return ""
+    end,
+
   }
 )
