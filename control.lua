@@ -1507,7 +1507,7 @@ function on_player_mined_item(event)
   local status, err = pcall(function()
     local name = event.item_stack.name
     local type = game.item_prototypes[name].place_result and game.item_prototypes[name].place_result.type
-    if type == "locomotive" or type == "cargo-wagon" then
+    if type and type == "locomotive" or type == "cargo-wagon" then
       if global.tmpPos then
         for _, entity in pairs(global.tmpPos) do
           if entity.valid then
@@ -1896,6 +1896,7 @@ remote.add_interface("st",
       --      end
       --      game.write_file("st/timing.csv", line, true)
     end,
+
     stationNameFromNumber = function(player, stationID)
       if global.stationMap[player.force.name][stationID] then
         for name, set in pairs(global.stationMap[player.force.name][stationID]) do
@@ -1904,6 +1905,18 @@ remote.add_interface("st",
       end
       return ""
     end,
-
+    
+    stationNamesFromNumber = function(force, stationID)
+      local forceName = type(force) == "string" and force or force.name
+      local map = global.stationMap[forceName]
+      local result = {}
+      if map and map[stationID] then
+        for name, set in pairs(map[stationID]) do
+          if set then table.insert(result, name) end
+        end
+        return result
+      end
+      return ""
+    end,
   }
 )

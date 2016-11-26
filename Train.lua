@@ -443,18 +443,19 @@ Train = {
         parameters[i]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = i}
         i=i + 1
 
-        if self.line and global.trainLines[self.line] and global.trainLines[self.line].settings.number ~= 0 then
-          parameters[i]={signal={type = "virtual", name = "signal-line"}, count = global.trainLines[self.line].settings.number, index = i}
+        local trainLine = self.line and global.trainLines[self.line] or false
+        if trainLine and trainLine.settings.number ~= 0 then
+          parameters[i]={signal={type = "virtual", name = "signal-line"}, count = trainLine.settings.number, index = i}
           i=i + 1
         end
 
         if destination then
           local destNumber
 
-          if self.line and global.trainLines[self.line] and global.trainLines[self.line].settings.useMapping then
+          if trainLine and trainLine.settings.useMapping then
             destNumber = global.stationNumbers[cargoProxy.force.name][tostring(self.train.schedule.records[self.train.schedule.current].station)] or false
           end
---          log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. (destNumber or self.train.schedule.current))
+          --log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. (destNumber or self.train.schedule.current))
           parameters[i]={signal={type = "virtual", name = "signal-destination"}, count = destNumber or self.train.schedule.current, index = i}
           i = i + 1
         end
@@ -646,7 +647,7 @@ Train = {
         --log(self.name .. " Up to date")
         return true
       end
-      
+
       local records = self.train.schedule.records
       -- Skip when refueling
       if self.settings.autoRefuel and records and #records == inSchedule_reverse(self:refuelStation(), self.train.schedule) then
