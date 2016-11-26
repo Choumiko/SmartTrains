@@ -449,8 +449,13 @@ Train = {
         end
 
         if destination then
-          --log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. self.train.schedule.current)
-          parameters[i]={signal={type = "virtual", name = "signal-destination"}, count = self.train.schedule.current, index = i}
+          local destNumber
+
+          if self.line and global.trainLines[self.line] and global.trainLines[self.line].settings.useMapping then
+            destNumber = global.stationNumbers[cargoProxy.force.name][tostring(self.train.schedule.records[self.train.schedule.current].station)] or false
+          end
+--          log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. (destNumber or self.train.schedule.current))
+          parameters[i]={signal={type = "virtual", name = "signal-destination"}, count = destNumber or self.train.schedule.current, index = i}
           i = i + 1
         end
 

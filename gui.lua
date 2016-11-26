@@ -199,6 +199,7 @@ GUI = {
     --log(serpent.line(trainInfo))
     --log(serpent.line({kUI=keyUI, trainkey=trainKey, t=t}))
     local trainLine = t.line and global.trainLines[t.line] or false
+    local useMapping = trainLine and trainLine.settings.useMapping or false
     gui = GUI.add(gui, {type="frame", name="trainSettings", caption={"", {"lbl-train"}, ": ", t.name, " (", t:getType(),")"}, direction="vertical", style="st_frame"})
     local line = "-"
     local dated = " "
@@ -273,8 +274,15 @@ GUI = {
             end
           end
 
-          if rule.jumpTo and rule.jumpTo <= #records then
+          if rule.jumpTo and not useMapping and rule.jumpTo <= #records then
             table.insert(chunks, {{"lbl-jump-to"}, "", rule.jumpTo})
+          elseif rule.jumpTo and useMapping and global.stationMap[game.players[player_index].force.name][rule.jumpTo] then
+            local mappedID = t:get_first_matching_station(rule.jumpTo, i)
+            if mappedID and mappedID>0 then
+              table.insert(chunks, {{"lbl-jump-to"}, "", mappedID , " (mapped #", rule.jumpTo, ')'})
+            else
+              table.insert(chunks, {"invalid #", " (mapped #", rule.jumpTo, ')'}) --TODO: localisation
+            end
           elseif rule.jumpTo then
             table.insert(chunks, {"invalid #"}) --TODO: localisation
           end
