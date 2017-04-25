@@ -722,6 +722,9 @@ local update_from_version = {
   ["1.1.6"] = function()
     return "1.1.7"
   end,
+  ["1.1.7"] = function()
+    return "2.0.0"
+  end
 }
 
 function on_configuration_changed(data)
@@ -973,7 +976,7 @@ function on_train_changed_state(event)
       local oldName = t:getStationName(t.current)
       local numRecordsOld = #oldSchedule.records
       local newSchedule, numRecordsNew, newName
-      if needs_update then
+      if needs_update and oldSchedule then
         if t:updateLine() then
           newSchedule = t.train.schedule
           newName = t:getStationName(t.current)
@@ -1203,11 +1206,11 @@ function on_tick(event)
       for pi, player in pairs(game.players) do
         if player.connected then
           if player.opened ~= nil and not global.player_opened[player.name] then
-            game.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
+            script.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
             global.player_opened[player.name] = player.opened
           end
           if global.player_opened[player.name] and player.opened == nil then
-            game.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
+            script.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
             global.player_opened[player.name] = nil
           end
         end

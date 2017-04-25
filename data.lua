@@ -21,6 +21,7 @@ data:extend(
       order = "zz",
       inventory_order = "zz",
       icon = "__base__/graphics/icons/deconstruction-planner.png",
+      icon_size = 32
     },
     {
       type = "item-subgroup",

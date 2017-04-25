@@ -170,6 +170,8 @@ GUI = {
 
       GUI.addLabel(tbl, {"stg-intervals-write"}).style.left_padding = 10
       GUI.addTextfield(tbl, {name="intervals_write", style="st_textfield_small", text = global.settings.intervals.write})
+      
+      GUI.addLabel(tbl, "Set destination signal")
 
       GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", TrainList.getCount()})
       local noStations, uniqueStations = 0,0
@@ -217,7 +219,7 @@ GUI = {
     GUI.addLabel(tbl, {"", {"lbl-active-line"}, ": ", line})
     GUI.addLabel(tbl, {"", " ", dated})
     local lineKey = ""
-    local records = t.train.schedule.records
+    local records = t.train.schedule and t.train.schedule.records
     local rules
     if trainLine then
       records = trainLine.records
@@ -903,7 +905,7 @@ on_gui_click = {
       option2 = tonumber(option2)
       local t = global.trains[option2]
       local is_copy = t.line and t.line ~= name
-      if not t.train.schedule.records then
+      if not t.train.schedule or not t.train.schedule.records then
         player.print("Train has no stations in the schedule") --TODO localization
         return
       end
@@ -1060,7 +1062,7 @@ on_gui_click = {
     if not t or not t.train.valid then
       return
     end
-    local records = t.train.schedule.records
+    local records = t.train.schedule and t.train.schedule.records or false
     local trainLine = t.line and global.trainLines[t.line] or false
     if trainLine then
       records = trainLine.records

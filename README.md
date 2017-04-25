@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+2.0.0
+
+ - version for Factorio 0.15.x
+
 1.1.8
 
  - fixed error when setting a train to a line with Autorefuel active

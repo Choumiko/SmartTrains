@@ -110,7 +110,7 @@ Train = {
         return false
       end
       local schedule = self.train.schedule
-      local records = schedule.records
+      local records = schedule and schedule.records
       if not records then
         return false
       end
@@ -138,7 +138,7 @@ Train = {
       end
       if train.manual_mode == false or force then
         local schedule = train.schedule
-        if schedule.records then
+        if schedule and schedule.records then
           local countRecords = #schedule.records
           local tmp = (schedule.current % countRecords) + 1
           if index and index > 0 and index <= countRecords then
@@ -158,7 +158,7 @@ Train = {
     end,
 
     isValidScheduleIndex = function(self, index)
-      local records = self.train.schedule.records
+      local records = self.train.schedule and self.train.schedule.records
       if index and index > 0 and records and index <= #records then
         return index
       end
@@ -279,7 +279,7 @@ Train = {
     end,
 
     currentStation = function(self)
-      if self.train.valid and type(self.train.schedule.records) == "table" and self.train.schedule.records[self.train.schedule.current] then
+      if self.train.valid and self.train.schedule and type(self.train.schedule.records) == "table" and self.train.schedule.records[self.train.schedule.current] then
         return self.train.schedule.records[self.train.schedule.current].station
       else
         return false
@@ -287,6 +287,7 @@ Train = {
     end,
 
     getStationName = function(self, index)
+      if not self.train.schedule then return false end
       index = index or self.train.schedule.current
       if self.train.valid and index and self:isValidScheduleIndex(index) and type(self.train.schedule.records) == "table" then
         return tostring(self.train.schedule.records[index].station)
@@ -325,7 +326,7 @@ Train = {
     end,
 
     getWaitingTime = function(self)
-      local records = self.train.schedule.records
+      local records = self.train.schedule and self.train.schedule.records
       if self.train.schedule and self.train.schedule.records and records and #records > 0 then
         local conditions = self.train.schedule.records[self.train.schedule.current].wait_conditions or {}
         for _, condition in pairs(conditions) do
@@ -452,7 +453,7 @@ Train = {
         if destination then
           local destNumber
 
-          if trainLine and trainLine.settings.useMapping then
+          if trainLine and trainLine.settings.useMapping and self.train.schedule then
             destNumber = global.stationNumbers[cargoProxy.force.name][tostring(self.train.schedule.records[self.train.schedule.current].station)] or false
           end
           --log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. (destNumber or self.train.schedule.current))
@@ -648,7 +649,7 @@ Train = {
         return true
       end
 
-      local records = self.train.schedule.records
+      local records = self.train.schedule and self.train.schedule.records
       -- Skip when refueling
       if self.settings.autoRefuel and records and #records == inSchedule_reverse(self:refuelStation(), self.train.schedule) then
         if global.showFlyingText then
