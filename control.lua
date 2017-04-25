@@ -323,7 +323,6 @@ function initGlob()
   global.playerRules = global.playerRules or {}
 
   global.guiData = global.guiData or {}
-  global.openedName = global.openedName or {}
 
   -- by force
   global.stationCount = global.stationCount or {}
@@ -723,6 +722,7 @@ local update_from_version = {
     return "1.1.7"
   end,
   ["1.1.7"] = function()
+    global.openedName = nil
     return "2.0.0"
   end
 }
@@ -1235,7 +1235,6 @@ function on_player_opened(event)
       local force = game.players[event.player_index].force.name
       global.guiData[event.player_index] = {rules={}, mapping=table.deepcopy(global.stationMapping[force])}
       GUI.create_or_update(event.player_index)
-      global.openedName[event.player_index] = event.entity.backer_name
     end
   end
 end
@@ -1310,9 +1309,6 @@ function on_player_closed(event)
       end
     elseif event.entity.type == "train-stop" then
       GUI.destroy(event.player_index)
-      if event.entity.backer_name ~= global.openedName[event.player_index] then
-        on_station_rename(event.entity.force.name, event.entity.backer_name, global.openedName[event.player_index])
-      end
     end
   end
 end
@@ -1370,8 +1366,10 @@ function renameStation(newName, oldName)
   end
 end
 
-function on_station_rename(force, newName, oldName)
-  newName, oldName = tostring(newName), tostring(oldName)
+function on_station_rename(event, new_name)
+
+  local newName, oldName, force = tostring(event.entity.backer_name), tostring(event.old_name), event.entity.force.name
+  newName = new_name or newName
   local oldc = decreaseStationCount(force, oldName)
   if oldc == 0 then
     renameStation(newName, oldName)
@@ -1392,7 +1390,7 @@ end
 -- on_pre_entity_settings_pasted and on_entity_settings_pasted
 function on_pre_entity_settings_pasted(event)
   if event.source.type == "train-stop" then
-    on_station_rename(event.destination.force.name, event.source.backer_name, event.destination.backer_name)
+    on_station_rename({entity = event.destination, old_name = event.destination.backer_name}, event.source.backer_name)
   end
 end
 
@@ -1417,6 +1415,7 @@ end
 
 script.on_event(defines.events.on_pre_entity_settings_pasted, on_pre_entity_settings_pasted)
 script.on_event(defines.events.on_entity_settings_pasted, on_entity_settings_pasted)
+script.on_event(defines.events.on_entity_renamed, on_station_rename)
 
 script.on_event(events.on_player_opened, on_player_opened)
 script.on_event(events.on_player_closed, on_player_closed)
@@ -1908,7 +1907,7 @@ remote.add_interface("st",
       end
       return ""
     end,
-    
+
     stationNamesFromNumber = function(force, stationID)
       local forceName = type(force) == "string" and force or force.name
       local map = global.stationMap[forceName]
