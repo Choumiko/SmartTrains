@@ -16,7 +16,6 @@ Train = {
           cargoUpdated = 0,
           last_fuel_update = 0,
           direction = 0, -- 0 = front, 1 back (lookup direction for trainstop)
-          railtanker = false, -- has a railtanker wagon
           passengers = 0,
         }
         new.settings.autoRefuel = defaultTrainSettings.autoRefuel
@@ -89,11 +88,7 @@ Train = {
       self.type = self:getType()
       self.name = self:getName()
       self.passengers = 0
-      self.railtanker = false
       for _, c in pairs(train.carriages) do
-        if c.name == "rail-tanker" then
-          self.railtanker = true
-        end
         if c.passenger and c.passenger.name ~= "fatcontroller" then
           self.passengers = self.passengers + 1
         end
@@ -437,7 +432,7 @@ Train = {
         i=i + 1
         parameters[i]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers + #self.train.locomotives.back_movers, index = i}
         i=i + 1
-        parameters[i]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons, index = i}
+        parameters[i]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons + #self.train.fluid_wagons, index = i}
         i=i + 1
         parameters[i]={signal={type = "virtual", name = "signal-passenger"}, count = self.passengers, index = i}
         i=i + 1
@@ -569,32 +564,7 @@ Train = {
         --LOGGERS.main.log("update cargo "..self.name)
         local sum = {}
         local train = self.train
-        if not self.railtanker and not self.proxy_chests then
-          sum = train.get_contents()
-        else
-          for i, wagon in pairs(train.cargo_wagons) do
-            if not self.proxy_chests or not self.proxy_chests[i] then
-              if wagon.name ~= "rail-tanker" then
-                --sum = sum + wagon.getcontents()
-                sum = addInventoryContents(sum, wagon.get_inventory(1).get_contents())
-              else
-                if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
-                  local d = remote.call("railtanker", "getLiquidByWagon", wagon)
-                  if d.type ~= nil then
-                    sum[d.type] = sum[d.type] or 0
-                    sum[d.type] = sum[d.type] + d.amount
-                    --self:flyingText(d.type..": "..d.amount, colors.YELLOW, {offset={x=wagon.position.x,y=wagon.position.y+1}})
-                  end
-                end
-              end
-            else
-              --wagon is used by logistics railway
-              local inventory = self.proxy_chests[i].get_inventory(defines.inventory.chest)
-              local contents = inventory.get_contents()
-              sum = addInventoryContents(sum, contents)
-            end
-          end
-        end
+        sum = train.get_contents()
         self.cargo = sum
         self.cargoUpdated = current_tick
       end

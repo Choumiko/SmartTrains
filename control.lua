@@ -724,7 +724,9 @@ local update_from_version = {
   ["1.1.7"] = function()
     global.openedName = nil
     return "2.0.0"
-  end
+  end,
+  ["2.0.0"] = function() return "2.0.1" end,
+  
 }
 
 function on_configuration_changed(data)
@@ -745,7 +747,7 @@ function on_configuration_changed(data)
       local searchedStations = false
       if old_version and new_version then
         if old_version < "0.3.97" then
-          error("Updating from an outdated version, get SmartTrains 1.1.6 from the mod portal to update this save.")
+          error("Updating from an outdated version, get at least SmartTrains 1.1.7 from the mod portal to update this save.")
         end
         local ver = update_from_version[old_version] and old_version or "0.0.0"
         local searched = false
@@ -754,6 +756,9 @@ function on_configuration_changed(data)
           searchedStations = searchedStations or searched
         end
         debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
+        debugDump("Note:",true)
+        debugDump("In a few versions SmartTrains will stop outputting the cargo amount to the combinator.",true)
+        debugDump("Use the Read train contents option from the train stop instead",true)
       end
       if not searchedStations then
         findStations()
@@ -923,21 +928,6 @@ end
 
 function fuel_value_to_coal(value)
   return math.ceil(value/global.fuel_values["coal"])
-end
-
-function addInventoryContents(invA, invB)
-  local res = {}
-  for item, c in pairs(invA) do
-    invB[item] = invB[item] or 0
-    res[item] = c + invB[item]
-    invB[item] = nil
-    if res[item] == 0 then res[item] = nil end
-  end
-  for item,c in pairs(invB) do
-    res[item] = c
-    if res[item] == 0 then res[item] = nil end
-  end
-  return res
 end
 
 local function getKeyByValue(t, value)
@@ -1420,7 +1410,14 @@ script.on_event(defines.events.on_entity_renamed, on_station_rename)
 script.on_event(events.on_player_opened, on_player_opened)
 script.on_event(events.on_player_closed, on_player_closed)
 
+--function on_train_created(event)
+  --log("train created")
+  --log("length: " .. #event.train.carriages)
+  --log(serpent.block(event))
+--end
+
 function on_built_entity(event)
+  --log("built entity")
   local status, err = pcall(function()
     local ent = event.created_entity
     local ctype = ent.type
@@ -1453,6 +1450,7 @@ function on_built_entity(event)
 end
 
 function on_preplayer_mined_item(event)
+  --log("premined entity")
   local status, err = pcall(function()
     local ent = event.entity
     local ctype = ent.type
@@ -1506,6 +1504,7 @@ function on_preplayer_mined_item(event)
 end
 
 function on_player_mined_item(event)
+  --log("mined entity")
   local status, err = pcall(function()
     local name = event.item_stack.name
     local type = game.item_prototypes[name].place_result and game.item_prototypes[name].place_result.type
@@ -1684,6 +1683,8 @@ script.on_event(defines.events.on_force_created, on_force_created)
 --script.on_event(defines.events.on_forces_merging, on_forces_merging)
 
 script.on_event(defines.events.on_train_changed_state, on_train_changed_state)
+--script.on_event(defines.events.on_train_created, on_train_created)
+
 script.on_event(defines.events.on_player_mined_item, on_player_mined_item)
 script.on_event(defines.events.on_preplayer_mined_item, on_preplayer_mined_item)
 script.on_event(defines.events.on_player_driving_changed_state, on_player_driving_changed_state)
@@ -1694,32 +1695,6 @@ script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
 script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
 script.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
 script.on_event(defines.events.on_tick, on_tick)
-
-if remote.interfaces.logistics_railway then
-  script.on_event(remote.call("logistics_railway", "get_chest_created_event"), function(event)
-    local chest = event.chest
-    local wagon_index = event.wagon_index
-    local train = event.train
-
-    local trainInfo = TrainList.getTrainInfo(train)
-    if trainInfo then
-      if not trainInfo.proxy_chests then trainInfo.proxy_chests = {} end
-      trainInfo.proxy_chests[wagon_index] = chest
-    end
-  end)
-
-  script.on_event(remote.call("logistics_railway", "get_chest_destroyed_event"), function(event)
-    local wagon_index = event.wagon_index
-    local train = event.train
-    --debugDump("destroyed a chest",true)
-    local trainInfo = TrainList.getTrainInfo(train)
-    if trainInfo then
-      if not trainInfo.proxy_chests then return end
-      trainInfo.proxy_chests[wagon_index] = nil
-      if #trainInfo.proxy_chests == 0 then trainInfo.proxy_chests = nil end
-    end
-  end)
-end
 
 remote.add_interface("st",
   {

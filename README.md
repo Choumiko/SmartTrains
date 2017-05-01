@@ -81,6 +81,12 @@ Global Settings UI
 ***
 Changelog
 ---
+2.0.1
+
+ - removed support for [RailTanker](https://mods.factorio.com/mods/Choumiko/RailTanker)
+ - fixed fluid wagons not being counted towards the # of cargo wagons
+ - In a few versions SmartTrains will stop outputting the cargo amount to the combinator. Use the Read train contents option from the train stop instead
+
 2.0.0
 
  - version for Factorio 0.15.x
