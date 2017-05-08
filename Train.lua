@@ -492,6 +492,9 @@ Train = {
         for _, carriage in pairs(locos.front_movers) do
           inventory = carriage.get_inventory(defines.inventory.fuel)
           contents = inventory.get_contents()
+          if #contents == 0 then
+            return false
+          end
           for item, _ in pairs(contents) do
             isFull = isFull and (not inventory.can_insert{name = item})
             if not isFull then
@@ -502,6 +505,9 @@ Train = {
         for _, carriage in pairs(locos.back_movers) do
           inventory = carriage.get_inventory(defines.inventory.fuel)
           contents = inventory.get_contents()
+          if #contents == 0 then
+            return false
+          end
           for item, _ in pairs(contents) do
             isFull = isFull and (not inventory.can_insert{name = item})
             if not isFull then

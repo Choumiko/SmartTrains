@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+2.0.2
+
+ - fixed Autorefuel constantly adding and removing the refuel station if all locomotives didn't have any fuel 
+ 
 2.0.1
 
  - removed support for [RailTanker](https://mods.factorio.com/mods/Choumiko/RailTanker)

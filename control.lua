@@ -726,7 +726,8 @@ local update_from_version = {
     return "2.0.0"
   end,
   ["2.0.0"] = function() return "2.0.1" end,
-  
+  ["2.0.1"] = function() return "2.0.2" end,
+
 }
 
 function on_configuration_changed(data)
@@ -757,7 +758,7 @@ function on_configuration_changed(data)
         end
         debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
         debugDump("Note:",true)
-        debugDump("In a few versions SmartTrains will stop outputting the cargo amount to the combinator.",true)
+        debugDump("In the next version SmartTrains will stop outputting the cargo amount to the combinator.",true)
         debugDump("Use the Read train contents option from the train stop instead",true)
       end
       if not searchedStations then
@@ -1411,9 +1412,9 @@ script.on_event(events.on_player_opened, on_player_opened)
 script.on_event(events.on_player_closed, on_player_closed)
 
 --function on_train_created(event)
-  --log("train created")
-  --log("length: " .. #event.train.carriages)
-  --log(serpent.block(event))
+--log("train created")
+--log("length: " .. #event.train.carriages)
+--log(serpent.block(event))
 --end
 
 function on_built_entity(event)
