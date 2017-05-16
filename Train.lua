@@ -420,35 +420,29 @@ Train = {
         local parameters={}
 
         local min_fuel = self:lowestFuel(true)
-        local i = 1
         local station_number = global.stationNumbers[cargoProxy.force.name][tostring(self.waitingStation.station.backer_name)] or false
         if station_number and station_number ~= 0 then
           -- can change if a mapping is un-/assigned or a line is created/edited/deleted
-          parameters[i]={signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = i}
-          i=i + 1
+          parameters[combinator_index.station_number]={signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = combinator_index.station_number}
         end
         -- static, doesn't need updating
-        parameters[i]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = i}
-        i=i + 1
+        parameters[combinator_index.train_at_station]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = combinator_index.train_at_station}
+
         -- static, doesn't need updating
-        parameters[i]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers + #self.train.locomotives.back_movers, index = i}
-        i=i + 1
+        parameters[combinator_index.locomotives]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers + #self.train.locomotives.back_movers, index = combinator_index.locomotives}
+
         -- static, doesn't need updating
-        parameters[i]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons + #self.train.fluid_wagons, index = i}
-        i=i + 1
-        
+        parameters[combinator_index.cargowagons]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons + #self.train.fluid_wagons, index = combinator_index.cargowagons}
+
         -- can be updated from within on_player_driving_changed_state
-        parameters[i]={signal={type = "virtual", name = "signal-passenger"}, count = self.passengers, index = i}
-        i=i + 1
-        
+        parameters[combinator_index.passenger]={signal={type = "virtual", name = "signal-passenger"}, count = self.passengers, index = combinator_index.passenger}
+
         -- needs updating in on_tick
-        parameters[i]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = i}
-        i=i + 1
+        parameters[combinator_index.lowest_fuel]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = combinator_index.lowest_fuel}
 
         local trainLine = self.line and global.trainLines[self.line] or false
         if trainLine and trainLine.settings.number ~= 0 then
-          parameters[i]={signal={type = "virtual", name = "signal-line"}, count = trainLine.settings.number, index = i}
-          i=i + 1
+          parameters[combinator_index.line]={signal={type = "virtual", name = "signal-line"}, count = trainLine.settings.number, index = combinator_index.line}
         end
 
         if destination then
@@ -459,14 +453,23 @@ Train = {
           end
           --log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. (destNumber or self.train.schedule.current))
           --only needs to be set when a train leaves a station
-          parameters[i]={signal={type = "virtual", name = "signal-destination"}, count = destNumber or self.train.schedule.current, index = i}
-          i = i + 1
+          parameters[combinator_index.destination]={signal={type = "virtual", name = "signal-destination"}, count = destNumber or self.train.schedule.current, index = combinator_index.destination}
         end
 
         local behaviour = cargoProxy.get_control_behavior()
         if behaviour then
           behaviour.parameters = {parameters = parameters}
         end
+      end
+    end,
+
+    updatePassengerSignal = function(self)
+      if self.waitingStation and self.waitingStation.station.valid
+        and self.waitingStation.cargo and self.waitingStation.cargo.valid
+        and self.train and self.train.valid
+        and self.train.state == defines.train_state.wait_station then
+        local behaviour = self.waitingStation.cargo.get_or_create_control_behavior()
+        behaviour.set_signal(combinator_index.passenger, {signal={type = "virtual", name = "signal-passenger"}, count = self.passengers})
       end
     end,
 

@@ -22,6 +22,16 @@ events = {}
 events["on_player_opened"] = script.generate_event_name()
 events["on_player_closed"] = script.generate_event_name()
 
+combinator_index = {
+  station_number = 1,
+  train_at_station = 2,
+  locomotives = 3,
+  cargowagons = 4,
+  passenger = 5,
+  lowest_fuel = 6,
+  line = 7,
+  destination = 8
+}
 
 require("gui")
 require("Train")
@@ -449,8 +459,8 @@ function update_station_numbers()
       if station.station and station.station.valid then
         local number = get_station_number(force,tostring(station.station.backer_name))
         global.stationNumbers[force][tostring(station.station.backer_name)] = number
-        local signal = {signal={type = "virtual", name = "signal-station-number"}, count = number, index = 1}
-        add_or_update_parameter(station.cargo.get_or_create_control_behavior(), signal, 1)
+        local signal = {signal={type = "virtual", name = "signal-station-number"}, count = number, index = combinator_index.station_number}
+        add_or_update_parameter(station.cargo.get_or_create_control_behavior(), signal, combinator_index.station_number)
       end
     end
   end
@@ -1130,7 +1140,7 @@ function on_tick(event)
       if behavior then
         local station_number = global.stationNumbers[station.station.force.name][station.station.backer_name] or false
         if station_number and station_number ~= 0 then
-          local params = {{signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = 1}}
+          local params = {{signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = combinator_index.station_number}}
           behavior.parameters = {parameters = params}
         else
           behavior.parameters = nil
@@ -1559,6 +1569,7 @@ function on_player_driving_changed_state(event)
     local trainInfo = TrainList.getTrainInfo(player.vehicle.train)
     if trainInfo then
       trainInfo.passengers = trainInfo.passengers + 1
+      trainInfo:updatePassengerSignal()
     end
   end
   if player.vehicle == nil and (player.controller_type == defines.controllers.god or player.character.name ~= "fatcontroller") and global.player_passenger[player.index] then
@@ -1567,6 +1578,7 @@ function on_player_driving_changed_state(event)
       local trainInfo = TrainList.getTrainInfo(global.player_passenger[player.index].train)
       if trainInfo then
         trainInfo.passengers = trainInfo.passengers - 1
+        trainInfo:updatePassengerSignal()
       end
     end
     global.player_passenger[player.index] = nil
