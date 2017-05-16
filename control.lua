@@ -727,6 +727,13 @@ local update_from_version = {
   end,
   ["2.0.0"] = function() return "2.0.1" end,
   ["2.0.1"] = function() return "2.0.2" end,
+  ["2.0.2"] = function()
+    for _, train in pairs(global.trains) do
+      train.cargoUpdated = nil
+      train.cargo = nil
+    end
+    return "2.0.4"
+  end,
 
 }
 
@@ -1566,6 +1573,7 @@ function on_player_driving_changed_state(event)
     end
     global.player_passenger[player.index] = nil
   end
+  --update smartstop combinator here
 end
 
 function debugDump(var, force)
@@ -1673,7 +1681,7 @@ function findStations()
   end
   global.searchedStations = game.tick
 
-  log("Found " .. #results .. " smart trainstops (all forces)")
+  log("Found " .. #results .. " trainstops (all forces)")
 end
 
 script.on_init(oninit)

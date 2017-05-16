@@ -12,8 +12,6 @@ Train = {
           waiting = false,
           refueling = false,
           advancedState = false,
-          cargo = {},
-          cargoUpdated = 0,
           last_fuel_update = 0,
           direction = 0, -- 0 = front, 1 back (lookup direction for trainstop)
           passengers = 0,
@@ -425,17 +423,25 @@ Train = {
         local i = 1
         local station_number = global.stationNumbers[cargoProxy.force.name][tostring(self.waitingStation.station.backer_name)] or false
         if station_number and station_number ~= 0 then
+          -- can change if a mapping is un-/assigned or a line is created/edited/deleted
           parameters[i]={signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = i}
           i=i + 1
         end
+        -- static, doesn't need updating
         parameters[i]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = i}
         i=i + 1
+        -- static, doesn't need updating
         parameters[i]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers + #self.train.locomotives.back_movers, index = i}
         i=i + 1
+        -- static, doesn't need updating
         parameters[i]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons + #self.train.fluid_wagons, index = i}
         i=i + 1
+        
+        -- can be updated from within on_player_driving_changed_state
         parameters[i]={signal={type = "virtual", name = "signal-passenger"}, count = self.passengers, index = i}
         i=i + 1
+        
+        -- needs updating in on_tick
         parameters[i]={signal={type = "virtual", name = "signal-lowest-fuel"}, count = min_fuel, index = i}
         i=i + 1
 
@@ -452,21 +458,11 @@ Train = {
             destNumber = global.stationNumbers[cargoProxy.force.name][tostring(self.train.schedule.records[self.train.schedule.current].station)] or false
           end
           --log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. (destNumber or self.train.schedule.current))
+          --only needs to be set when a train leaves a station
           parameters[i]={signal={type = "virtual", name = "signal-destination"}, count = destNumber or self.train.schedule.current, index = i}
           i = i + 1
         end
 
-        local cargoCount = self:cargoCount(true)
-        for name, count in pairs(cargoCount) do
-          local type = "item"
-          if game.fluid_prototypes[name] then
-            type = "fluid"
-            count = math.floor(count)
-          end
-          parameters[i]={signal={type = type, name = name}, count=count, index = i}
-          i=i+1
-          if i>50 then break end
-        end
         local behaviour = cargoProxy.get_control_behavior()
         if behaviour then
           behaviour.parameters = {parameters = parameters}
@@ -557,24 +553,6 @@ Train = {
         value = value + c*fuelvalue(i)
       end
       return value
-    end,
-
-    cargoCount = function(self, exact)
-      local current_tick = game.tick
-      if (not exact and self.cargoUpdated > current_tick - 12) or self.cargoUpdated == current_tick then -- update cargo only if older than 12 ticks (default circuit update rate)
-        --LOGGERS.main.log("cached cargo "..self.name)
-        return self.cargo
-      end
-      if self.cargoUpdated + global.settings.intervals.write <= current_tick then
-        --log("new cargo")
-        --LOGGERS.main.log("update cargo "..self.name)
-        local sum = {}
-        local train = self.train
-        sum = train.get_contents()
-        self.cargo = sum
-        self.cargoUpdated = current_tick
-      end
-      return self.cargo
     end,
 
     updateState = function(self)
