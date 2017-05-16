@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+2.0.3
+
+ - removed the cargo output from the constant combinator. Use the vanilla trainstop to read the train contents instead
+
 2.0.2
 
  - fixed Autorefuel constantly adding and removing the refuel station if all locomotives didn't have any fuel 

@@ -732,7 +732,7 @@ local update_from_version = {
       train.cargoUpdated = nil
       train.cargo = nil
     end
-    return "2.0.4"
+    return "2.0.3"
   end,
 
 }
@@ -765,7 +765,8 @@ function on_configuration_changed(data)
         end
         debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
         debugDump("Note:",true)
-        debugDump("In the next version SmartTrains will stop outputting the cargo amount to the combinator.",true)
+        debugDump("SmartTrains stopped outputting the cargo amount to the combinator.",true)
+        debugDump("This will break circuit setups that use the cargo output.",true)
         debugDump("Use the Read train contents option from the train stop instead",true)
       end
       if not searchedStations then
@@ -1174,18 +1175,15 @@ function on_tick(event)
       local remove_invalid = false
       for _, train in pairs(global.update_cargo[current_tick]) do
         if train.train and train.train.valid then
-          if train.update_cargo and train.update_cargo == current_tick then
-            --LOGGERS.main.log("tick cargo \t"..train.name)
-            --log(current_tick .. " set circuit")
-            train:setCircuitSignal()
-            --log("set circuit e")
-            train.update_cargo = current_tick + global.settings.intervals.write
-            insertInTable(global.update_cargo, train.update_cargo, train)
-            --else
-            --log(game.tick .. " " .. train.name .. " invalid updatetick")
-            --else
-            --LOGGERS.main.log("Invalid tick cargo \t"..train.name)
-            --LOGGERS.main.log(serpent.block(train,{comment=false}))
+          local station = train.waitingStation and train.waitingStation.station.valid and train.waitingStation.station
+          if train.train.station and train.train.station == station then
+            if train.update_cargo and train.update_cargo == current_tick then
+              train:setCircuitSignal()
+              train.update_cargo = current_tick + global.settings.intervals.write
+              insertInTable(global.update_cargo, train.update_cargo, train)
+            end
+          else
+            train:resetWaitingStation()
           end
         else
           remove_invalid = true

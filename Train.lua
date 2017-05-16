@@ -525,14 +525,14 @@ Train = {
           local c
           local contents
           for _, carriage in pairs(locos.front_movers) do
-            contents = carriage.get_inventory(defines.inventory.fuel).get_contents()
+            contents = carriage.get_fuel_inventory().get_contents()
             c = self:calcFuel(contents)
             if minfuel == nil or c < minfuel then
               minfuel = c
             end
           end
           for _, carriage in pairs(locos.back_movers) do
-            contents = carriage.get_inventory(defines.inventory.fuel).get_contents()
+            contents = carriage.get_fuel_inventory().get_contents()
             c = self:calcFuel(contents)
             if minfuel == nil or c < minfuel then
               minfuel = c
