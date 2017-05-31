@@ -429,10 +429,16 @@ Train = {
         parameters[combinator_index.train_at_station]={signal={type = "virtual", name = "signal-train-at-station"}, count = 1, index = combinator_index.train_at_station}
 
         -- static, doesn't need updating
-        parameters[combinator_index.locomotives]={signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers + #self.train.locomotives.back_movers, index = combinator_index.locomotives}
+        parameters[combinator_index.locomotives] = {
+          signal={type = "virtual", name = "signal-locomotives"}, count = #self.train.locomotives.front_movers + #self.train.locomotives.back_movers,
+          index = combinator_index.locomotives
+        }
 
         -- static, doesn't need updating
-        parameters[combinator_index.cargowagons]={signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons + #self.train.fluid_wagons, index = combinator_index.cargowagons}
+        parameters[combinator_index.cargowagons] = {
+          signal={type = "virtual", name = "signal-cargowagons"}, count = #self.train.cargo_wagons + #self.train.fluid_wagons,
+          index = combinator_index.cargowagons
+        }
 
         -- can be updated from within on_player_driving_changed_state
         parameters[combinator_index.passenger]={signal={type = "virtual", name = "signal-passenger"}, count = self.passengers, index = combinator_index.passenger}

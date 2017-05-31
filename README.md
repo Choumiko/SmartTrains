@@ -81,11 +81,15 @@ Global Settings UI
 ***
 Changelog
 ---
+2.0.4
+
+ - fixed error when activating a line while driving a train without a schedule
+ 
 2.0.3
 
  - removed the cargo output from the constant combinator. Use the vanilla trainstop to read the train contents instead
  - the passenger signal gets updated immediately
- - combinators should no longer update if the train isn't at the statin anymore
+ - combinators should no longer update if the train isn't at the station anymore
 
 2.0.2
 

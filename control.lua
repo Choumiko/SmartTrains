@@ -744,7 +744,7 @@ local update_from_version = {
     end
     return "2.0.3"
   end,
-
+  ["2.0.3"] = function() return "2.0.4" end,
 }
 
 function on_configuration_changed(data)
@@ -1246,10 +1246,11 @@ function on_player_opened(event)
 end
 
 function schedule_changed(s1, s2)
-  if s1.records and s2.records and #s1.records ~= #s2.records then return true end
+  if type(s1) ~= type(s2) then log(string.format("%s %s", type(s1), type(s2))) return true end
   local records1 = s1.records
   local records2 = s2.records
   if not records1 or type(records1) ~= type(records2) then return true end
+  if s1.records and s2.records and #s1.records ~= #s2.records then return true end
 
   for i, record in pairs(records1) do
     if not record.wait_conditions and record.wait_conditions ~= records2[i].wait_conditions then return true end
@@ -1564,7 +1565,9 @@ function on_player_driving_changed_state(event)
   if not player.connected then
     return
   end
-  if player.vehicle ~= nil and (player.controller_type == defines.controllers.god or player.character.name ~= "fatcontroller") and (player.vehicle.type == "locomotive" or player.vehicle.type == "cargo-wagon") then
+  if player.vehicle ~= nil and (player.controller_type == defines.controllers.god or player.character.name ~= "fatcontroller")
+    and (player.vehicle.type == "locomotive" or player.vehicle.type == "cargo-wagon")
+  then
     global.player_passenger[player.index] = player.vehicle
     local trainInfo = TrainList.getTrainInfo(player.vehicle.train)
     if trainInfo then
