@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+2.0.5
+
+ - fixed error when removing a mod that added items that could be used as fuel
+
 2.0.4
 
  - fixed error when activating a line while driving a train without a schedule

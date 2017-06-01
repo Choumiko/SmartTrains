@@ -745,6 +745,7 @@ local update_from_version = {
     return "2.0.3"
   end,
   ["2.0.3"] = function() return "2.0.4" end,
+  ["2.0.4"] = function() return "2.0.5" end
 }
 
 function on_configuration_changed(data)
@@ -784,10 +785,8 @@ function on_configuration_changed(data)
       end
       global.version = new_version
     end
-    --update fuelvalue cache, in case the values changed
-    for item, _ in pairs(global.fuel_values) do
-      global.fuel_values[item] = game.item_prototypes[item].fuel_value/1000000
-    end
+    --clear fuelvalue cache
+    global.fuel_values = {}
   end)
   if not status then
     --LOGGERS.main.write()
