@@ -745,7 +745,8 @@ local update_from_version = {
     return "2.0.3"
   end,
   ["2.0.3"] = function() return "2.0.4" end,
-  ["2.0.4"] = function() return "2.0.5" end
+  ["2.0.4"] = function() return "2.0.5" end,
+  ["2.0.5"] = function() return "2.0.6" end
 }
 
 function on_configuration_changed(data)
@@ -945,7 +946,7 @@ function fuelvalue(item)
 end
 
 function fuel_value_to_coal(value)
-  return math.ceil(value/global.fuel_values["coal"])
+  return math.ceil(value/fuelvalue('coal'))
 end
 
 local function getKeyByValue(t, value)

@@ -81,6 +81,10 @@ Global Settings UI
 ***
 Changelog
 ---
+2.0.6
+
+ - fixed error when opening the settings
+ 
 2.0.5
 
  - fixed error when removing a mod that added items that could be used as fuel
