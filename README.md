@@ -81,6 +81,11 @@ Global Settings UI
 ***
 Changelog
 ---
+2.0.7
+
+ - fixed pagination not working properly when stations only existed in trainlines without having an actual station
+ 
+ 
 2.0.6
 
  - fixed error when opening the settings

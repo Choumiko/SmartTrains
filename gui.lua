@@ -425,7 +425,7 @@ GUI = {
     local page = global.playerPage[player_index].mapping or 1
     local c=0
     for _, count in pairs(global.stationCount[player.force.name]) do
-      if count > 0 then
+      if count then -- count could be 0 for stations that are still in a line but have no actual/existing station anymore
         c = c+1
       end
     end
