@@ -81,6 +81,13 @@ Global Settings UI
 ***
 Changelog
 ---
+2.1.0
+
+ - When adding/removing a single station to a line, SmartTrains will now try to adjust the Station # (if used in the rules of the line and use mapping isn't selected)
+ It will currently only work if you add/remove 1 station before clicking Save as line. So if you want to add/remove multiple stations it should be done one by one.
+ Only applies when changing a line, for new lines it doesn't matter
+ - fixed go to signal/station rules being wrong after adding/removing a station from the line
+
 2.0.7
 
  - fixed pagination not working properly when stations only existed in trainlines without having an actual station

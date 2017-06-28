@@ -947,13 +947,123 @@ on_gui_click = {
                     end
                 end
 
-                --remove/add rules if needed
-                if #rules > #records then
-                    for i=#rules, #records+1 do
-                        rules[i] = nil
+                local update_conditions = function(record, rule)
+                    local new_rule = table.deepcopy(rule)
+                    new_rule.empty = nil
+                    new_rule.full = nil
+                    new_rule.circuit = nil
+                    new_rule.inactivity = nil
+                    for c_index, condition in pairs(record.wait_conditions) do
+                        if condition.type == "full" then
+                            new_rule.full = true
+                        end
+                        if condition.type == "empty" then
+                            new_rule.empty = true
+                        end
+                        if condition.type == "inactivity" then
+                            new_rule.inactivity = true
+                        end
+                        if condition.type == "circuit" then
+                            new_rule.circuit = true
+                        end
+                    end
+                    new_rule.station = record.station
+                    return new_rule
+                end
+
+                local new_rules = table.deepcopy(rules)
+                local diff = {}
+                local new_station
+                local old_records_by_name = {}
+                local new_records_by_name = {}
+                local changed_index
+                local correction = 0
+                if trainline.records then
+                    local name
+                    for i, record in pairs(trainline.records) do
+                        name = tostring(record.station)
+                        old_records_by_name[name] = old_records_by_name[name] or {}
+                        old_records_by_name[name][i] = table.deepcopy(record)
+                    end
+                    for i, record in pairs(records) do
+                        name = tostring(record.station)
+                        new_records_by_name[name] = new_records_by_name[name] or {}
+                        new_records_by_name[name][i] = table.deepcopy(record)
+                    end
+                    --log(serpent.block(old_records_by_name, {sparse=true, name = "old_records"}))
+                    --log(serpent.block(new_records_by_name, {sparse=true, name = "new_records"}))
+
+                    local missing_rules = {}
+                    --check each record of the new line if it exists in the old
+                    for name, r in pairs(new_records_by_name) do
+                        for i, record in pairs(r) do
+                            --name and index match, copy rules
+                            if old_records_by_name[name] and old_records_by_name[name][i] then
+                                new_rules[i] = update_conditions( record, rules[i] )
+                                --new station, add empty rule
+                            elseif not old_records_by_name[name] then
+                                new_rules[i] = update_conditions( record, {})
+                                changed_index = i
+                                --no match found, save name and index to check later
+                            else
+                                new_rules[i] = { station = name, missing = true }
+                                table.insert( missing_rules, {index = i, station = name})
+                            end
+                        end
+                    end
+                    if not changed_index then
+                        for i, r in pairs(trainline.records) do
+                            if not new_records_by_name[r.station] then
+                                changed_index = i
+                                break
+                            end
+                        end
+                    end
+                    --log(serpent.block(missing_rules, {name = "missing_rules"}))
+                    local prev_index, next_index
+                    local index_mapping = {}
+                    for _, missing_rule in pairs(missing_rules) do
+                        prev_index = missing_rule.index - 1
+                        next_index = missing_rule.index + 1
+                        local prev_record = trainline.records[prev_index] and trainline.records[prev_index].station and trainline.records[prev_index]
+                        local next_record = trainline.records[next_index] and trainline.records[next_index].station and trainline.records[next_index]
+                        if prev_record and prev_record.station == missing_rule.station then
+                            assert(new_rules[missing_rule.index].missing)
+                            log(string.format("prev_record: old_index: %s, new_index: %s", prev_index, missing_rule.index))
+                            new_rules[missing_rule.index] = update_conditions( records[missing_rule.index], rules[prev_index])
+                            correction = 1
+                        end
+                        if next_record and next_record.station == missing_rule.station then
+                            assert(new_rules[missing_rule.index].missing)
+                            log(string.format("next_record: old_index: %s, new_index: %s", prev_index, missing_rule.index))
+                            new_rules[missing_rule.index] = update_conditions( records[missing_rule.index], rules[next_index])
+                            correction = -1
+                        end
                     end
                 end
 
+                --remove/add rules if needed
+                if #new_rules > #records then
+                    for i=#new_rules, #records+1 do
+                        new_rules[i] = nil
+                    end
+                end
+                if not trainline.settings.useMapping and changed_index then
+                    --log("correction " .. correction)
+                    --log("changed_index " .. changed_index)
+                    local changed
+                    for i, rule in pairs(new_rules) do
+                        if rule.jumpTo and rule.jumpTo >= changed_index then
+                            rule.jumpTo = rule.jumpTo + correction
+                            changed = true
+                        end
+                    end
+                    if changed then
+                        player.print({"", {"msg-station-index-changed", {"lbl-jump-to-header"}}})
+                    end
+                end
+
+                --log(serpent.block(new_rules, {sparse=true, name = "new_rules"}))
                 local changed = game.tick
 
                 local conditions_changed = function()
@@ -963,7 +1073,6 @@ on_gui_click = {
                     local diff = {}
                     local records2 = table.deepcopy(trainline.records)
                     for recordIndex, record in pairs(records) do
-
                         if record.station == records2[recordIndex].station then
                             --log(record.station .. " " .. records2[recordIndex].station)
                             --log(serpent.block({c1=record, c2=records2[recordIndex]}, {comment=false}))
@@ -979,7 +1088,7 @@ on_gui_click = {
                 end
                 local new_conditions = trainline.records and conditions_changed()
                 trainline.records = records
-                trainline.rules = table.deepcopy(rules)
+                trainline.rules = table.deepcopy(new_rules)
 
                 trainline.changed = changed
 
