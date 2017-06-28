@@ -353,7 +353,8 @@ Train = {
             self.waitingStation = findSmartTrainStopByTrain(self, self:getStationName())
             if not self.waitingStation and rules and rules.jumpToCircuit then
                 --TODO proper error message
-                debugDump("No smart trainstop with go to signal# rule. Line: " .. self.line .. " @ station " .. self.train.schedule.records[self.train.schedule.current].station, true) --TODO localisation
+                --TODO localisation
+                debugDump("No smart trainstop with go to signal# rule. Line: " .. self.line .. " @ station " .. self.train.schedule.records[self.train.schedule.current].station, true)
                 return
             end
             --LOGGERS.main.log(serpent.line(rules, {comment=false}))
@@ -459,7 +460,11 @@ Train = {
                     end
                     --log(game.tick .. " Train: "..self.name .. " setting destination signal: " .. (destNumber or self.train.schedule.current))
                     --only needs to be set when a train leaves a station
-                    parameters[combinator_index.destination]={signal={type = "virtual", name = "signal-destination"}, count = destNumber or self.train.schedule.current, index = combinator_index.destination}
+                    parameters[combinator_index.destination] = {
+                        signal = { type = "virtual", name = "signal-destination"},
+                        count = destNumber or self.train.schedule.current,
+                        index = combinator_index.destination
+                    }
                 end
 
                 local behaviour = cargoProxy.get_control_behavior()
