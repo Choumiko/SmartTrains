@@ -357,6 +357,7 @@ function initGlob()
 
     global.blueprinted_proxies = global.blueprinted_proxies or {}
 
+    global.stopped_trains = global.stopped_trains or {}
     setMetatables()
 end
 
@@ -378,6 +379,7 @@ local function init_force(force)
     global.stationMapping[force.name] = global.stationMapping[force.name] or {}
     global.stationMap[force.name] = global.stationMap[force.name] or {}
     global.stationNumbers[force.name] = global.stationNumbers[force.name] or {}
+    global.stopped_trains[force.name] = global.stopped_trains[force.name] or {}
 end
 
 local function init_forces()
@@ -747,7 +749,8 @@ local update_from_version = {
     ["2.0.3"] = function() return "2.0.4" end,
     ["2.0.4"] = function() return "2.0.5" end,
     ["2.0.5"] = function() return "2.0.6" end,
-    ["2.0.6"] = function() return "2.0.7" end
+    ["2.0.6"] = function() return "2.0.7" end,
+    ["2.0.7"] = function() return "2.1.0" end
 }
 
 function on_configuration_changed(data)
@@ -1077,6 +1080,7 @@ function on_train_changed_state(event)
                     t:resetWaitingStation()
                 end
             end
+            t:updateLine()
         elseif train.state == defines.train_state.wait_station then
             --      if global.timingStarted then
             --        global.timedTrains = global.timedTrains - 1
@@ -1923,3 +1927,35 @@ remote.add_interface("st",
         end,
     }
 )
+local st_commands = {}
+st_commands.stop_trains = function(event)
+    if not global.stopped_trains then
+        initGlob()
+        init_forces()
+    end
+    local p = game.players[event.player_index]
+    local name = p.force.name
+    for _, t in pairs(p.surface.get_trains(name)) do
+        if not t.manual_mode and not global.stopped_trains[name][t.id] then
+            global.stopped_trains[name][t.id] = t
+            t.manual_mode = true
+            t.speed = 0
+        end
+    end
+end
+st_commands.start_trains = function(event)
+    if not global.stopped_trains then
+        initGlob()
+        init_forces()
+    end
+    local p = game.players[event.player_index]
+    local name = p.force.name
+    for id, t in pairs(global.stopped_trains[name]) do
+        if t.valid and t.manual_mode then
+            t.manual_mode = false
+        end
+    end
+    global.stopped_trains[name] = {}
+end
+commands.add_command("st_stop_trains", "Stops all trains of the players force", st_commands.stop_trains)
+commands.add_command("st_start_trains", "Starts all trains that have been previously stopped by st_stop_trains", st_commands.start_trains)

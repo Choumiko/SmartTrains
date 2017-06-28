@@ -86,8 +86,12 @@ Changelog
  - When adding/removing a single station to a line, SmartTrains will now try to adjust the Station # (if used in the rules of the line and use mapping isn't selected)
  It will currently only work if you add/remove 1 station before clicking Save as line. So if you want to add/remove multiple stations it should be done one by one.
  Only applies when changing a line, for new lines it doesn't matter
+ - trains update their line when turned into manual mode
+ - added commands: /st_stop_trains, /st_start_trains : stops all trains, starts all trains previousely stopped by the command
+ - added czech translation
  - fixed go to signal/station rules being wrong after adding/removing a station from the line
  - fixed error when removing the last locomotive from a moving train
+
 
 2.0.7
 
