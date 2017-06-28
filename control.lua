@@ -967,8 +967,11 @@ function on_train_changed_state(event)
         --log(serpent.line(t,{comment=false}))
         --assert(t.train.valid)
         -- TODO is this for de/coupling an automated train???
-        if not t.train.valid then
+        if t and not t.train.valid then
             t = TrainList.updateTrainInfo(train)
+        end
+        if not t then
+            return
         end
 
         --log(t.name .. " ".. util.getKeyByValue(defines.train_state, event.train.state))

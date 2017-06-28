@@ -87,6 +87,7 @@ Changelog
  It will currently only work if you add/remove 1 station before clicking Save as line. So if you want to add/remove multiple stations it should be done one by one.
  Only applies when changing a line, for new lines it doesn't matter
  - fixed go to signal/station rules being wrong after adding/removing a station from the line
+ - fixed error when removing the last locomotive from a moving train
 
 2.0.7
 
