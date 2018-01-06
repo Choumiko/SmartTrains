@@ -97,40 +97,40 @@ data.raw["gui-style"].default["st_textfield_big"] =
 data.raw["gui-style"].default["st_button"] =
   {
     type = "button_style",
-    parent = "button_style",
+    parent = "button",
     font = "st-small-bold"
   }
 
 data.raw["gui-style"].default["st_frame"] =
   {
     type = "frame_style",
-    parent="frame_style",
+    parent="frame",
     top_padding  = 2,
     bottom_padding = 2,
     font = "st-small-bold",
-    flow_style =
-    {
-      max_on_row = 1,
-      resize_row_to_width = false
-    }
+--    flow_style =
+--    {
+--      max_on_row = 1,
+--      resize_row_to_width = false
+--    }
   }
 data.raw["gui-style"].default["st_inner_frame"] =
   {
     type = "frame_style",
-    parent="frame_style",
+    parent="frame",
     top_padding  = 2,
     bottom_padding = 2,
     font = "st-small-bold",
     graphical_set = { type = "none" },
-    flow_style =
-    {
-      max_on_row = 1,
-    }
+--    flow_style =
+--    {
+--      max_on_row = 1,
+--    }
   }
 
 data.raw["gui-style"].default["st_flow"] =
   {
-    type = "flow_style",
+    type = "horizontal_flow_style",
     horizontal_spacing = 0,
     vertical_spacing = 2,
     max_on_row = 0,
@@ -138,19 +138,19 @@ data.raw["gui-style"].default["st_flow"] =
 data.raw["gui-style"].default["st_table"] =
   {
     type = "table_style",
-    parent = "table_style",
+    parent = "table",
   }
 
 data.raw["gui-style"].default["st_checkbox"] =
   {
     type = "checkbox_style",
-    parent = "checkbox_style",
+    parent = "checkbox",
   }
 
 data.raw["gui-style"].default["st_radio"] =
   {
     type = "checkbox_style",
-    parent = "checkbox_style",
+    parent = "checkbox",
     font = "st-small",
     default_background =
     {
@@ -193,7 +193,7 @@ data.raw["gui-style"].default["st_radio"] =
 data.raw["gui-style"].default["st_button_style"] =
   {
     type = "button_style",
-    parent = "button_style",
+    parent = "button",
     font = "default",
     top_padding = 1,
     right_padding = 5,
@@ -302,14 +302,14 @@ for left = 1,60 do
   data.raw["gui-style"].default["st_frame_padding_left_"..left] =
     {
       type = "frame_style",
-      parent = "inner_frame_style",
+      parent = "inner_frame",
       left_padding = left
     }
 
   data.raw["gui-style"].default["st_frame_padding_top_left_"..left] =
     {
       type = "frame_style",
-      parent = "inner_frame_style",
+      parent = "inner_frame",
       left_padding = left,
       top_padding = 8
     }

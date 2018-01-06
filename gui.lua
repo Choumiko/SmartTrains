@@ -46,8 +46,8 @@ GUI = {
 
     buildGui = function (player)
         GUI.destroyGui(player.gui[GUI.position][GUI.windows.root])
-        local stGui = GUI.add(player.gui[GUI.position], {type="frame", name="stGui", direction="vertical", style="outer_frame_style"})
-        return GUI.add(stGui, {type="table", name="rows", colspan=1})
+        local stGui = GUI.add(player.gui[GUI.position], {type="frame", name="stGui", direction="vertical", style="outer_frame"})
+        return GUI.add(stGui, {type="table", name="rows", column_count=1})
     end,
 
     showSettingsButton = function(parent)
@@ -152,7 +152,7 @@ GUI = {
             local coal_min = fuel_value_to_coal(global.settings.refuel.rangeMin)
             local coal_max = fuel_value_to_coal(global.settings.refuel.rangeMax)
 
-            local tbl = refueling.add{type="table", name="tbl", colspan=4}
+            local tbl = refueling.add{type="table", name="tbl", column_count=4}
             GUI.addLabel(tbl, {"stg-refuel-below1"})
             GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield", text = global.settings.refuel.rangeMin})
             GUI.addLabel(tbl, {"", {"stg-MJ"}, " ("..coal_min.." ", game.item_prototypes["coal"].localised_name, ")",{"stg-refuel-below2"}})
@@ -166,7 +166,7 @@ GUI = {
             GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_big", text = global.settings.refuel.station})
 
             local intervals = gui.globalSettings.add({type = "frame", name="frm_intervals", direction="horizontal", style = "st_inner_frame", caption = {"stg-intervals"}})
-            tbl = intervals.add{type="table", name="tbl", colspan=2, style="st_table"}
+            tbl = intervals.add{type="table", name="tbl", column_count=2, style="st_table"}
 
             GUI.addLabel(tbl, {"stg-intervals-write"}).style.left_padding = 10
             GUI.addTextfield(tbl, {name="intervals_write", style="st_textfield_small", text = global.settings.intervals.write})
@@ -210,12 +210,12 @@ GUI = {
             if trainLine.changed ~= t.lineVersion and
                 t.lineVersion >= 0 then dated = {"lbl-outdated"} end
         end
-        local tableRows = GUI.add(gui, {type="table", name="rows", colspan=1})
-        local checkboxes = GUI.add(tableRows, {type="table", name="checkboxes", colspan=2})
+        local tableRows = GUI.add(gui, {type="table", name="rows", column_count=1})
+        local checkboxes = GUI.add(tableRows, {type="table", name="checkboxes", column_count=2})
         if not trainLine then
             GUI.add(checkboxes, {type="checkbox", name="btn_refuel__"..t.ID, caption={"lbl-refuel"}, state=t.settings.autoRefuel})
         end
-        local tbl = GUI.add(tableRows, {type="table", name="line", colspan=2})
+        local tbl = GUI.add(tableRows, {type="table", name="line", column_count=2})
         GUI.addLabel(tbl, {"", {"lbl-active-line"}, ": ", line})
         GUI.addLabel(tbl, {"", " ", dated})
         local lineKey = ""
@@ -226,7 +226,7 @@ GUI = {
             rules = trainLine.rules
             lineKey = "__"..trainLine.name
         end
-        local tbl1 = GUI.add(tableRows, {type="table", name="tbl1", colspan=3, style="st_table"})
+        local tbl1 = GUI.add(tableRows, {type="table", name="tbl1", column_count=3, style="st_table"})
         local spp = global.settings.stationsPerPage
         local page = global.playerPage[player_index].schedule or 1
         if records and #records > 0 then
@@ -299,7 +299,7 @@ GUI = {
                 GUI.addPlaceHolder(tbl1)
             end
         end
-        local btns = GUI.add(tableRows,{type="table", name="btns", colspan=2})
+        local btns = GUI.add(tableRows,{type="table", name="btns", column_count=2})
 
         local pages = GUI.add(btns, {type="flow", name="pages", direction="horizontal", style = "st_flow"})
         if records and #records > spp then
@@ -346,7 +346,7 @@ GUI = {
         if global.trainLines and c_lines > 0 then
             trainKey = trainKey or 0
             gui = GUI.add(gui, {type="frame", name="trainLines", caption={"lbl-trainlines"}, direction="vertical", style="st_frame"})
-            local tbl = GUI.add(gui, {type="table", name="tbl1", colspan=8})
+            local tbl = GUI.add(gui, {type="table", name="tbl1", column_count=8})
             GUI.addLabel(tbl, {"lbl-trainline"})
             GUI.addLabel(tbl, {"lbl-1st-station"})
             GUI.addLabel(tbl, {"lbl-number-stations"})
@@ -434,7 +434,7 @@ GUI = {
         local start = (page-1) * spp + 1
         local max = start + spp - 1
 
-        local tbl = GUI.add( gui, { type = "table", name = "stationMapping", colspan = 5 } )
+        local tbl = GUI.add( gui, { type = "table", name = "stationMapping", column_count = 5 } )
         local c1 = 1
 
         for name, count in pairsByKeys(global.stationCount[player.force.name], sortByName) do
@@ -514,7 +514,7 @@ GUI = {
             GUI.addTextfield( flow, {name="lineNumber__"..line, style="st_textfield_small", text=line_number})
             GUI.add( flow, { type = "checkbox", name = "useMapping__" .. line, style = "st_checkbox", caption = "use station mapping", state = use_mapping } ) --TODO localisation
 
-            local tbl = GUI.add(gui,{type="table", name="tbltophdr", colspan=3, style="st_table"})
+            local tbl = GUI.add(gui,{type="table", name="tbltophdr", column_count=3, style="st_table"})
 
             GUI.addPlaceHolder(tbl,1)
             GUI.add(tbl, {name="tophdr_flow1", type="flow", direction="horizontal"})

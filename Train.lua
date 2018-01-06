@@ -87,7 +87,7 @@ Train = {
             self.name = self:getName()
             self.passengers = 0
             for _, c in pairs(train.carriages) do
-                if c.passenger and c.passenger.name ~= "fatcontroller" then
+                if c.get_driver() and c.get_driver().name ~= "fatcontroller" then
                     self.passengers = self.passengers + 1
                 end
             end
