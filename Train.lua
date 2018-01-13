@@ -574,7 +574,7 @@ Train = {
             self.previousState = self.state
             self.state = self.train.state
             if self.previousState == defines.train_state.wait_station and
-                (self.state == defines.train_state.on_the_path or self.state == defines.train_state.path_lost)
+                (self.state == defines.train_state.on_the_path or self.state == defines.train_state.path_lost or self.state == defines.train_state.arrive_signal)
             then
                 self.advancedState = train_state.left_station
                 --debugDump(game.tick.." left_station",true)

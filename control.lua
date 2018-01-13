@@ -968,7 +968,7 @@ function on_train_changed_state(event)
     local status, err = pcall(function()
         local train = event.train
         local t = TrainList.getTrainInfo(train)
-        --log(serpent.line(t,{comment=false}))
+        --log(serpent.block(t,{comment=false}))
         --assert(t.train.valid)
         -- TODO is this for de/coupling an automated train???
         if t and not t.train.valid then
@@ -977,7 +977,7 @@ function on_train_changed_state(event)
         if not t then
             return
         end
-
+        --log(event.tick .. " " .. t.name .. ": State change from " .. util.getKeyByValue(defines.train_state, event.old_state) .. " to " .. util.getKeyByValue(defines.train_state, event.train.state))
         --log(t.name .. " ".. util.getKeyByValue(defines.train_state, event.train.state))
         t:updateState()
 

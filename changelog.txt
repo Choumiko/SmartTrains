@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 3.0.1
+Date: 13. 01. 2018
+  Bugfixes:
+    - Fixed trains ignoring rules when being sent at the same time in certain trainstop setups
+---------------------------------------------------------------------------------------------------
 Version: 3.0.0
 Date: 06. 01. 2018
   Changes:
