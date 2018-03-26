@@ -81,6 +81,8 @@ Global Settings UI
 ***
 Changelog
 ---
+3.0.2 and above: see ingame changelog
+
 2.1.0
 
  - When adding/removing a single station to a line, SmartTrains will now try to adjust the Station # (if used in the rules of the line and use mapping isn't selected)

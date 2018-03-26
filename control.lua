@@ -752,7 +752,8 @@ local update_from_version = {
     ["2.0.6"] = function() return "2.0.7" end,
     ["2.0.7"] = function() return "2.1.0" end,
     ["2.1.0"] = function() return "3.0.0" end,
-    ["3.0.0"] = function() return "3.0.1" end
+    ["3.0.0"] = function() return "3.0.1" end,
+    ["3.0.1"] = function() return "3.0.2" end
 }
 
 function on_configuration_changed(data)
@@ -1724,7 +1725,7 @@ script.on_event(defines.events.on_player_driving_changed_state, on_player_drivin
 script.on_event(defines.events.on_entity_died, on_preplayer_mined_item)
 script.on_event(defines.events.on_built_entity, on_built_entity)
 script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
-script.on_event(defines.events.on_gui_checked_state_changed, on_gui_click.on_gui_click)
+--script.on_event(defines.events.on_gui_checked_state_changed, on_gui_click.on_gui_click)
 script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
 script.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
 script.on_event(defines.events.on_tick, on_tick)
