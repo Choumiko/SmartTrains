@@ -753,7 +753,8 @@ local update_from_version = {
     ["2.0.7"] = function() return "2.1.0" end,
     ["2.1.0"] = function() return "3.0.0" end,
     ["3.0.0"] = function() return "3.0.1" end,
-    ["3.0.1"] = function() return "3.0.2" end
+    ["3.0.1"] = function() return "3.0.2" end,
+    ["3.0.2"] = function() return "3.0.3" end
 }
 
 function on_configuration_changed(data)
@@ -783,10 +784,6 @@ function on_configuration_changed(data)
                     searchedStations = searchedStations or searched
                 end
                 debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
-                debugDump("Note:",true)
-                debugDump("SmartTrains stopped outputting the cargo amount to the combinator.",true)
-                debugDump("This will break circuit setups that use the cargo output.",true)
-                debugDump("Use the Read train contents option from the train stop instead",true)
             end
             if not searchedStations then
                 findStations()
@@ -1706,6 +1703,7 @@ function findStations()
     global.searchedStations = game.tick
 
     log("Found " .. #results .. " trainstops (all forces)")
+    return #results
 end
 
 script.on_init(oninit)
@@ -1961,5 +1959,12 @@ st_commands.start_trains = function(event)
     end
     global.stopped_trains[name] = {}
 end
+
+st_commands.find_stations = function(event)
+    init_players()
+    local n = findStations()
+    game.players[event.player_index].print("Found " .. n .. " train stations")
+end
 commands.add_command("st_stop_trains", "Stops all trains of the players force", st_commands.stop_trains)
 commands.add_command("st_start_trains", "Starts all trains that have been previously stopped by st_stop_trains", st_commands.start_trains)
+commands.add_command("st_find_stations", "Rescan the surface for train stations", st_commands.find_stations)
