@@ -6,9 +6,9 @@ require 'stdlib.table'
 
 Logger = require('stdlib.log.logger')
 
-debug = false
+debug = false --luacheck: ignore
 
-LOGGERS = {}
+LOGGERS = {} --luacheck: allow defined top
 
 --LOGGERS.main = Logger.new("SmartTrains","main", true)
 --LOGGERS.update = Logger.new("SmartTrains", "updates", true)
@@ -18,10 +18,11 @@ LOGGERS = {}
 -- this event is raised with extra parameter foo with value "bar"
 --game.raiseevent(myevent, {foo="bar"})
 
-events = {}
+events = {} --luacheck: allow defined top
 events["on_player_opened"] = script.generate_event_name()
 events["on_player_closed"] = script.generate_event_name()
 
+--luacheck: allow defined top
 combinator_index = {
     station_number = 1,
     train_at_station = 2,
@@ -754,7 +755,8 @@ local update_from_version = {
     ["2.1.0"] = function() return "3.0.0" end,
     ["3.0.0"] = function() return "3.0.1" end,
     ["3.0.1"] = function() return "3.0.2" end,
-    ["3.0.2"] = function() return "3.0.3" end
+    ["3.0.2"] = function() return "3.0.3" end,
+    ["3.0.3"] = function() return "3.0.4" end
 }
 
 function on_configuration_changed(data)
@@ -1218,7 +1220,7 @@ function on_tick(event)
     if current_tick%10==9  then
         local status,err = pcall(function()
             for pi, player in pairs(game.players) do
-                if player.connected then
+                if player.connected and (player.opened_gui_type == defines.gui_type.none or player.opened_gui_type == defines.gui_type.entity) then
                     if player.opened ~= nil and not global.player_opened[player.name] then
                         script.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
                         global.player_opened[player.name] = player.opened
@@ -1867,7 +1869,7 @@ remote.add_interface("st",
             table.insert(global.timing, ti)
         end,
 
-        clearTrains = function(train)
+        clearTrains = function(_)
             global.timing = {}
         end,
 

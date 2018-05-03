@@ -323,7 +323,7 @@ data:extend({
   name = "my-custom-input",
   key_sequence = "SHIFT + R",
   consuming = "script-only"
-  
+
   -- 'consuming'
   -- available options:
   -- none: default if not defined
