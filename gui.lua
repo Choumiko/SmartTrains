@@ -154,16 +154,16 @@ GUI = {
 
             local tbl = refueling.add{type="table", name="tbl", column_count=4}
             GUI.addLabel(tbl, {"stg-refuel-below1"})
-            GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield", text = global.settings.refuel.rangeMin})
+            GUI.addTextfield(tbl, {name="refuelRangeMin", style="st_textfield_small", text = global.settings.refuel.rangeMin})
             GUI.addLabel(tbl, {"", {"stg-MJ"}, " ("..coal_min.." ", game.item_prototypes["coal"].localised_name, ")",{"stg-refuel-below2"}})
             local r = GUI.add(tbl, {type="flow", name="row1", direction="horizontal"})
-            GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield", text = global.settings.refuel.rangeMax})
+            GUI.addTextfield(r, {name="refuelRangeMax", style="st_textfield_small", text = global.settings.refuel.rangeMax})
             GUI.addLabel(r, {"", {"stg-MJ"}, " ("..coal_max.." ", game.item_prototypes["coal"].localised_name,")"})
 
             GUI.addLabel(tbl, {"stg-max-refuel-time"})
             GUI.addTextfield(tbl, {name="refuelTime", style="st_textfield_small", text = global.settings.refuel.time / 60})
             GUI.addLabel(tbl,  {"stg-refuel-station"})
-            GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_big", text = global.settings.refuel.station})
+            GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_medium", text = global.settings.refuel.station})
 
             local intervals = gui.globalSettings.add({type = "frame", name="frm_intervals", direction="horizontal", style = "st_inner_frame", caption = {"stg-intervals"}})
             tbl = intervals.add{type="table", name="tbl", column_count=2, style="st_table"}
@@ -393,15 +393,15 @@ GUI = {
             local pageButtons = GUI.add(buttonFlow, {name="btns", type="flow", style = "st_flow"})
             if dirty > spp then
                 if page > 1 then
-                    GUI.addButton(pageButtons, {name="prevPageLine__"..page, caption="<", style="st_button_style_bold"})
+					GUI.addButton(pageButtons, {name="prevPageLine__"..page, caption="<", style="st_page_button"})
                 else
-                    GUI.addButton(pageButtons, {caption="<", style="st_disabled_button_bold"})
+                    GUI.addButton(pageButtons, {caption="<", style="st_page_button_disabled"})
                 end
-                GUI.addButton(pageButtons, {caption=page.."/"..math.ceil(dirty/spp), style="st_disabled_button_bold"})
+                GUI.addButton(pageButtons, {caption=page.."/"..math.ceil(dirty/spp), style="st_page_button_disabled"})
                 if max < c_lines then
-                    GUI.addButton(pageButtons, {name="nextPageLine__"..page, caption=">",style="st_button_style_bold"})
+                    GUI.addButton(pageButtons, {name="nextPageLine__"..page, caption=">",style="st_page_button"})
                 else
-                    GUI.addButton(pageButtons, {caption=">", style="st_disabled_button_bold"})
+                    GUI.addButton(pageButtons, {caption=">", style="st_page_button_disabled"})
                 end
             end
             if dirty == 0 then gui.destroy() end
@@ -456,19 +456,19 @@ GUI = {
 
         if dirty > spp then
             if page > 1 then
-                GUI.addButton(btns, {name="firstPageMapping", caption="|<", style="st_button_style_bold"})
-                GUI.addButton(btns, {name="prevPageMapping__"..page, caption="<", style="st_button_style_bold"})
+                GUI.addButton(btns, {name="firstPageMapping", caption="|<", style="st_page_button"})
+                GUI.addButton(btns, {name="prevPageMapping__"..page, caption="<", style="st_page_button"})
             else
-                GUI.addButton(btns, {caption="|<", style="st_disabled_button_bold"})
-                GUI.addButton(btns, {caption="<", style="st_disabled_button_bold"})
+                GUI.addButton(btns, {caption="|<", style="st_page_button_disabled"})
+                GUI.addButton(btns, {caption="<", style="st_page_button_disabled"})
             end
-            GUI.addButton(btns, {caption=page.."/"..math.ceil(dirty/spp), style="st_disabled_button_bold"})
+            GUI.addButton(btns, {caption=page.."/"..math.ceil(dirty/spp), style="st_page_button_disabled"})
             if max < c then
-                GUI.addButton(btns, {name="nextPageMapping__"..page, caption=">",style="st_button_style_bold"})
-                GUI.addButton(btns,{name="lastPageMapping", caption=">|", style="st_button_style_bold"})
+                GUI.addButton(btns, {name="nextPageMapping__"..page, caption=">",style="st_page_button"})
+                GUI.addButton(btns,{name="lastPageMapping", caption=">|", style="st_page_button"})
             else
-                GUI.addButton(btns, {caption=">", style="st_disabled_button_bold"})
-                GUI.addButton(btns,{caption=">|", style="st_disabled_button_bold"})
+                GUI.addButton(btns, {caption=">", style="st_page_button_disabled"})
+                GUI.addButton(btns,{caption=">|", style="st_page_button_disabled"})
             end
         end
         GUI.addButton( buttonFlow, { caption = "Save", name = "saveMapping" } )
@@ -560,21 +560,21 @@ GUI = {
             local buttonFlow = GUI.add(gui,{name="buttonFlow", type="flow"})
             local pageButtons = GUI.add(buttonFlow, {name="pageButtons", type="flow", style = "st_flow"})
 
-            local firstPage = GUI.addButton(pageButtons,{name="firstPageRule", caption="|<", style="st_button_style_bold"})
-            local prevPage = GUI.addButton(pageButtons,{name="prevPageRule", caption="<", style="st_button_style_bold"})
+            local firstPage = GUI.addButton(pageButtons,{name="firstPageRule", caption="|<", style="st_page_button"})
+            local prevPage = GUI.addButton(pageButtons,{name="prevPageRule", caption="<", style="st_page_button"})
             if page == 1 then
-                firstPage.style = "st_disabled_button_bold"
-                prevPage.style = "st_disabled_button_bold"
+                firstPage.style = "st_page_button_disabled"
+                prevPage.style = "st_page_button_disabled"
             end
 
             local maxPage = page_count(#records, global.settings.rulesPerPage)
             GUI.addButton(pageButtons,{name="rule_page_number", caption=page.."/"..maxPage, style="st_disabled_button_bold"})
 
-            local nextPage = GUI.addButton(pageButtons, {name="nextPageRule", caption=">", style="st_button_style_bold"})
-            local lastPage = GUI.addButton(pageButtons, {name = "lastPageRule", caption = ">|", style = "st_button_style_bold"})
+            local nextPage = GUI.addButton(pageButtons, {name="nextPageRule", caption=">", style="st_page_button"})
+            local lastPage = GUI.addButton(pageButtons, {name = "lastPageRule", caption = ">|", style = "st_page_button"})
             if page == maxPage then
-                nextPage.style = "st_disabled_button_bold"
-                lastPage.style = "st_disabled_button_bold"
+                nextPage.style = "st_page_button_disabled"
+                lastPage.style = "st_page_button_disabled"
             end
 
             GUI.addButton(buttonFlow, {name="saveRules__"..line, caption="Save", style="st_button_style_bold"})

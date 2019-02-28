@@ -36,26 +36,17 @@ data.raw["gui-style"].default["st_label"] =
   {
     type = "label_style",
     font = "st-small",
-    font_color = {r=1, g=1, b=1},
-    top_padding = 0,
-    bottom_padding = 0
   }
 
 data.raw["gui-style"].default["st_label_bold"] =
   {
     type = "label_style",
     font = "st-small-bold",
-    font_color = {r=1, g=1, b=1},
-    top_padding = 0,
-    --right_padding = 25,
-    bottom_padding = 0
   }
 
 data.raw["gui-style"].default["st_textfield"] =
   {
     type = "textbox_style",
-    left_padding = 3,
-    right_padding = 2,
     minimal_width = 60,
     font = "st-small"
   }
@@ -63,25 +54,19 @@ data.raw["gui-style"].default["st_textfield"] =
 data.raw["gui-style"].default["st_textfield_small"] =
   {
     type = "textbox_style",
-    left_padding = 3,
-    right_padding = 2,
-    minimal_width = 30,
+    width = 40,
     font = "st-small"
   }
 
 data.raw["gui-style"].default["st_textfield_big"] =
   {
     type = "textbox_style",
-    left_padding = 3,
-    right_padding = 2,
     minimal_width = 90,
     font = "st-small"
   }
 data.raw["gui-style"].default["st_textfield_medium"] =
   {
     type = "textbox_style",
-    left_padding = 3,
-    right_padding = 2,
     minimal_width = 45,
     font = "st-small"
   }
@@ -89,8 +74,6 @@ data.raw["gui-style"].default["st_textfield_medium"] =
 data.raw["gui-style"].default["st_textfield_big"] =
   {
     type = "textbox_style",
-    left_padding = 3,
-    right_padding = 2,
     minimal_width = 120,
     font = "st-small"
   }
@@ -195,9 +178,7 @@ data.raw["gui-style"].default["st_button_style"] =
     type = "button_style",
     parent = "button",
     font = "default",
-    top_padding = 1,
     right_padding = 5,
-    bottom_padding = 1,
     left_padding = 5,
     left_click_sound =
     {
@@ -211,7 +192,7 @@ data.raw["gui-style"].default["st_button_style"] =
 data.raw["gui-style"].default["st_button_style_bold"] =
   {
     type = "button_style",
-    font="default-bold",
+    font="default-semibold",
     parent = "st_button_style",
   }
 
@@ -245,7 +226,7 @@ data.raw["gui-style"].default["st_disabled_button_bold"] =
   {
     type = "button_style",
     parent = "st_disabled_button",
-    font = "default-bold",
+    font = "default-semibold",
     default_font_color={r=0.5, g=0.5, b=0.5},
     hovered_font_color={r=0.5, g=0.5, b=0.5},
   }
@@ -255,6 +236,7 @@ data.raw["gui-style"].default["st_page_button"] =
     type = "button_style",
     parent = "st_button_style_bold",
     horizontal_spacing = 0,
+    width = 50,
   }
 
 data.raw["gui-style"].default["st_page_button_disabled"] =
@@ -262,6 +244,7 @@ data.raw["gui-style"].default["st_page_button_disabled"] =
     type = "button_style",
     parent = "st_disabled_button_bold",
     horizontal_spacing = 0,
+    width = 50,
   }
 
 data.raw["gui-style"].default["st_selected_button"] =
