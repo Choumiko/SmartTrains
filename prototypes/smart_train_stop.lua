@@ -9,6 +9,13 @@ recipe.ingredients = {
 }
 recipe.enabled = false
 
+local function add_flags(tbl, value)
+    if not tbl.flags then
+        tbl.flags = {}
+    end
+    table.insert(tbl.flags, value)
+end
+
 local smart_train_stop = copyPrototype("train-stop", "train-stop", "smart-train-stop")
 smart_train_stop.icon = "__SmartTrains__/graphics/smart-train-stop-icon.png"
 smart_train_stop.selection_box = {{-0.6, -0.6}, {0.6, 0.6}}
@@ -21,7 +28,7 @@ st_proxy.light = { intensity = 1, size = 6 }
 st_proxy.minable = nil
 
 local st_proxy_i = copyPrototype("item", "small-lamp", "smart-train-stop-proxy")
-table.insert(st_proxy_i.flags, "hidden")
+add_flags(st_proxy_i, "hidden")
 
 local st_proxyc = copyPrototype("constant-combinator","constant-combinator","smart-train-stop-proxy-cargo")
 st_proxyc.collision_mask = {"resource-layer"}
@@ -29,7 +36,7 @@ st_proxyc.item_slot_count = 50
 st_proxyc.minable = nil
 
 local st_proxyc_i = copyPrototype("item","constant-combinator","smart-train-stop-proxy-cargo")
-table.insert(st_proxyc_i.flags, "hidden")
+add_flags(st_proxyc_i, "hidden")
 
 data:extend({smart_train_stop,item,recipe, st_proxy, st_proxy_i,})
 data:extend({st_proxyc,st_proxyc_i})

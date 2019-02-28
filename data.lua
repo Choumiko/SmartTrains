@@ -53,7 +53,7 @@ data.raw["gui-style"].default["st_label_bold"] =
 
 data.raw["gui-style"].default["st_textfield"] =
   {
-    type = "textfield_style",
+    type = "textbox_style",
     left_padding = 3,
     right_padding = 2,
     minimal_width = 60,
@@ -62,7 +62,7 @@ data.raw["gui-style"].default["st_textfield"] =
 
 data.raw["gui-style"].default["st_textfield_small"] =
   {
-    type = "textfield_style",
+    type = "textbox_style",
     left_padding = 3,
     right_padding = 2,
     minimal_width = 30,
@@ -71,7 +71,7 @@ data.raw["gui-style"].default["st_textfield_small"] =
 
 data.raw["gui-style"].default["st_textfield_big"] =
   {
-    type = "textfield_style",
+    type = "textbox_style",
     left_padding = 3,
     right_padding = 2,
     minimal_width = 90,
@@ -79,7 +79,7 @@ data.raw["gui-style"].default["st_textfield_big"] =
   }
 data.raw["gui-style"].default["st_textfield_medium"] =
   {
-    type = "textfield_style",
+    type = "textbox_style",
     left_padding = 3,
     right_padding = 2,
     minimal_width = 45,
@@ -88,7 +88,7 @@ data.raw["gui-style"].default["st_textfield_medium"] =
 
 data.raw["gui-style"].default["st_textfield_big"] =
   {
-    type = "textfield_style",
+    type = "textbox_style",
     left_padding = 3,
     right_padding = 2,
     minimal_width = 120,
