@@ -619,11 +619,9 @@ GUI = {
     end,
 
     save_station_options = function(opts, index, option2)
-
         local rules = global.guiData[index].rules[tonumber(option2)] or {}
 
         rules.jumpToCircuit = opts.jumpToCircuit.state
-
         rules.jumpTo = opts.jumpTo.text
 
         global.guiData[index].rules[tonumber(option2)] = rules
@@ -665,6 +663,87 @@ function sanitize_rules(player, line, rules, page)
     return rules
 end
 
+on_gui_checked_state_changed = {
+    on_gui_checked_state_changed = function(event)
+        log("on checked: " .. serpent.block(event.element.name))
+        log("state: " .. serpent.block(event.element.state))
+
+        local elementName = event.element.name
+        local status, err = pcall(function()
+            local player = game.players[event.player_index]
+            local refresh = false
+            local element = event.element
+
+            if on_gui_checked_state_changed[element.name] then
+                log("Element name:" .. element.name)
+                refresh = on_gui_checked_state_changed[element.name](player)
+            else
+                local option1, option2, option3, _ = event.element.name:match("(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)")
+                log("Options: " .. serpent.line(option1) .. " " .. serpent.line(option2) .. " " .. serpent.line(option3))
+                if on_gui_checked_state_changed[option1] then
+                    refresh = on_gui_checked_state_changed[option1](player, option2, option3, element)
+                end
+            end
+            if refresh then
+                GUI.create_or_update(event.player_index)
+            end
+        end)
+        if not status then
+            pauseError(err, {"on_gui_click", elementName})
+        end
+    end,
+
+    jumpToCircuit = function(player, option2, _, element)
+        local opts = GUI.get_station_options(element, option2)
+        log("get_station_options")
+        log(serpent.block(opts))
+        GUI.save_station_options(opts, player.index, option2)
+    end,
+
+    refuel = function(_, option2, _, element)
+        option2 = tonumber(option2)
+        global.trains[option2].settings.autoRefuel = element.state--not global.trains[option2].settings.autoRefuel
+    end,
+
+    activeLine = function(player, option2, option3)
+        local trainKey = tonumber(option3)
+        local li = option2
+        local t = global.trains[trainKey]
+        if t.line ~= li then
+            t.line = li
+            t.lineVersion = -1
+            if t.train.speed == 0 then
+                if not t:updateLine() then
+                    t.scheduleUpdate = game.tick + 60
+                    insertInTable(global.scheduleUpdate, t.scheduleUpdate, t)
+                end
+            end
+        else
+            t.line = false
+            local schedule = t.train.schedule
+            t.train.schedule = schedule
+        end
+        t.lineVersion = -1
+        GUI.create_or_update(player.index)
+    end,
+
+    lineRefuel = function(_, option2, option3)
+        local line = option2
+        local trainKey = tonumber(option3)
+        local t = global.trains[trainKey]
+        if line and global.trainLines[line] then
+            line = global.trainLines[line]
+            line.settings.autoRefuel = not line.settings.autoRefuel
+            line.changed = game.tick
+            if t and t.line and t.line == line.name then
+                t.settings.autoRefuel = line.settings.autoRefuel
+                t.lineVersion = line.changed
+            end
+        end
+        return true
+    end,
+}
+
 on_gui_click = {
     add_trains_to_update = function(line, newConditions)
         if not newConditions then return end
@@ -681,6 +760,10 @@ on_gui_click = {
     end,
 
     on_gui_click = function(event)
+        if event.element.type == "checkbox" then
+            return
+        end
+
         local elementName = event.element.name
         local status, err = pcall(function()
             local player = game.players[event.player_index]
@@ -852,11 +935,6 @@ on_gui_click = {
         return false
     end,
 
-    refuel = function(_, option2)
-        option2 = tonumber(option2)
-        global.trains[option2].settings.autoRefuel = not global.trains[option2].settings.autoRefuel
-    end,
-
     editRules = function(player, option2, _, element)
         --GUI.destroyGui(player.gui[GUI.position].stGui.settings.toggleSTSettings)
         GUI.destroyGui(player.gui[GUI.position].stGui.rows.trainSettings)
@@ -885,7 +963,6 @@ on_gui_click = {
 
         local use_mapping = rulesFlow["useMapping__" .. line].state
         trainline.settings.useMapping = use_mapping
-
         trainline.rules = table.deepcopy(sanitize_rules(player, line, global.guiData[player.index].rules, global.playerRules[player.index].page))
         trainline.changed = game.tick
 
@@ -1110,44 +1187,6 @@ on_gui_click = {
         return true
     end,
 
-    lineRefuel = function(_, option2, option3)
-        local line = option2
-        local trainKey = tonumber(option3)
-        local t = global.trains[trainKey]
-        if line and global.trainLines[line] then
-            line = global.trainLines[line]
-            line.settings.autoRefuel = not line.settings.autoRefuel
-            line.changed = game.tick
-            if t and t.line and t.line == line.name then
-                t.settings.autoRefuel = line.settings.autoRefuel
-                t.lineVersion = line.changed
-            end
-        end
-        return true
-    end,
-
-    activeLine = function(player, option2, option3)
-        local trainKey = tonumber(option3)
-        local li = option2
-        local t = global.trains[trainKey]
-        if t.line ~= li then
-            t.line = li
-            t.lineVersion = -1
-            if t.train.speed == 0 then
-                if not t:updateLine() then
-                    t.scheduleUpdate = game.tick + 60
-                    insertInTable(global.scheduleUpdate, t.scheduleUpdate, t)
-                end
-            end
-        else
-            t.line = false
-            local schedule = t.train.schedule
-            t.train.schedule = schedule
-        end
-        t.lineVersion = -1
-        GUI.create_or_update(player.index)
-    end,
-
     prevPageTrain = function(player,option2)
         local page = tonumber(option2)
         page = (page > 1) and page - 1 or 1
@@ -1254,11 +1293,5 @@ on_gui_click = {
         player.print("Saved station mapping") --TODO localisation
         update_station_numbers()
         return false
-    end,
-
-    jumpToCircuit = function(player, option2, _, element)
-        local opts = GUI.get_station_options(element, option2)
-
-        GUI.save_station_options(opts, player.index, option2)
     end,
 }

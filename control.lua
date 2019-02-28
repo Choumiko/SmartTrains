@@ -1725,7 +1725,7 @@ script.on_event(defines.events.on_player_driving_changed_state, on_player_drivin
 script.on_event(defines.events.on_entity_died, on_preplayer_mined_item)
 script.on_event(defines.events.on_built_entity, on_built_entity)
 script.on_event(defines.events.on_gui_click, on_gui_click.on_gui_click)
---script.on_event(defines.events.on_gui_checked_state_changed, on_gui_click.on_gui_click)
+script.on_event(defines.events.on_gui_checked_state_changed, on_gui_checked_state_changed.on_gui_checked_state_changed)
 script.on_event(defines.events.on_robot_pre_mined, on_robot_pre_mined)
 script.on_event(defines.events.on_robot_built_entity, on_robot_built_entity)
 script.on_event(defines.events.on_tick, on_tick)
