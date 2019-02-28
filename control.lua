@@ -1112,7 +1112,7 @@ function on_train_changed_state(event)
                         t:flyingText("Refuel station added", colors.YELLOW)
                     end
                 end
-                if t:isRefuelingDone() and t:currentStation() ~= t:refuelStation() then
+                if t:isRefuelingDone() and t:currentStation() ~= t:refuelStation() and train.schedule.current < #train.schedule.records then
                     t:removeRefuelStation()
                 end
             end
