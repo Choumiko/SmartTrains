@@ -756,7 +756,9 @@ local update_from_version = {
     ["3.0.0"] = function() return "3.0.1" end,
     ["3.0.1"] = function() return "3.0.2" end,
     ["3.0.2"] = function() return "3.0.3" end,
-    ["3.0.3"] = function() return "3.0.4" end
+    ["3.0.3"] = function() return "3.0.4" end,
+    ["3.0.4"] = function() return "4.0.0" end,
+    ["4.0.0"] = function() return "4.0.1" end,
 }
 
 function on_configuration_changed(data)
