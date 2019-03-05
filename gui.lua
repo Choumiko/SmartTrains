@@ -171,8 +171,6 @@ GUI = {
             GUI.addLabel(tbl, {"stg-intervals-write"}).style.left_padding = 10
             GUI.addTextfield(tbl, {name="intervals_write", style="st_textfield_small", text = global.settings.intervals.write})
 
-            GUI.addLabel(tbl, "Set destination signal")
-
             GUI.addLabel(tbl, {"",{"stg-tracked-trains"}, " ", TrainList.getCount()})
             local noStations, uniqueStations = 0,0
             local force = game.players[index].force.name

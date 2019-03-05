@@ -759,6 +759,7 @@ local update_from_version = {
     ["3.0.3"] = function() return "3.0.4" end,
     ["3.0.4"] = function() return "4.0.0" end,
     ["4.0.0"] = function() return "4.0.1" end,
+    ["4.0.1"] = function() return "4.0.2" end,
 }
 
 function on_configuration_changed(data)
@@ -1058,8 +1059,8 @@ function on_train_changed_state(event)
                 t:nextStation(false, jump)
             end
 
-            if t.settings.autoRefuel and t.refueling then
-                if t:getStationName(t.current) == t:refuelStation() and t.current == #t.train.schedule.records and t:isRefuelingDone() then
+            if t.settings.autoRefuel and t.current == #t.train.schedule.records then --t.refueling might be false already
+                if t:getStationName(t.current) == t:refuelStation() and t:isRefuelingDone() then
                     t.refueling = false
                     t:removeRefuelStation()
                 end
