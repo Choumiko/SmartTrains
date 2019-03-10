@@ -3,7 +3,7 @@
 
 Position = {}
 
-require 'stdlib/core'
+require '__SmartTrains__/stdlib/core'
 
 --- Creates a position that is offset by x,y coordinate pair
 -- @param pos the position to offset

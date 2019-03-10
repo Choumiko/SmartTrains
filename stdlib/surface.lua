@@ -1,7 +1,7 @@
 --- Surface module
 -- @module surface
 
-require 'stdlib/core'
+require '__SmartTrains__/stdlib/core'
 
 Surface = {}
 

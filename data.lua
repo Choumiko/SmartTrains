@@ -1,5 +1,5 @@
-require "lib"
-require "prototypes/smart_train_stop"
+require "__SmartTrains__/lib"
+require "__SmartTrains__/prototypes/smart_train_stop"
 
 data:extend(
   {

@@ -1,10 +1,10 @@
-require "util"
-require 'stdlib.area.position'
-require 'stdlib.surface'
-require 'stdlib.string'
-require 'stdlib.table'
+require "__core__/lualib/util"
+require '__SmartTrains__/stdlib/area/position'
+require '__SmartTrains__/stdlib/surface'
+require '__SmartTrains__/stdlib/string'
+require '__SmartTrains__/stdlib/table'
 
-Logger = require('stdlib.log.logger')
+Logger = require('__SmartTrains__/stdlib/log/logger')
 
 debug = false --luacheck: ignore
 
@@ -34,8 +34,8 @@ combinator_index = {
     destination = 8
 }
 
-require("gui")
-require("Train")
+require("__SmartTrains__/gui")
+require("__SmartTrains__/Train")
 
 defaultTrainSettings = {autoRefuel = false}
 defaultSettings =
