@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 4.0.3
+Date: 27. 03. 2019
+  Changes:
+    - added mod setting to automatically set autorefuel for new trains (defaults to false)
+  Bugfixes:
+    - fixed refuel station not being removed when max fuel value was set too high
+---------------------------------------------------------------------------------------------------
 Version: 4.0.2
 Date: 05. 03. 2019
   Bugfixes:

@@ -16,7 +16,7 @@ Train = {
                     direction = 0, -- 0 = front, 1 back (lookup direction for trainstop)
                     passengers = 0,
                 }
-                new.settings.autoRefuel = defaultTrainSettings.autoRefuel
+                new.settings.autoRefuel = settings.global.smart_trains_set_autorefuel.value
 
                 setmetatable(new, {__index = Train})
                 new:update(train, id)
@@ -501,26 +501,26 @@ Train = {
             if locos then
                 local inventory, contents
                 for _, carriage in pairs(locos.front_movers) do
-                    inventory = carriage.get_inventory(defines.inventory.fuel)
-                    contents = inventory.get_contents()
-                    if #contents == 0 then
+                    inventory = carriage.get_fuel_inventory()
+                    if inventory.is_empty() or #inventory == 0 then
                         return false
                     end
+                    contents = inventory.get_contents()
                     for item, _ in pairs(contents) do
-                        isFull = isFull and (not inventory.can_insert{name = item})
+                        isFull = isFull and (not inventory.can_insert(item))
                         if not isFull then
                             return false
                         end
                     end
                 end
                 for _, carriage in pairs(locos.back_movers) do
-                    inventory = carriage.get_inventory(defines.inventory.fuel)
-                    contents = inventory.get_contents()
-                    if #contents == 0 then
+                    inventory = carriage.get_fuel_inventory()
+                    if inventory.is_empty() or #inventory == 0 then
                         return false
                     end
+                    contents = inventory.get_contents()
                     for item, _ in pairs(contents) do
-                        isFull = isFull and (not inventory.can_insert{name = item})
+                        isFull = isFull and (not inventory.can_insert(item))
                         if not isFull then
                             return false
                         end
