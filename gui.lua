@@ -663,8 +663,8 @@ end
 
 on_gui_checked_state_changed = {
     on_gui_checked_state_changed = function(event)
-        log("on checked: " .. serpent.block(event.element.name))
-        log("state: " .. serpent.block(event.element.state))
+        -- log("on checked: " .. serpent.block(event.element.name))
+        -- log("state: " .. serpent.block(event.element.state))
 
         local elementName = event.element.name
         local status, err = pcall(function()
@@ -677,7 +677,7 @@ on_gui_checked_state_changed = {
                 refresh = on_gui_checked_state_changed[element.name](player)
             else
                 local option1, option2, option3, _ = event.element.name:match("(%w+)__([%w%s%-%#%!%$]*)_*([%w%s%-%#%!%$]*)_*(%w*)")
-                log("Options: " .. serpent.line(option1) .. " " .. serpent.line(option2) .. " " .. serpent.line(option3))
+                --log("Options: " .. serpent.line(option1) .. " " .. serpent.line(option2) .. " " .. serpent.line(option3))
                 if on_gui_checked_state_changed[option1] then
                     refresh = on_gui_checked_state_changed[option1](player, option2, option3, element)
                 end

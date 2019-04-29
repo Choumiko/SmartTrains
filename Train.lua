@@ -502,27 +502,31 @@ Train = {
                 local inventory, contents
                 for _, carriage in pairs(locos.front_movers) do
                     inventory = carriage.get_fuel_inventory()
-                    if inventory.is_empty() or #inventory == 0 then
-                        return false
-                    end
-                    contents = inventory.get_contents()
-                    for item, _ in pairs(contents) do
-                        isFull = isFull and (not inventory.can_insert(item))
-                        if not isFull then
+                    if inventory then
+                        if inventory.is_empty() or #inventory == 0 then
                             return false
+                        end
+                        contents = inventory.get_contents()
+                        for item, _ in pairs(contents) do
+                            isFull = isFull and (not inventory.can_insert(item))
+                            if not isFull then
+                                return false
+                            end
                         end
                     end
                 end
                 for _, carriage in pairs(locos.back_movers) do
                     inventory = carriage.get_fuel_inventory()
-                    if inventory.is_empty() or #inventory == 0 then
-                        return false
-                    end
-                    contents = inventory.get_contents()
-                    for item, _ in pairs(contents) do
-                        isFull = isFull and (not inventory.can_insert(item))
-                        if not isFull then
+                    if inventory then
+                        if inventory.is_empty() or #inventory == 0 then
                             return false
+                        end
+                        contents = inventory.get_contents()
+                        for item, _ in pairs(contents) do
+                            isFull = isFull and (not inventory.can_insert(item))
+                            if not isFull then
+                                return false
+                            end
                         end
                     end
                 end
@@ -539,16 +543,19 @@ Train = {
                     local minfuel
                     local c
                     local contents
+                    local fuel_inventory
                     for _, carriage in pairs(locos.front_movers) do
-                        contents = carriage.get_fuel_inventory().get_contents()
-                        c = self:calcFuel(contents)
+                        fuel_inventory = carriage.get_fuel_inventory()
+                        contents = fuel_inventory and fuel_inventory.get_contents()
+                        c = contents and self:calcFuel(contents) or global.settings.refuel.rangeMax
                         if minfuel == nil or c < minfuel then
                             minfuel = c
                         end
                     end
                     for _, carriage in pairs(locos.back_movers) do
-                        contents = carriage.get_fuel_inventory().get_contents()
-                        c = self:calcFuel(contents)
+                        fuel_inventory = carriage.get_fuel_inventory()
+                        contents = fuel_inventory and fuel_inventory.get_contents()
+                        c = contents and self:calcFuel(contents) or global.settings.refuel.rangeMax
                         if minfuel == nil or c < minfuel then
                             minfuel = c
                         end
