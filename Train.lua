@@ -350,6 +350,7 @@ Train = {
             if not station then
                 log("state is wait_station but no trainstation found")
                 log("Temporary station?!")
+                return
             end
             self.waitingStation = findSmartTrainStopByTrain(self, self:getStationName())
             if not self.waitingStation and rules and rules.jumpToCircuit then

@@ -19,7 +19,6 @@ data:extend(
       type = "item-group",
       name = "st-invisible",
       order = "zz",
-      inventory_order = "zz",
       icon = "__base__/graphics/icons/deconstruction-planner.png",
       icon_size = 32
     },
@@ -90,12 +89,6 @@ data.raw["gui-style"].default["st_frame"] =
     parent="frame",
     top_padding  = 2,
     bottom_padding = 2,
-    font = "st-small-bold",
---    flow_style =
---    {
---      max_on_row = 1,
---      resize_row_to_width = false
---    }
   }
 data.raw["gui-style"].default["st_inner_frame"] =
   {
@@ -103,7 +96,6 @@ data.raw["gui-style"].default["st_inner_frame"] =
     parent="frame",
     top_padding  = 2,
     bottom_padding = 2,
-    font = "st-small-bold",
     graphical_set = { type = "none" },
 --    flow_style =
 --    {
@@ -115,9 +107,8 @@ data.raw["gui-style"].default["st_flow"] =
   {
     type = "horizontal_flow_style",
     horizontal_spacing = 0,
-    vertical_spacing = 2,
-    max_on_row = 0,
   }
+
 data.raw["gui-style"].default["st_table"] =
   {
     type = "table_style",
@@ -135,42 +126,6 @@ data.raw["gui-style"].default["st_radio"] =
     type = "checkbox_style",
     parent = "checkbox",
     font = "st-small",
-    default_background =
-    {
-      filename = "__core__/graphics/gui.png",
-      priority = "extra-high-no-scale",
-      width = 10,
-      height = 10,
-      x = 43,
-      y = 34
-    },
-    hovered_background =
-    {
-      filename = "__core__/graphics/gui.png",
-      priority = "extra-high-no-scale",
-      width = 10,
-      height = 10,
-      x = 54,
-      y = 34
-    },
-    clicked_background =
-    {
-      filename = "__core__/graphics/gui.png",
-      priority = "extra-high-no-scale",
-      width = 10,
-      height = 10,
-      x = 65,
-      y = 34
-    },
-    selected =
-    {
-      filename = "__core__/graphics/gui.png",
-      priority = "extra-high-no-scale",
-      width = 10,
-      height = 10,
-      x = 75,
-      y = 34
-    }
   }
 
 data.raw["gui-style"].default["st_button_style"] =
@@ -235,7 +190,6 @@ data.raw["gui-style"].default["st_page_button"] =
   {
     type = "button_style",
     parent = "st_button_style_bold",
-    horizontal_spacing = 0,
     width = 50,
   }
 
@@ -243,7 +197,6 @@ data.raw["gui-style"].default["st_page_button_disabled"] =
   {
     type = "button_style",
     parent = "st_disabled_button_bold",
-    horizontal_spacing = 0,
     width = 50,
   }
 

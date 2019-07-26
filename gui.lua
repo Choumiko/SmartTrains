@@ -236,12 +236,10 @@ GUI = {
             if max > #records then max = #records end
             for i=start, max do
                 local s = records[i]
-
-                local time
                 local chunks = {}
                 local chunk = {}
 
-                GUI.addLabel(tbl1, i.." "..s.station)
+                GUI.addLabel(tbl1, i.." ".. (s.station or "Temporary"))
                 if s.wait_conditions then
                     for c_index, condition in pairs(s.wait_conditions) do
                         if c_index > 1 then
