@@ -761,7 +761,8 @@ local update_from_version = {
     ["4.0.1"] = function() return "4.0.2" end,
     ["4.0.2"] = function() return "4.0.3" end,
     ["4.0.3"] = function() return "4.0.4" end,
-    ["4.0.4"] = function() return "4.0.5" end
+    ["4.0.4"] = function() return "4.0.5" end,
+    ["4.0.5"] = function() return "4.0.6" end,
 }
 
 function on_configuration_changed(data)
@@ -1972,6 +1973,15 @@ st_commands.find_stations = function(event)
     local n = findStations()
     game.players[event.player_index].print("Found " .. n .. " train stations")
 end
+
+st_commands.resetGui = function(event)
+    local player = game.get_player(event.player_index)
+    if player and player.valid then
+        GUI.destroy(player)
+    end
+end
+
 commands.add_command("st_stop_trains", "Stops all trains of the players force", st_commands.stop_trains)
 commands.add_command("st_start_trains", "Starts all trains that have been previously stopped by st_stop_trains", st_commands.start_trains)
 commands.add_command("st_find_stations", "Rescan the surface for train stations", st_commands.find_stations)
+commands.add_command("st_reset_gui", "Reset the SmartTrains gui", st_commands.resetGui)

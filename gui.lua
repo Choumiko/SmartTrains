@@ -74,7 +74,9 @@ GUI = {
         if player.valid then
             GUI.destroyGui(player.gui[GUI.position][GUI.windows.root])
             global.guiData[player.index] = nil
-            global.playerRules[player_index].page = 1
+            if global.playerRules[player_index] then
+                global.playerRules[player_index].page = 1
+            end
         end
     end,
 
@@ -243,14 +245,18 @@ GUI = {
                 if s.wait_conditions then
                     for c_index, condition in pairs(s.wait_conditions) do
                         if c_index > 1 then
-                            table.insert(chunk, " ")
-                            table.insert(chunk, condition.compare_type == "or" and {"lbl-or"} or "&")
-                            table.insert(chunk, " ")
+                            table.insert(chunk, {"", " ", condition.compare_type == "or" and {"lbl-or"} or "&", " "})
                         end
                         if condition.type == "time" then
                             table.insert(chunk, {"lbl-time", math.floor(condition.ticks/60)})
                         elseif condition.type == "circuit" then
                             table.insert(chunk, {"lbl-wait-for-circuit"})
+                        elseif condition.type == "item_count" or condition.type == "fluid_count" then
+                            if condition.condition.first_signal then
+                                table.insert(chunk, {"", "[", condition.condition.first_signal.type, "=", condition.condition.first_signal.name, "] ", condition.condition.comparator, " ", condition.condition.constant})
+                            else
+                                table.insert(chunk, {"", "? ", condition.condition.comparator, "", condition.condition.constant})
+                            end
                         else
                             table.insert(chunk, {"lbl-"..condition.type})
                         end
@@ -286,12 +292,20 @@ GUI = {
                     end
                 end
                 local text = {""}
+                local c = 1
                 for _, chunk_ in pairs(chunks) do
                     for _, bit in pairs(chunk_) do
+                        if c == 19 then
+                            table.insert(text, " ...")
+                            goto continue
+                        end
                         table.insert(text, bit)
+                        c = c + 1
                     end
                 end
-                GUI.addLabel(tbl1, text)
+                ::continue::
+                local lbl_conditions = GUI.addLabel(tbl1, text)
+                lbl_conditions.style.maximal_width = 250
                 GUI.addPlaceHolder(tbl1)
             end
         end
