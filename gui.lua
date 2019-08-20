@@ -149,7 +149,7 @@ GUI = {
         local gui = parent or game.players[index].gui[GUI.position].stGui.rows
         if gui.globalSettings == nil then
             gui.add({type = "frame", name="globalSettings", direction="vertical", caption={"text-st-global-settings"}})
-            local refueling = gui.globalSettings.add({type = "frame", name="frm_refueling", direction="horizontal", style = "st_inner_frame", caption = {"stg-refueling"}})
+            local refueling = gui.globalSettings.add({type = "frame", name="frm_refueling", direction="vertical", style = "st_inner_frame", caption = {"stg-refueling"}})
 
             local coal_min = fuel_value_to_coal(global.settings.refuel.rangeMin)
             local coal_max = fuel_value_to_coal(global.settings.refuel.rangeMax)
@@ -166,6 +166,8 @@ GUI = {
             GUI.addTextfield(tbl, {name="refuelTime", style="st_textfield_small", text = global.settings.refuel.time / 60})
             GUI.addLabel(tbl,  {"stg-refuel-station"})
             GUI.addTextfield(tbl, {name="refuelStation", style="st_textfield_medium", text = global.settings.refuel.station})
+
+            GUI.addButton(refueling, {name="setRefuel", caption="Set Refuel", tooltip="Set refuel for all trains"})
 
             local intervals = gui.globalSettings.add({type = "frame", name="frm_intervals", direction="horizontal", style = "st_inner_frame", caption = {"stg-intervals"}})
             tbl = intervals.add{type="table", name="tbl", column_count=2, style="st_table"}
@@ -1303,5 +1305,13 @@ on_gui_click = {
         player.print("Saved station mapping") --TODO localisation
         update_station_numbers()
         return false
+    end,
+
+    setRefuel = function()
+        for _, train in pairs(global.trains) do
+            if (not train.line and train.train and train.train.valid) then
+                train.settings.autoRefuel = true
+            end
+        end
     end,
 }

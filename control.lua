@@ -763,6 +763,7 @@ local update_from_version = {
     ["4.0.3"] = function() return "4.0.4" end,
     ["4.0.4"] = function() return "4.0.5" end,
     ["4.0.5"] = function() return "4.0.6" end,
+    ["4.0.6"] = function() return "4.0.7" end,
 }
 
 function on_configuration_changed(data)
