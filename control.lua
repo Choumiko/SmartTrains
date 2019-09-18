@@ -611,159 +611,8 @@ end
 
 local update_from_version = {
     ["0.0.0"] = function()
-        return "1.1.7"
+        return "4.0.8"
     end,
-    ["0.3.97"] = function() return "0.3.99" end,
-    ["0.3.98"] = function() return "0.3.99" end,
-    ["0.3.99"] = function()
-        update_station_numbers()
-        return "0.4.2"
-    end,
-    ["0.4.0"] = function()
-        update_station_numbers()
-        return "0.4.2"
-    end,
-    ["0.4.1"] = function() return "0.4.2" end,
-    ["0.4.2"] = function()
-        global.settings.intervals.read = nil
-        global.settings.intervals.cargoRule = nil
-        global.settings.intervals.noChange = nil
-        global.settings.minFlow = nil
-        return "0.4.3"
-    end,
-    ["0.4.3"] = function() return "0.4.4" end,
-    ["0.4.4"] = function()
-        local trains = {}
-        local id
-        for _, trainInfo in pairs(global.trains) do
-            id = TrainList.getTrainID(trainInfo.train)
-            if id then
-                trainInfo:update(trainInfo.train, id)
-                trains[id] = trainInfo
-            end
-        end
-        global.trains = trains
-        return "0.4.5"
-    end,
-    ["0.4.5"] = function()
-        local id
-        for _, trainInfo in pairs(global.trains) do
-            if trainInfo.train and trainInfo.train.valid then
-                id = TrainList.getTrainID(trainInfo.train)
-                trainInfo:update(trainInfo.train, id)
-            else
-                TrainList.removeTrain(trainInfo)
-            end
-        end
-        return "0.4.6"
-    end,
-    ["0.4.6"] = function()
-        local invalid_lines = {}
-        for name, line in pairs(global.trainLines) do
-            if not line.records or #line.records < 1 or not line.rules or #line.rules < 1 then
-                invalid_lines[name] = true
-            end
-        end
-
-        for lineName, _ in pairs(invalid_lines) do
-            global.trainLines[lineName] = nil
-            log("Removed line " .. lineName)
-        end
-        return "0.4.7"
-    end,
-    ["0.4.7"] = function()
-        return "1.0.0"
-    end,
-    ["1.0.0"] = function()
-        local baseVersion = factorioVersion()
-        if baseVersion then
-            if baseVersion == "13" then
-                return "1.0.1"
-            elseif baseVersion == "14" then
-                return "1.1.0"
-            end
-        end
-        return "1.0.1"
-    end,
-    --0.13ver
-    ["1.0.1"] = function()
-        removeDuplicateTrains()
-        return (factorioVersion() == "13") and "1.0.2" or "1.1.1"
-    end,
-    ["1.0.2"] = function()
-        return (factorioVersion() == "13") and "1.0.3" or "1.1.2"
-    end,
-    --0.14ver
-    ["1.0.3"] = function()
-        return "1.1.0"
-    end,
-    ["1.1.0"] = function()
-        removeDuplicateTrains()
-        return "1.1.4"
-    end,
-    ["1.1.1"] = function()
-        return "1.1.4"
-    end,
-    ["1.1.2"] = function()
-        return "1.1.4"
-    end,
-    ["1.1.3"] = function()
-        return "1.1.4"
-    end,
-    ["1.1.4"] = function()
-        if global.trainLines then
-            for _, line in pairs(global.trainLines) do
-                if line.records and type(line.records) == "table" then
-                    for _, record in pairs(line.records) do
-                        record.station = tostring(record.station)
-                    end
-                end
-                if line.rules and type(line.rules) == "table" then
-                    for _, rule in pairs(line.rules) do
-                        rule.station = tostring(rule.station)
-                    end
-                end
-            end
-        end
-        return "1.1.7"
-    end,
-    ["1.1.5"] = function()
-        return "1.1.7"
-    end,
-    ["1.1.6"] = function()
-        return "1.1.7"
-    end,
-    ["1.1.7"] = function()
-        global.openedName = nil
-        return "2.0.0"
-    end,
-    ["2.0.0"] = function() return "2.0.1" end,
-    ["2.0.1"] = function() return "2.0.2" end,
-    ["2.0.2"] = function()
-        for _, train in pairs(global.trains) do
-            train.cargoUpdated = nil
-            train.cargo = nil
-        end
-        return "2.0.3"
-    end,
-    ["2.0.3"] = function() return "2.0.4" end,
-    ["2.0.4"] = function() return "2.0.5" end,
-    ["2.0.5"] = function() return "2.0.6" end,
-    ["2.0.6"] = function() return "2.0.7" end,
-    ["2.0.7"] = function() return "2.1.0" end,
-    ["2.1.0"] = function() return "3.0.0" end,
-    ["3.0.0"] = function() return "3.0.1" end,
-    ["3.0.1"] = function() return "3.0.2" end,
-    ["3.0.2"] = function() return "3.0.3" end,
-    ["3.0.3"] = function() return "3.0.4" end,
-    ["3.0.4"] = function() return "4.0.0" end,
-    ["4.0.0"] = function() return "4.0.1" end,
-    ["4.0.1"] = function() return "4.0.2" end,
-    ["4.0.2"] = function() return "4.0.3" end,
-    ["4.0.3"] = function() return "4.0.4" end,
-    ["4.0.4"] = function() return "4.0.5" end,
-    ["4.0.5"] = function() return "4.0.6" end,
-    ["4.0.6"] = function() return "4.0.7" end,
 }
 
 function on_configuration_changed(data)
@@ -783,16 +632,20 @@ function on_configuration_changed(data)
             setMetatables()
             local searchedStations = false
             if old_version and new_version then
-                if old_version < "0.3.97" then
-                    error("Updating from an outdated version, get at least SmartTrains 1.1.7 from the mod portal to update this save.")
+                if old_version < "2.0.3" then
+                    error("Updating from an outdated version, get at least SmartTrains 2.0.3 from the mod portal to update this save.")
                 end
                 local ver = update_from_version[old_version] and old_version or "0.0.0"
-                local searched = false
+                local searched
                 while ver ~= new_version do
-                    ver, searched = update_from_version[ver]()
-                    searchedStations = searchedStations or searched
+                    if update_from_version[ver] then
+                        ver, searched = update_from_version[ver]()
+                        searchedStations = searchedStations or searched
+                    else
+                        break
+                    end
                 end
-                debugDump("SmartTrains version changed from "..old_version.." to "..ver,true)
+                debugDump("SmartTrains version changed from "..old_version.." to ".. new_version,true)
             end
             if not searchedStations then
                 findStations()

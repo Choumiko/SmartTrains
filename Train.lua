@@ -582,8 +582,10 @@ Train = {
             --debugDump(util.formattime(game.tick,true).."@ "..getKeyByValue(defines.train_state, self.train.state),true)
             self.previousState = self.state
             self.state = self.train.state
-            if self.previousState == defines.train_state.wait_station and
-                (self.state == defines.train_state.on_the_path or self.state == defines.train_state.path_lost or self.state == defines.train_state.arrive_signal)
+            local ts = defines.train_state
+            if self.previousState == ts.wait_station and
+                (self.state == ts.on_the_path or self.state == ts.arrive_signal
+                 or self.state == ts.path_lost or self.state == ts.no_path)
             then
                 self.advancedState = train_state.left_station
                 --debugDump(game.tick.." left_station",true)
