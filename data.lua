@@ -20,7 +20,8 @@ data:extend(
       name = "st-invisible",
       order = "zz",
       icon = "__base__/graphics/icons/deconstruction-planner.png",
-      icon_size = 32
+      icon_size = 32,
+      icon_mipmaps = 0
     },
     {
       type = "item-subgroup",
@@ -135,13 +136,6 @@ data.raw["gui-style"].default["st_button_style"] =
     font = "default",
     right_padding = 5,
     left_padding = 5,
-    left_click_sound =
-    {
-      {
-        filename = "__core__/sound/gui-click.ogg",
-        volume = 1
-      }
-    }
   }
 
 data.raw["gui-style"].default["st_button_style_bold"] =
