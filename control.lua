@@ -326,7 +326,6 @@ function initGlob()
     global.refueling = global.refueling or {}
     global.reset_signals = global.reset_signals or {}
 
-    global.player_opened = global.player_opened or {}
     global.player_passenger = global.player_passenger or {}
     global.showFlyingText = global.showFlyingText or false
     global.playerPage = global.playerPage or {}
@@ -1076,41 +1075,23 @@ function on_tick(event)
         end
         global.update_cargo[current_tick] = nil
     end
-
-    if current_tick%10==9  then
-        local status,err = pcall(function()
-            for pi, player in pairs(game.players) do
-                if player.connected and (player.opened_gui_type == defines.gui_type.none or player.opened_gui_type == defines.gui_type.entity) then
-                    if player.opened ~= nil and not global.player_opened[player.name] then
-                        script.raise_event(events["on_player_opened"], {entity=player.opened, player_index=pi})
-                        global.player_opened[player.name] = player.opened
-                    end
-                    if global.player_opened[player.name] and player.opened == nil then
-                        script.raise_event(events["on_player_closed"], {entity=global.player_opened[player.name], player_index=pi})
-                        global.player_opened[player.name] = nil
-                    end
-                end
-            end
-        end)
-        if not status then
-            pauseError(err, "on_tick_players")
-        end
-    end
 end
 
 function on_player_opened(event)
-    if event.entity.valid and game.players[event.player_index].valid then
+    local pi = event.player_index
+    local player = game.get_player(pi)
+    if event.entity and event.entity.valid and player.valid then
         if event.entity.type == "locomotive" and event.entity.train then
-            global.playerPage[event.player_index] = {schedule=1,lines=1}
+            global.playerPage[pi] = {schedule=1,lines=1}
             local trainInfo = TrainList.getTrainInfo(event.entity.train)
-            GUI.create_or_update(event.player_index)
+            GUI.create_or_update(pi)
             trainInfo.opened = true
-            global.guiData[event.player_index] = {rules={}}
+            global.guiData[pi] = {rules={}}
         elseif event.entity.type == "train-stop" then
-            global.playerPage[event.player_index] = {schedule=1,lines=1}
-            local force = game.players[event.player_index].force.name
-            global.guiData[event.player_index] = {rules={}, mapping=table.deepcopy(global.stationMapping[force])}
-            GUI.create_or_update(event.player_index)
+            global.playerPage[pi] = {schedule=1,lines=1}
+            local force = game.players[pi].force.name
+            global.guiData[pi] = {rules={}, mapping=table.deepcopy(global.stationMapping[force])}
+            GUI.create_or_update(pi)
         end
     end
 end
@@ -1170,11 +1151,13 @@ function schedule_changed(s1, s2)
 end
 
 function on_player_closed(event)
-    if event.entity.valid and game.players[event.player_index].valid then
+    local pi = event.player_index
+    local player = game.get_player(pi)
+    if event.entity and event.entity.valid and player.valid then
         if event.entity.type == "locomotive" then
             if event.entity.type == "locomotive" then
                 local trainInfo = TrainList.getTrainInfo(event.entity.train)
-                GUI.destroy(event.player_index)
+                GUI.destroy(pi)
                 trainInfo.opened = nil
                 if trainInfo.line and global.trainLines[trainInfo.line] and schedule_changed(global.trainLines[trainInfo.line], event.entity.train.schedule) and trainInfo.lineVersion ~= 0 then
                     --set line version to -1, so it gets updated at the next station
@@ -1185,7 +1168,7 @@ function on_player_closed(event)
                 end
             end
         elseif event.entity.type == "train-stop" then
-            GUI.destroy(event.player_index)
+            GUI.destroy(pi)
         end
     end
 end
@@ -1294,8 +1277,8 @@ script.on_event(defines.events.on_pre_entity_settings_pasted, on_pre_entity_sett
 script.on_event(defines.events.on_entity_settings_pasted, on_entity_settings_pasted)
 script.on_event(defines.events.on_entity_renamed, on_station_rename)
 
-script.on_event(events.on_player_opened, on_player_opened)
-script.on_event(events.on_player_closed, on_player_closed)
+script.on_event(defines.events.on_gui_opened, on_player_opened)
+script.on_event(defines.events.on_gui_closed, on_player_closed)
 
 --function on_train_created(event)
 --log("train created")
