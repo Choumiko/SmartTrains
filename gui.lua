@@ -254,10 +254,14 @@ GUI = {
                         elseif condition.type == "circuit" then
                             table.insert(chunk, {"lbl-wait-for-circuit"})
                         elseif condition.type == "item_count" or condition.type == "fluid_count" then
-                            if condition.condition.first_signal then
-                                table.insert(chunk, {"", "[", condition.condition.first_signal.type, "=", condition.condition.first_signal.name, "] ", condition.condition.comparator, " ", condition.condition.constant})
+                            if condition.condition then
+                                if condition.condition.first_signal then
+                                    table.insert(chunk, {"", "[", condition.condition.first_signal.type, "=", condition.condition.first_signal.name, "] ", condition.condition.comparator, " ", condition.condition.constant})
+                                else
+                                    table.insert(chunk, {"", "? ", condition.condition.comparator, "", condition.condition.constant})
+                                end
                             else
-                                table.insert(chunk, {"", "? ", condition.condition.comparator, "", condition.condition.constant})
+                                table.insert(chunk, {"", "? "})
                             end
                         else
                             table.insert(chunk, {"lbl-"..condition.type})

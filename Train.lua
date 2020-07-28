@@ -347,9 +347,7 @@ Train = {
                 log("Actual type: " .. type(station.backer_name) .. " Self type: " .. type(self:getStationName()))
                 return
             end
-            if not station then
-                log("state is wait_station but no trainstation found")
-                log("Temporary station?!")
+            if not station then --temporary station
                 return
             end
             self.waitingStation = findSmartTrainStopByTrain(self, self:getStationName())
