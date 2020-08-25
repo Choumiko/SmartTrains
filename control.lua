@@ -1414,16 +1414,15 @@ function on_robot_pre_mined(event)
 end
 
 function on_player_driving_changed_state(event)
-    local player = game.players[event.player_index]
+    local player = game.get_player(event.player_index)
     if not player.connected then
         return
     end
     if player.controller_type == defines.controllers.god
         or player.controller_type == defines.controllers.editor
-        or (player.character ~= nil and player.character.name ~= "fatcontroller")
+        or (player.character and player.character.name ~= "fatcontroller")
     then
-        if player.vehicle ~= nil and player.vehicle.train ~= nil
-        then
+        if player.vehicle and player.vehicle.train then
             global.player_passenger[player.index] = player.vehicle
             local trainInfo = TrainList.getTrainInfo(player.vehicle.train)
             if trainInfo then
@@ -1431,9 +1430,9 @@ function on_player_driving_changed_state(event)
                 trainInfo:updatePassengerSignal()
             end
         end
-        if player.vehicle == nil then
+        if not player.vehicle then
             local vehicle = global.player_passenger[player.index]
-            if vehicle ~= nil and vehicle.valid and vehicle.train ~= nil then
+            if vehicle and vehicle.valid and vehicle.train then
                 local trainInfo = TrainList.getTrainInfo(global.player_passenger[player.index].train)
                 if trainInfo then
                     trainInfo.passengers = trainInfo.passengers - 1
@@ -1443,7 +1442,6 @@ function on_player_driving_changed_state(event)
             global.player_passenger[player.index] = nil
         end
     end
-    --update smartstop combinator here
 end
 
 function debugDump(var, force)
@@ -1822,7 +1820,13 @@ st_commands.resetGui = function(event)
     end
 end
 
+st_commands.toggle_flying_text = function()
+    global.showFlyingText = not global.showFlyingText
+    debugDump("Flying text: "..tostring(global.showFlyingText),true)
+end
+
 commands.add_command("st_stop_trains", "Stops all trains of the players force", st_commands.stop_trains)
 commands.add_command("st_start_trains", "Starts all trains that have been previously stopped by st_stop_trains", st_commands.start_trains)
 commands.add_command("st_find_stations", "Rescan the surface for train stations", st_commands.find_stations)
 commands.add_command("st_reset_gui", "Reset the SmartTrains gui", st_commands.resetGui)
+commands.add_command("st_toggle_flying_text", "Toggle flying text", st_commands.toggle_flying_text)

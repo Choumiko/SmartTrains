@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 5.0.4
+Date: 2020-08-25
+  Changes:
+    - added command /st_toggle_flying_text to, well, toggle flying text.
+  Bugfixes:
+    - Fixed error when entering a vehicle in editor mode
+---------------------------------------------------------------------------------------------------
 Version: 5.0.3
 Date: 28. 07. 2020
   Bugfixes:
