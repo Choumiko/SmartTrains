@@ -1418,26 +1418,30 @@ function on_player_driving_changed_state(event)
     if not player.connected then
         return
     end
-    if player.vehicle ~= nil and (player.controller_type == defines.controllers.god or player.character.name ~= "fatcontroller")
-        and (player.vehicle.type == "locomotive" or player.vehicle.type == "cargo-wagon")
+    if player.controller_type == defines.controllers.god
+        or player.controller_type == defines.controllers.editor
+        or (player.character ~= nil and player.character.name ~= "fatcontroller")
     then
-        global.player_passenger[player.index] = player.vehicle
-        local trainInfo = TrainList.getTrainInfo(player.vehicle.train)
-        if trainInfo then
-            trainInfo.passengers = trainInfo.passengers + 1
-            trainInfo:updatePassengerSignal()
-        end
-    end
-    if player.vehicle == nil and (player.controller_type == defines.controllers.god or player.character.name ~= "fatcontroller") and global.player_passenger[player.index] then
-        local vehicle = global.player_passenger[player.index]
-        if vehicle.valid and (vehicle.type == "locomotive" or vehicle.type == "cargo-wagon") then
-            local trainInfo = TrainList.getTrainInfo(global.player_passenger[player.index].train)
+        if player.vehicle ~= nil and player.vehicle.train ~= nil
+        then
+            global.player_passenger[player.index] = player.vehicle
+            local trainInfo = TrainList.getTrainInfo(player.vehicle.train)
             if trainInfo then
-                trainInfo.passengers = trainInfo.passengers - 1
+                trainInfo.passengers = trainInfo.passengers + 1
                 trainInfo:updatePassengerSignal()
             end
         end
-        global.player_passenger[player.index] = nil
+        if player.vehicle == nil then
+            local vehicle = global.player_passenger[player.index]
+            if vehicle ~= nil and vehicle.valid and vehicle.train ~= nil then
+                local trainInfo = TrainList.getTrainInfo(global.player_passenger[player.index].train)
+                if trainInfo then
+                    trainInfo.passengers = trainInfo.passengers - 1
+                    trainInfo:updatePassengerSignal()
+                end
+            end
+            global.player_passenger[player.index] = nil
+        end
     end
     --update smartstop combinator here
 end
