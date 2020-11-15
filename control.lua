@@ -426,13 +426,13 @@ end
 
 function add_or_update_parameter(behavior, signal, index)
     if behavior then
-        local parameters = behavior.parameters.parameters
+        local parameters = behavior.parameters
         if not parameters[index] or (not parameters[index].signal.name or parameters[index].signal.name == signal.signal.name)then
             if signal.count == 0 then
                 signal = {signal={type = "item"}, count = 1, index = index}
             end
             parameters[index] = signal
-            behavior.parameters = {parameters = parameters}
+            behavior.parameters = parameters
             return
         else
             for i, param in pairs(parameters) do
@@ -442,7 +442,7 @@ function add_or_update_parameter(behavior, signal, index)
                     end
                     parameters[i] = signal
                     parameters[i].index = i
-                    behavior.parameters = {parameters = parameters}
+                    behavior.parameters = parameters
                     return
                 end
             end
@@ -1007,7 +1007,7 @@ function on_tick(event)
                 local station_number = global.stationNumbers[station.station.force.name][station.station.backer_name] or false
                 if station_number and station_number ~= 0 then
                     local params = {{signal={type = "virtual", name = "signal-station-number"}, count = station_number, index = combinator_index.station_number}}
-                    behavior.parameters = {parameters = params}
+                    behavior.parameters = params
                 else
                     behavior.parameters = nil
                 end

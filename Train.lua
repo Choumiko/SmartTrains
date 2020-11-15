@@ -469,7 +469,7 @@ Train = {
 
                 local behaviour = cargoProxy.get_control_behavior()
                 if behaviour then
-                    behaviour.parameters = {parameters = parameters}
+                    behaviour.parameters = parameters
                 end
             end
         end,
