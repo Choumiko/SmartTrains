@@ -6,8 +6,6 @@ require '__SmartTrains__/stdlib/table'
 
 Logger = require('__SmartTrains__/stdlib/log/logger')
 
-debug = false --luacheck: ignore
-
 LOGGERS = {} --luacheck: allow defined top
 
 --LOGGERS.main = Logger.new("SmartTrains","main", true)
@@ -181,7 +179,6 @@ end
 
 TrainList.removeInvalidTrains = function(show)
     local removed = 0
-    show = show or debug
     for id, ti in pairs(global.trains) do
         if not ti.train or not ti.train.valid or (#ti.train.locomotives.front_movers == 0 and #ti.train.locomotives.back_movers == 0) then
             ti:resetCircuitSignal()
@@ -1459,7 +1456,7 @@ function debugDump(var, force)
 end
 
 function flyingText(line, color, pos, show, surface)
-    if show or debug then
+    if show then
         color = color or colors.RED
         if not pos then
             for _, p in pairs(game.players) do

@@ -1,7 +1,1 @@
-build
-build/*
-factorio_mods
-/.project
-/.buildpath
-/.vscode
 *.zip
