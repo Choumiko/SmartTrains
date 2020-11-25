@@ -8,6 +8,6 @@
   "description": "Train lines, automated refueling, 'dynamic' train schedules",
   "dependencies": [],
   "package":{
-    "ignore":[ "*.zip", "*.xcf", "build/**"]
+    "ignore":[ "*.zip", "*.xcf"]
   }
 }
