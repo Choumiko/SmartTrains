@@ -15,8 +15,4 @@ if mods["IndustrialRevolution"] then
             recipe = "smart-train-stop"
         })
     end
-    data.raw.recipe["smart-train-stop"].ingredients = {
-        {"train-stop", 1},
-        {"controller-mk1", 2}
-    }
 end

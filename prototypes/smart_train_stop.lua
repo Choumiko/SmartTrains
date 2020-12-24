@@ -6,8 +6,8 @@ item.order = "a[train-system]-cb[train-stop]"
 
 local recipe = copyPrototype("recipe","train-stop", "smart-train-stop")
 recipe.ingredients = {
-  {"train-stop", 1},
-  {"advanced-circuit", 2}
+    {"train-stop", 1},
+    {"advanced-circuit", 2}
 }
 recipe.enabled = false
 

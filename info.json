@@ -4,7 +4,8 @@
   "factorio_version": "1.1",
   "title": "Smarter Trains",
   "author": "Choumiko",
-  "homepage": "https://forums.factorio.com/viewtopic.php?f=97&t=14432",
+  "homepage": "https://github.com/Choumiko/SmartTrains",
+  "contact": "Discord: Choumiko#6179",
   "description": "Train lines, automated refueling, 'dynamic' train schedules",
   "dependencies": [],
   "package":{
