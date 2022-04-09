@@ -512,7 +512,11 @@ Train = {
                                 return false
                             end
                         end
-                    end
+					else
+						if cariage.grid.available_in_batteries < cariage.grid.battery_capacity then
+							return false
+						end
+					end
                 end
                 for _, carriage in pairs(locos.back_movers) do
                     inventory = carriage.get_fuel_inventory()
@@ -527,13 +531,17 @@ Train = {
                                 return false
                             end
                         end
-                    end
+					else
+						if cariage.grid.available_in_batteries < cariage.grid.battery_capacity then
+							return false
+						end
+					end
                 end
             end
             return isFull
         end,
 
-        --returns fuelvalue (in MJ)
+        --returns fuelvalue (in MJ) -- Cordina (dd. 03/19/2022): added support for electric trains
         lowestFuel = function(self, exact)
             if self.last_fuel_update + 60 <= game.tick or exact then
                 self.last_fuel_update = game.tick
@@ -543,23 +551,50 @@ Train = {
                     local c
                     local contents
                     local fuel_inventory
+                    local tgrid
+                    --game.print("Checking train #"..self.train.id)
                     for _, carriage in pairs(locos.front_movers) do
                         fuel_inventory = carriage.get_fuel_inventory()
-                        contents = fuel_inventory and fuel_inventory.get_contents()
-                        c = contents and self:calcFuel(contents) or global.settings.refuel.rangeMax
+						contents = fuel_inventory and fuel_inventory.get_contents()
+                        c = contents and self:calcFuel(contents)
+                        if c == 0 then
+                            if carriage.grid then 
+                            --game.print("No fuel in inventory; checking grid")
+                            c = (carriage.grid.available_in_batteries)/10^6
+                            --game.print("Grid capacity-f ="..c)
+                            else
+                            --hybrid train
+                            --game.print("no grid: assume hybrid train")
+                            c = global.settings.refuel.rangeMax
+                            end
+                        end
                         if minfuel == nil or c < minfuel then
                             minfuel = c
                         end
+						--game.print("Capacity-f ="..minfuel)
                     end
                     for _, carriage in pairs(locos.back_movers) do
                         fuel_inventory = carriage.get_fuel_inventory()
                         contents = fuel_inventory and fuel_inventory.get_contents()
-                        c = contents and self:calcFuel(contents) or global.settings.refuel.rangeMax
+                        c = contents and self:calcFuel(contents)
+                        if c == 0 then
+                            if carriage.grid then 
+                            --game.print("No fuel in inventory; checking grid")
+                            c = (carriage.grid.available_in_batteries)/10^6
+                            --game.print("Grid capacity-f ="..c)
+                            else
+                            --hybrid train
+                            --game.print("no grid: assume hybrid train")
+                            c = global.settings.refuel.rangeMax
+                            end
+                        end
                         if minfuel == nil or c < minfuel then
                             minfuel = c
                         end
+						--game.print("Capacity-b ="..minfuel)
                     end
                     self.minFuel = minfuel
+					--game.print("Capacity train #"..self.train.id.."="..self.minFuel)
                 else
                     self.minFuel = 0
                 end

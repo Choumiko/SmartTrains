@@ -57,6 +57,20 @@ colors = {
 
 train_state = {left_station = 11}
 
+function isHybridTrain(train)
+            for k,loco in pairs(train.locomotives.front_movers) do
+                if loco.name == "hybrid-train" then
+                    return true 
+                end
+            end
+            for k,loco in pairs(train.locomotives.back_movers) do
+                if loco.name == "hybrid-train" then
+                    return true 
+                end
+            end
+            return false
+        end
+
 function insertInTable(tableA, key, value)
     if not tableA[key] then tableA[key] = {} end
     table.insert(tableA[key], value)
@@ -962,7 +976,7 @@ function on_train_changed_state(event)
             end
         elseif train.state == defines.train_state.arrive_station then
             if t.settings.autoRefuel then
-                if lowest_fuel < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
+                if not isHybridTrain(train) and lowest_fuel < (global.settings.refuel.rangeMin) and not inSchedule(t:refuelStation(), train.schedule) then
                     train.schedule = addStation(t:refuelStation(), train.schedule, global.settings.refuel.time)
                     if global.showFlyingText then
                         t:flyingText("Refuel station added", colors.YELLOW)
