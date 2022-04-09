@@ -1,7 +1,8 @@
 ---------------------------------------------------------------------------------------------------
 Version: 5.1.2
-Date: ????
+Date: 2022-03-27
   Changes:
+    - Added support for electric trains (negative_delta0's "Electric Vehicles: Reborn") for wireless charging (teemu's "Wireless Charging") stations and hybrid trains (Hermios' "RailPowerSystem")
 ---------------------------------------------------------------------------------------------------
 Version: 5.1.1
 Date: 2020-12-24
