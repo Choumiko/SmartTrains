@@ -1,6 +1,9 @@
 ---------------------------------------------------------------------------------------------------
 Version: 5.1.2
 Date: ????
+  Changes:
+    - Skip train stations if they have a train limit set and the train line either uses a signal #
+      or station # in the stop before it
   Bugfixes:
     - Fixed crash with Train construction site mod
 ---------------------------------------------------------------------------------------------------

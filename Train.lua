@@ -583,7 +583,7 @@ Train = {
             local ts = defines.train_state
             if self.previousState == ts.wait_station and
                 (self.state == ts.on_the_path or self.state == ts.arrive_signal
-                 or self.state == ts.path_lost or self.state == ts.no_path)
+                 or self.state == ts.path_lost or self.state == ts.no_path or self.state == ts.destination_full)
             then
                 self.advancedState = train_state.left_station
                 --debugDump(game.tick.." left_station",true)
