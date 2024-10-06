@@ -616,12 +616,16 @@ function on_configuration_changed(data)
         if not data.mod_changes then
             return
         end
+        initGlob()
+        init_forces()
+        init_players()
+        setMetatables()
         if data.mod_changes.SmartTrains then
             local old_version = data.mod_changes.SmartTrains.old_version
             local new_version = data.mod_changes.SmartTrains.new_version
-            if old_version then
-                saveGlob("PreUpdate"..old_version.."_"..game.tick)
-            end
+            -- if old_version then
+            --     saveGlob("PreUpdate"..old_version.."_"..game.tick)
+            -- end
             initGlob()
             init_forces()
             init_players()
